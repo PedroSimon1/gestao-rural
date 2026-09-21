@@ -40,6 +40,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Bibliotecas externas
+    'rest_framework',
+
+    # Apps do projeto
+    'financeiro',
+    'documentos',
+    'usuarios',
 ]
 
 MIDDLEWARE = [
@@ -87,6 +95,12 @@ DATABASES = {
 }
 
 
+# Custom user model
+# https://docs.djangoproject.com/en/6.1/topics/auth/customizing/#substituting-a-custom-user-model
+
+AUTH_USER_MODEL = "usuarios.Usuario"
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
@@ -124,25 +138,3 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
-
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
-    # Bibliotecas externas
-    'rest_framework',
-
-    # Apps do projeto
-    'financeiro',
-    'documentos',
-    'usuarios',
-]
