@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.db import models
+from django.db.models import Sum
 
 from usuarios.models import Titular
 
@@ -74,6 +77,20 @@ class Parcela(models.Model):
             f"{self.lancamento.descricao} - "
             f"R$ {self.valor_nominal}"
         )
+
+    @property
+    def total_pago(self):
+        total = self.amortizacoes.aggregate(total=Sum("valor_pago"))["total"]
+        return total if total is not None else Decimal("0.00")
+
+    @property
+    def saldo_restante(self):
+        saldo = self.valor_nominal - self.total_pago
+        return max(saldo, Decimal("0.00"))
+
+    @property
+    def quitada(self):
+        return self.saldo_restante == Decimal("0.00")
 
 
 class Amortizacao(models.Model):
