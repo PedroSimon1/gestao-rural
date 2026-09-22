@@ -12,7 +12,8 @@ from django.test import TestCase
 
 from usuarios.models import Titular
 
-from .models import LancamentoFinanceiro, Parcela
+from .models import Amortizacao, LancamentoFinanceiro, Parcela
+
 
 class LancamentoFinanceiroModelTest(TestCase):
     def setUp(self):
@@ -48,6 +49,7 @@ class LancamentoFinanceiroModelTest(TestCase):
         )
 
         self.assertEqual(self.titular.lancamentos.count(), 1)
+
 
 class ParcelaModelTest(TestCase):
     def setUp(self):
@@ -112,3 +114,51 @@ class ParcelaModelTest(TestCase):
                     valor_nominal=Decimal("2000.00"),
                     data_vencimento="2026-11-22",
                 )
+
+
+class AmortizacaoModelTest(TestCase):
+    def setUp(self):
+        self.titular = Titular.objects.create(
+            nome="Titular Amortizacao",
+            cpf="11122233344",
+        )
+
+        self.lancamento = LancamentoFinanceiro.objects.create(
+            titular=self.titular,
+            categoria=LancamentoFinanceiro.Categoria.DESPESA,
+            descricao="Compra parcelada",
+            valor_total=Decimal("3000.00"),
+            data_lancamento="2026-09-22",
+        )
+
+        self.parcela = Parcela.objects.create(
+            lancamento=self.lancamento,
+            numero=1,
+            valor_nominal=Decimal("1000.00"),
+            data_vencimento="2026-10-22",
+        )
+
+    def test_criar_amortizacao(self):
+        amortizacao = Amortizacao.objects.create(
+            parcela=self.parcela,
+            valor_pago=Decimal("400.00"),
+            data_pagamento="2026-10-10",
+        )
+
+        self.assertEqual(amortizacao.parcela, self.parcela)
+        self.assertEqual(amortizacao.valor_pago, Decimal("400.00"))
+
+    def test_relacionamento_parcela_amortizacoes(self):
+        Amortizacao.objects.create(
+            parcela=self.parcela,
+            valor_pago=Decimal("300.00"),
+            data_pagamento="2026-10-10",
+        )
+
+        Amortizacao.objects.create(
+            parcela=self.parcela,
+            valor_pago=Decimal("200.00"),
+            data_pagamento="2026-10-15",
+        )
+
+        self.assertEqual(self.parcela.amortizacoes.count(), 2)

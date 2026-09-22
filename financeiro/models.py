@@ -42,6 +42,7 @@ class LancamentoFinanceiro(models.Model):
     def __str__(self):
         return f"{self.get_categoria_display()} - {self.descricao} - R$ {self.valor_total}"
 
+
 class Parcela(models.Model):
     lancamento = models.ForeignKey(
         LancamentoFinanceiro,
@@ -72,4 +73,29 @@ class Parcela(models.Model):
             f"Parcela {self.numero} - "
             f"{self.lancamento.descricao} - "
             f"R$ {self.valor_nominal}"
+        )
+
+
+class Amortizacao(models.Model):
+    parcela = models.ForeignKey(
+        Parcela,
+        on_delete=models.CASCADE,
+        related_name="amortizacoes",
+    )
+
+    valor_pago = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    data_pagamento = models.DateField()
+
+    criado_em = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return (
+            f"Amortização da parcela {self.parcela.numero} - "
+            f"R$ {self.valor_pago}"
         )
