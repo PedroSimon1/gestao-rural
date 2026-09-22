@@ -43,6 +43,31 @@ class LancamentoFinanceiroModelTest(TestCase):
 
         self.assertEqual(self.titular.lancamentos.count(), 1)
 
+    def test_str_lancamento(self):
+        lancamento = LancamentoFinanceiro.objects.create(
+            titular=self.titular,
+            categoria=LancamentoFinanceiro.Categoria.DESPESA,
+            descricao="Compra de sementes",
+            valor_total=Decimal("1500.00"),
+            data_lancamento="2026-09-22",
+        )
+
+        self.assertEqual(
+            str(lancamento),
+            "Despesa - Compra de sementes - R$ 1500.00",
+        )
+
+    def test_subcategoria_e_opcional(self):
+        lancamento = LancamentoFinanceiro.objects.create(
+            titular=self.titular,
+            categoria=LancamentoFinanceiro.Categoria.DESPESA,
+            descricao="Compra sem subcategoria",
+            valor_total=Decimal("500.00"),
+            data_lancamento="2026-09-22",
+        )
+
+        self.assertEqual(lancamento.subcategoria, "")
+
 
 class ParcelaModelTest(TestCase):
     def setUp(self):
@@ -108,6 +133,45 @@ class ParcelaModelTest(TestCase):
                     data_vencimento="2026-11-22",
                 )
 
+    def test_str_parcela(self):
+        parcela = Parcela.objects.create(
+            lancamento=self.lancamento,
+            numero=1,
+            valor_nominal=Decimal("1000.00"),
+            data_vencimento="2026-10-22",
+        )
+
+        self.assertEqual(
+            str(parcela),
+            "Parcela 1 - Compra de insumos - R$ 1000.00",
+        )
+
+    def test_permite_mesmo_numero_em_lancamentos_diferentes(self):
+        outro_lancamento = LancamentoFinanceiro.objects.create(
+            titular=self.titular,
+            categoria=LancamentoFinanceiro.Categoria.DESPESA,
+            descricao="Outro lancamento",
+            valor_total=Decimal("2000.00"),
+            data_lancamento="2026-09-22",
+        )
+
+        Parcela.objects.create(
+            lancamento=self.lancamento,
+            numero=1,
+            valor_nominal=Decimal("1000.00"),
+            data_vencimento="2026-10-22",
+        )
+
+        parcela_outro_lancamento = Parcela.objects.create(
+            lancamento=outro_lancamento,
+            numero=1,
+            valor_nominal=Decimal("500.00"),
+            data_vencimento="2026-11-22",
+        )
+
+        self.assertEqual(parcela_outro_lancamento.numero, 1)
+        self.assertEqual(Parcela.objects.filter(numero=1).count(), 2)
+
 
 class AmortizacaoModelTest(TestCase):
     def setUp(self):
@@ -155,6 +219,18 @@ class AmortizacaoModelTest(TestCase):
         )
 
         self.assertEqual(self.parcela.amortizacoes.count(), 2)
+
+    def test_str_amortizacao(self):
+        amortizacao = Amortizacao.objects.create(
+            parcela=self.parcela,
+            valor_pago=Decimal("400.00"),
+            data_pagamento="2026-10-10",
+        )
+
+        self.assertEqual(
+            str(amortizacao),
+            "Amortização da parcela 1 - R$ 400.00",
+        )
 
 
 class ParcelaCalculosFinanceirosTest(TestCase):
