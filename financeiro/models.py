@@ -41,3 +41,35 @@ class LancamentoFinanceiro(models.Model):
 
     def __str__(self):
         return f"{self.get_categoria_display()} - {self.descricao} - R$ {self.valor_total}"
+
+class Parcela(models.Model):
+    lancamento = models.ForeignKey(
+        LancamentoFinanceiro,
+        on_delete=models.CASCADE,
+        related_name="parcelas",
+    )
+
+    numero = models.PositiveIntegerField()
+
+    valor_nominal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    data_vencimento = models.DateField()
+
+    class Meta:
+        ordering = ["numero"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lancamento", "numero"],
+                name="unique_numero_parcela_por_lancamento",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"Parcela {self.numero} - "
+            f"{self.lancamento.descricao} - "
+            f"R$ {self.valor_nominal}"
+        )
