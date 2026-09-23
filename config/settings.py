@@ -145,3 +145,11 @@ MEDIA_URL = "/media/"
 
 MAX_PDF_UPLOAD_SIZE_MB = int(os.getenv("MAX_PDF_UPLOAD_SIZE_MB", "10"))
 MAX_PDF_UPLOAD_SIZE = MAX_PDF_UPLOAD_SIZE_MB * 1024 * 1024
+
+# Gemini
+# A validação acontece somente quando agents.gemini_client.GeminiClient é criado.
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL")
+GEMINI_TIMEOUT_SEGUNDOS = os.getenv("GEMINI_TIMEOUT_SEGUNDOS") or "60"
+GEMINI_MAX_TENTATIVAS = os.getenv("GEMINI_MAX_TENTATIVAS") or "3"
