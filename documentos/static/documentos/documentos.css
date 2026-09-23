@@ -1,0 +1,389 @@
+/* Gestão Rural — interface de documentos (GR-14). Sem dependências externas. */
+
+:root {
+  --cor-fundo: #f5f6f4;
+  --cor-superficie: #ffffff;
+  --cor-texto: #1f2a1f;
+  --cor-texto-suave: #5b665b;
+  --cor-borda: #d9ded8;
+  --cor-marca: #2f6b3a;
+  --cor-marca-escura: #245330;
+  --cor-sucesso-fundo: #e5f3e8;
+  --cor-sucesso-texto: #1e5a2b;
+  --cor-erro-fundo: #fbe9e7;
+  --cor-erro-texto: #8a2418;
+  --cor-info-fundo: #e7eef8;
+  --cor-info-texto: #1f4a80;
+  --cor-aviso-fundo: #fff4d6;
+  --cor-aviso-texto: #7a5500;
+  --raio: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+main.container {
+  padding-top: 24px;
+  padding-bottom: 48px;
+}
+
+h1,
+h2 {
+  margin: 0 0 8px;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+}
+
+/* Topo */
+
+.topo {
+  background: var(--cor-marca);
+  color: #ffffff;
+}
+
+.topo__conteudo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+}
+
+.topo__marca {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.topo__nav a {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.topo__nav a:hover,
+.topo__nav a:focus-visible {
+  text-decoration: underline;
+}
+
+/* Cartões */
+
+.cartao {
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.texto-apoio {
+  margin: 0 0 16px;
+  color: var(--cor-texto-suave);
+}
+
+/* Mensagens (django.contrib.messages) */
+
+.mensagens {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.mensagem {
+  padding: 12px 16px;
+  border-radius: var(--raio);
+  margin-bottom: 8px;
+  background: var(--cor-info-fundo);
+  color: var(--cor-info-texto);
+}
+
+.mensagem--success {
+  background: var(--cor-sucesso-fundo);
+  color: var(--cor-sucesso-texto);
+}
+
+.mensagem--error {
+  background: var(--cor-erro-fundo);
+  color: var(--cor-erro-texto);
+}
+
+.mensagem--warning {
+  background: var(--cor-aviso-fundo);
+  color: var(--cor-aviso-texto);
+}
+
+/* Formulário */
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.formulario__rotulo {
+  font-weight: 600;
+}
+
+.formulario input[type="file"] {
+  max-width: 100%;
+}
+
+.erro-geral,
+.erros-campo {
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--raio);
+  background: var(--cor-erro-fundo);
+  color: var(--cor-erro-texto);
+}
+
+.erro-geral p {
+  margin: 0;
+}
+
+.erros-campo {
+  list-style: none;
+}
+
+.botao {
+  margin-top: 8px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: var(--raio);
+  background: var(--cor-marca);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.botao:hover,
+.botao:focus-visible {
+  background: var(--cor-marca-escura);
+}
+
+.botao:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tabela de documentos */
+
+.tabela-rolagem {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela th,
+.tabela td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela th {
+  color: var(--cor-texto-suave);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.tabela__nome {
+  word-break: break-all;
+}
+
+/* Selos de status */
+
+.selo {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--cor-info-fundo);
+  color: var(--cor-info-texto);
+}
+
+.selo--pendente {
+  background: var(--cor-aviso-fundo);
+  color: var(--cor-aviso-texto);
+}
+
+.selo--processando {
+  background: var(--cor-info-fundo);
+  color: var(--cor-info-texto);
+}
+
+.selo--concluido {
+  background: var(--cor-sucesso-fundo);
+  color: var(--cor-sucesso-texto);
+}
+
+.selo--erro {
+  background: var(--cor-erro-fundo);
+  color: var(--cor-erro-texto);
+}
+
+/* Página de detalhe */
+
+h3 {
+  margin: 16px 0 4px;
+  font-size: 1rem;
+}
+
+.voltar {
+  margin: 0 0 12px;
+}
+
+.voltar a,
+.tabela__nome a {
+  color: var(--cor-marca);
+}
+
+.detalhe-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.detalhe-cabecalho__nome {
+  margin: 0;
+  word-break: break-all;
+}
+
+.estado {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.estado--processando {
+  color: var(--cor-info-texto);
+}
+
+.texto-apoio--pequeno {
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.resumo__item {
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.resumo dt {
+  color: var(--cor-texto-suave);
+  font-size: 0.85rem;
+}
+
+.resumo dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.aviso {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: var(--raio);
+  background: var(--cor-aviso-fundo);
+  color: var(--cor-aviso-texto);
+}
+
+.aviso ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.aviso p {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+}
+
+.justificativa {
+  margin: 0;
+}
+
+.erro-processamento {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--raio);
+  background: var(--cor-erro-fundo);
+  color: var(--cor-erro-texto);
+}
+
+.erro-processamento p {
+  margin: 0 0 6px;
+}
+
+.erro-processamento__titulo {
+  font-weight: 700;
+}
+
+.erro-processamento__sugestao {
+  margin-bottom: 0;
+}
+
+.bloco-json {
+  margin: 0;
+  padding: 14px;
+  max-height: 70vh;
+  overflow: auto;
+  border-radius: var(--raio);
+  background: #1f2a1f;
+  color: #e8efe7;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+@media (max-width: 480px) {
+  .cartao {
+    padding: 16px;
+  }
+
+  .botao {
+    width: 100%;
+  }
+
+  .bloco-json {
+    font-size: 0.8rem;
+  }
+}
