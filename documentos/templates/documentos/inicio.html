@@ -1,0 +1,61 @@
+{% extends "documentos/base.html" %}
+
+{% block titulo %}Enviar nota fiscal — Gestão Rural{% endblock %}
+
+{% block conteudo %}
+  <section class="cartao">
+    <h1>Enviar nota fiscal</h1>
+    <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB).</p>
+
+    <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Enviando...">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="erro-geral" role="alert">
+          {% for erro in form.non_field_errors %}<p>{{ erro }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <label for="id_arquivo" class="formulario__rotulo">Arquivo PDF</label>
+      <input type="file" name="arquivo" id="id_arquivo" accept="application/pdf,.pdf" required
+             {% if form.arquivo.errors %}aria-invalid="true" aria-describedby="erros_arquivo"{% endif %}>
+
+      {% if form.arquivo.errors %}
+        <ul class="erros-campo" id="erros_arquivo">
+          {% for erro in form.arquivo.errors %}<li>{{ erro }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      <button type="submit" class="botao">Enviar PDF</button>
+    </form>
+  </section>
+
+  <section class="cartao">
+    <h2>Documentos recentes</h2>
+
+    {% if documentos %}
+      <div class="tabela-rolagem">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th scope="col">Arquivo</th>
+              <th scope="col">Enviado em</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for documento in documentos %}
+              <tr>
+                <td class="tabela__nome"><a href="{% url 'documento_detalhe' documento.pk %}">{{ documento.nome_original }}</a></td>
+                <td>{{ documento.enviado_em|date:"d/m/Y H:i" }}</td>
+                <td><span class="selo selo--{{ documento.status|lower }}">{{ documento.get_status_display }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="texto-apoio">Nenhum documento enviado ainda.</p>
+    {% endif %}
+  </section>
+{% endblock %}

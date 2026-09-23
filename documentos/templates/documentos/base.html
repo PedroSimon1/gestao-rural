@@ -1,0 +1,33 @@
+{% load static %}<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Gestão Rural{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'documentos/documentos.css' %}">
+  <script src="{% static 'documentos/documentos.js' %}" defer></script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <header class="topo">
+    <div class="container topo__conteudo">
+      <span class="topo__marca">Gestão Rural</span>
+      <nav class="topo__nav">
+        <a href="{% url 'documento_inicio' %}">Enviar nota</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <ul class="mensagens">
+        {% for message in messages %}
+          <li class="mensagem mensagem--{{ message.tags|default:'info' }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block conteudo %}{% endblock %}
+  </main>
+</body>
+</html>
