@@ -1,10 +1,12 @@
-# Gestão Rural — Documento de handoff (estado atual e GR-14 pronta para commit/PR)
+# Gestão Rural — Documento de handoff (estado atual e GR-21: validação final)
 
-> **Para que serve este arquivo:** quem abrir só este documento deve conseguir entender o projeto, o que o professor pediu, o que já foi concluído, como o backend funciona hoje e **como a interface Web (GR-14) foi implementada e validada**.
+> **Para que serve este arquivo:** quem abrir só este documento deve conseguir entender o projeto, o que o professor pediu, como o sistema foi implementado (GR-6 a GR-14), o resultado da **auditoria final da GR-21** e o que falta para encerrar a atividade.
 >
-> **Estado atual:** GR-6 a GR-12 **concluídas e mergeadas**. **GR-14 concluída na branch (etapas 1 a 6)**: tela de envio, página de detalhe, botão Processar chamando `processar_documento` (GR-12), JS de proteção visual e **validação manual no navegador com execução real da Gemini (Documento ID 2 → `CONCLUIDO`)**. A GR-14 está **tecnicamente pronta para commit/PR**, aguardando autorização. Depois do merge, a próxima tarefa é a **GR-21** (seção 23).
+> **Estado atual:** GR-6 a GR-14 **concluídas e mergeadas** (a GR-14 pelo PR #13). **GR-21 (validação final) é a tarefa atual**, na branch `feature/GR-21-validacao-final`. **GR-21 validada:** auditoria ✅, decisões ✅ (MVP mantido; seção 20), validação manual final ✅ (seção 18.1); correções de código e nova chamada à Gemini **dispensadas**. **Nenhum código foi alterado.** Situação: **validação concluída, aguardando commit/PR** (etapa 6, seção 21).
 >
-> **Fonte de verdade:** o código da branch `feature/GR-14-interface-web`, criada a partir da `main` em `292ee0c` (merge da GR-12) e que agora contém as mudanças **ainda não commitadas** das etapas 1 a 6 da GR-14 (a etapa 6 só atualizou este relatório). Contratos, rotas e contagens abaixo foram conferidos no código.
+> **Contexto estável do projeto:** `ContextoProjeto.md` (arquitetura, contratos, regras e decisões consolidadas). Este arquivo guarda a auditoria e as etapas em andamento.
+>
+> **Fonte de verdade:** o código da `main` em `acedf6b` (a branch da GR-21 está idêntica a ela) e os slides da atividade (`03 - Aula - Pratica de Engenharia (Agents).pptx`, slides 18–21), lidos diretamente nesta auditoria.
 >
 > **Regras deste documento:**
 > - nenhuma chave, segredo ou valor real do `.env` aparece aqui;
@@ -16,75 +18,77 @@
 ## Sumário
 
 **Parte I — Projeto**
-1. [A atividade (o que o professor pediu)](#1-a-atividade-o-que-o-professor-pediu)
+1. [A atividade (slides 18–21)](#1-a-atividade-slides-1821)
 2. [Estado das tarefas](#2-estado-das-tarefas)
 3. [Estrutura atual do projeto](#3-estrutura-atual-do-projeto)
-4. [Projeto × atividade](#4-projeto--atividade)
+4. [Projeto × atividade (resumo)](#4-projeto--atividade-resumo)
 
-**Parte II — Backend pronto (GR-6 a GR-12)**
+**Parte II — Sistema implementado (GR-6 a GR-14)**
 5. [Documento, upload e validação (GR-6/7/8)](#5-documento-upload-e-validação-gr-678)
 6. [GeminiClient (GR-9)](#6-geminiclient-gr-9)
 7. [AgentExtrator (GR-10)](#7-agentextrator-gr-10)
 8. [AgentClassificador (GR-11)](#8-agentclassificador-gr-11)
 9. [Orquestração `processar_documento` (GR-12)](#9-orquestração-processar_documento-gr-12)
+10. [Interface Web (GR-14)](#10-interface-web-gr-14)
 
-**Parte III — GR-14: interface Web (concluída na branch)**
-10. [Progresso, estado da interface e validação manual](#10-progresso-estado-da-interface-e-validação-manual)
-11. [Arquitetura](#11-arquitetura)
-12. [Fluxo da GR-14 (implementado)](#12-fluxo-da-gr-14-implementado)
-13. [URLs e views](#13-urls-e-views)
-14. [Templates, CSS e JS](#14-templates-css-e-js)
-15. [Apresentação por status, JSON e erros](#15-apresentação-por-status-json-e-erros)
-16. [Arquivos](#16-arquivos)
+**Parte III — GR-21: auditoria final**
+11. [Requisito por requisito](#11-requisito-por-requisito)
+12. [Fluxo completo](#12-fluxo-completo)
+13. [JSON final](#13-json-final)
+14. [Agents e classificação](#14-agents-e-classificação)
+15. [Segurança](#15-segurança)
+16. [Erros](#16-erros)
 17. [Testes](#17-testes)
-18. [Riscos](#18-riscos)
-19. [Decisões](#19-decisões)
-20. [Ordem de implementação e próximos passos](#20-ordem-de-implementação-e-próximos-passos)
+18. [Testes manuais já realizados e conferência com o PDF](#18-testes-manuais-já-realizados-e-conferência-com-o-pdf)
+19. [Achados e limitações conhecidas](#19-achados-e-limitações-conhecidas)
+20. [Decisões da GR-21](#20-decisões-da-gr-21)
+21. [Plano da GR-21](#21-plano-da-gr-21)
+22. [Arquivos](#22-arquivos)
 
 **Parte IV — Operação**
-21. [Guia da Gemini API](#21-guia-da-gemini-api)
-22. [Checklist de segurança](#22-checklist-de-segurança)
-23. [Depois da GR-14: GR-21](#23-depois-da-gr-14-gr-21)
-24. [Estado do Git](#24-estado-do-git)
+23. [Guia da Gemini API](#23-guia-da-gemini-api)
+24. [Checklist de segurança](#24-checklist-de-segurança)
+25. [Estado do Git](#25-estado-do-git)
 
 ---
 
 # Parte I — Projeto
 
-## 1. A atividade (o que o professor pediu)
+## 1. A atividade (slides 18–21)
 
-**Requisitos gerais:**
+Transcrição fiel dos slides da atividade (N2, 1ª etapa; entrega prevista nos slides: 23/09/2025; peso 35%):
 
-- Processador de **PDF de nota fiscal de contas a pagar**.
-- Uso de **Agents** (Gemini recomendado).
-- Resposta em **JSON**.
-- **Interface Web:** o usuário carrega o PDF, **aciona o processamento por um botão** e vê o **JSON na tela**.
+- **Slide 18:** "Será implementado um processador de PDF, utilizando Agents (recomenda-se Gemini), para extrair os dados de uma nota fiscal (**CONTAS A PAGAR**) e devolver em formato **JSON**."
+  - Campos obrigatórios:
+    - Fornecedor: Razão Social / Fantasia / CNPJ;
+    - Faturado: Nome Completo / CPF;
+    - Número da Nota Fiscal;
+    - Data de Emissão;
+    - Descrição dos produtos\*;
+    - QuantidadeParcela\*;
+    - Data de Vencimento;
+    - ValorTotal;
+    - TipoDespesa\*.
+  - Observações:
+    - Descrição dos produtos: "não será necessário criar uma entidade PRODUTOS";
+    - Quantidade de Parcelas: "uma parcela, porém com estrutura para receber mais de uma";
+    - **Classificação da DESPESA: "uma classificação de DESPESA por registro, porém com estrutura para receber mais de uma".**
+- **Slide 19:** "DESPESA não é um campo extraído. Deverá ser interpretado pelo Gemini. Conforme os produtos da Nota Fiscal, classifica-se o registro."
+  - Exemplos: Óleo Diesel → **MANUTENÇÃO E OPERAÇÃO**; Material Hidráulico → **INFRAESTRUTURA E UTILIDADES**.
+  - **Os slides não trazem uma lista completa de categorias**; a documentação do cliente fala em subcategorias financeiras (Insumos / Operacionais), noutro contexto.
+- **Slide 20:** interface gráfica Web. O usuário carrega o PDF e, "através de um Button", solicita a extração, "que aciona o Gemini que extrai e devolve os dados em formato JSON na TELA".
+- **Slide 21 (avaliação):**
 
-**Campos obrigatórios do JSON:**
+  | Peso | Critério |
+  | --- | --- |
+  | 40% | Uso do Agent conforme estrutura |
+  | 30% | Conteúdo do JSON |
+  | 30% | Assertividade na classificação da DESPESA |
 
-| Grupo | Campos |
-| --- | --- |
-| Fornecedor | Razão Social, Nome Fantasia, CNPJ |
-| Faturado | Nome Completo, CPF |
-| Nota | Número da Nota Fiscal, Data de Emissão |
-| Itens | Descrição dos produtos |
-| Parcelas | Quantidade de parcelas, Data de vencimento |
-| Financeiro | Valor total |
-| Classificação | **TipoDespesa** |
-
-**Observações do enunciado:**
-
-- Não é necessário criar uma entidade Produto.
-- Deve existir estrutura para múltiplas parcelas.
-- `TipoDespesa` **não** é copiado do PDF: é **interpretado pelo Gemini com base nos produtos**.
-
-**Avaliação:**
-
-| Peso | Critério |
-| --- | --- |
-| 40% | Uso do Agent conforme a estrutura |
-| 30% | Conteúdo do JSON |
-| 30% | Assertividade da classificação da despesa |
+- **Slides 10–16 (estrutura de Agents):**
+  - pacote `agents/<agente>/` com `__init__.py`;
+  - uma classe por Agent;
+  - coordenação **sequencial síncrona** (Agent1 extrai → Agent2 age depois).
 
 ---
 
@@ -98,25 +102,11 @@
 | GR-9 | `GeminiClient` | ✅ mergeada | PR #9 |
 | GR-10 | Agent Extrator | ✅ mergeada | PR #10 |
 | GR-11 | Agent Classificador | ✅ mergeada | PR #11 |
-| GR-12 | Orquestração PDF → Agents → JSON | ✅ mergeada, com teste real ponta a ponta feito | PR #12 (`2f7f742`, merge `292ee0c`) |
-| **GR-14** | **Interface Web** | ✅ **concluída na branch (etapas 1–6), validada manualmente com a Gemini real; pronta para commit/PR** | branch `feature/GR-14-interface-web` (sem commit) |
-| GR-21 | Validação final | ⏳ **próxima tarefa**, depois do merge da GR-14 | — |
+| GR-12 | Orquestração PDF → Agents → JSON | ✅ mergeada | PR #12 (`2f7f742`, merge `292ee0c`) |
+| GR-14 | Interface Web | ✅ **mergeada** | **PR #13** (`f0fdde0`, merge `acedf6b`) |
+| **GR-21** | **Validação final** | ✅ **validação concluída, aguardando commit/PR** (sem alteração de código) | branch `feature/GR-21-validacao-final` |
 
-```
-GR-6 → GR-7 → GR-8 ─────────────┐
-GR-9 → GR-10 → GR-11 → GR-12 ───┴─► GR-14 (interface) ─► GR-21 (validação final)
-```
-
-**Testes atuais:** `python manage.py test` → **303 testes — OK** (216 da base + 87 da GR-14). Nenhum chama a API real.
-
-| Área | Testes |
-| --- | --- |
-| projeto base (documentos, financeiro, usuários, `GeminiClient`) | 55 |
-| Extrator | 86 |
-| Classificador | 26 |
-| Orquestração (`documentos.test_processamento`) | 49 |
-| GR-14 etapa 1 (caminho 500 do upload + `_salvar_documento`, em `documentos/test_upload.py`) | 4 |
-| GR-14 etapas 2 a 5 (`documentos/test_interface.py`) | 83 |
+**Testes na `main`:** `python manage.py test` → **303 — OK**, e **0** tentativas de conexão externa com a rede bloqueada (seção 17).
 
 ---
 
@@ -125,53 +115,49 @@ GR-9 → GR-10 → GR-11 → GR-12 ───┴─► GR-14 (interface) ─► G
 ```
 gestao-rural/
 ├── config/
-│   ├── settings.py              load_dotenv(); PostgreSQL; templates/static padrão; messages; GEMINI_*
-│   └── urls.py                  "" → redirect /documentos/ (inicio) · admin/ · include("documentos.urls") em documentos/
+│   ├── settings.py              load_dotenv(); PostgreSQL; MAX_PDF_UPLOAD_SIZE_MB; GEMINI_*
+│   └── urls.py                  "" → /documentos/ (inicio) · admin/ · include("documentos.urls")
 ├── documentos/
 │   ├── models.py                Documento (GR-6)
-│   ├── urls.py                  "" · upload/ · <int:pk>/ · <int:pk>/processar/ — GR-14
-│   ├── views.py                 _salvar_documento · upload_documento (JSON, GR-7) · documento_inicio · documento_detalhe + apresentação · documento_processar (GR-14)
-│   ├── templates/documentos/    base.html · inicio.html · detalhe.html — GR-14
-│   ├── static/documentos/       documentos.css · documentos.js — GR-14
-│   ├── forms.py                 DocumentoUploadForm → validar_pdf (GR-8)
-│   ├── validators.py            validar_pdf (GR-8)
+│   ├── forms.py, validators.py  DocumentoUploadForm → validar_pdf (GR-8)
 │   ├── processamento.py         processar_documento (GR-12)
+│   ├── urls.py                  "" · upload/ · <int:pk>/ · <int:pk>/processar/ (GR-14)
+│   ├── views.py                 _salvar_documento · upload_documento (JSON) · documento_inicio · documento_detalhe · documento_processar
+│   ├── templates/documentos/    base.html · inicio.html · detalhe.html
+│   ├── static/documentos/       documentos.css · documentos.js
 │   ├── admin.py                 DocumentoAdmin (status editável)
 │   ├── tests.py, test_upload.py, test_processamento.py, test_interface.py
 │   └── migrations/0001_initial.py
 ├── agents/
-│   ├── gemini_client.py         GR-9
-│   ├── extrator/                GR-10
-│   └── classificador/           GR-11
-├── financeiro/, usuarios/       models de apoio (fora do fluxo)
+│   ├── gemini_client.py         GR-9 (único ponto de contato com o SDK)
+│   ├── extrator/                GR-10 — agent.py, schemas.py, testes
+│   └── classificador/           GR-11 — agent.py, schemas.py, testes
+├── financeiro/, usuarios/       models de apoio (fora do fluxo da 1ª etapa)
 ├── uploads/teste-gr10/          PDF fictício — IGNORADO pelo Git
 ├── media/                       PDFs enviados — IGNORADO pelo Git
-└── analisetemporaria.md         este documento
+├── ContextoProjeto.md           contexto oficial e estável do projeto
+└── analisetemporaria.md         este documento   (README.md adiado: decisão D-I3)
 ```
 
-Templates e static existem **só** no app `documentos` (GR-14); `config/settings.py` não precisou mudar.
+---
+
+## 4. Projeto × atividade (resumo)
+
+| Requisito dos slides | Situação |
+| --- | --- |
+| PDF de NF → Agents (Gemini) → JSON | ✅ implementado e validado com a Gemini real (IDs 1 e 2) |
+| Interface Web: carregar PDF → Button → JSON na tela | ✅ implementado e validado no navegador (ID 2) |
+| Campos do slide 18 (fornecedor, faturado, número, data, produtos, quantidade de parcelas, vencimento, valor total, TipoDespesa) | ✅ todos presentes no JSON |
+| Estrutura para mais de uma parcela | ✅ lista `parcelas` |
+| Estrutura para mais de uma classificação de DESPESA | **decisão do MVP:** uma classificação principal por documento (`tipo_despesa` escalar); múltiplas classificações ficam como evolução futura (D-I1) |
+| TipoDespesa interpretado pelo Gemini a partir dos produtos | ✅ (2 categorias, as dos exemplos do slide 19; notas fora delas terminam em `ERRO`: limitação aceita, D-I2) |
+| Sem entidade Produto | ✅ |
+
+Detalhe, arquivo por arquivo, com testes e evidências: **seção 11**.
 
 ---
 
-## 4. Projeto × atividade
-
-| Requisito | Situação | Onde |
-| --- | --- | --- |
-| Receber, armazenar e validar PDF | ✅ | GR-6/7/8 (endpoint JSON) |
-| Agent de extração (todos os campos da nota) | ✅ | GR-10 |
-| Múltiplas parcelas + `quantidade_parcelas` explícita | ✅ | GR-10 + GR-12 |
-| **TipoDespesa** interpretado pelo Gemini | ✅ | GR-11 |
-| Extração + classificação encadeadas; JSON final persistido; estados; erros seguros | ✅ | GR-12 |
-| **Tela para carregar o PDF** | ✅ (branch, validado no navegador) | **GR-14** (`/documentos/`) |
-| **Botão para acionar o processamento** | ✅ (branch, validado com a Gemini real) | **GR-14** (`POST /documentos/<id>/processar/` → `processar_documento`) |
-| **JSON na tela** | ✅ (branch, validado no navegador) | **GR-14** |
-| Validação final ponta a ponta no navegador | ⏳ | GR-21 |
-
-**Todos os requisitos da atividade estão implementados e foram validados no navegador** na branch da GR-14: upload do PDF, botão de processamento, Agents de extração e classificação com a Gemini real, e JSON final na tela (seção 10.3). Faltam o **commit/PR/merge da GR-14** e a **GR-21** (validação final da atividade).
-
----
-
-# Parte II — Backend pronto (GR-6 a GR-12)
+# Parte II — Sistema implementado (GR-6 a GR-14)
 
 ## 5. Documento, upload e validação (GR-6/7/8)
 
@@ -333,7 +319,7 @@ _reservar  (transaction.atomic + select_for_update; transação curta que TERMIN
 
 (Valores fictícios.) Não contém `documento_e_nota_fiscal` nem `justificativa`.
 
-⚠️ O PostgreSQL (`jsonb`) **não preserva a ordem das chaves** ao ler de volta. A interface deve reordenar para exibir (seção 15.3).
+⚠️ O PostgreSQL (`jsonb`) **não preserva a ordem das chaves** ao ler de volta. A interface reordena para exibir (`_json_ordenado`, seção 10.2).
 
 ### 9.4 Metadados
 
@@ -389,414 +375,303 @@ Teste ponta a ponta com a **Gemini API real** e o PDF fictício `uploads/teste-g
 
 ---
 
-# Parte III — GR-14: interface Web (concluída na branch)
+## 10. Interface Web (GR-14)
 
-## 10. Progresso, estado da interface e validação manual
+Mergeada pelo PR #13. Django templates + HTML + 1 CSS + 1 JS mínimo; sem frontend separado, CDN ou dependências novas.
 
-### 10.1 Etapas
+### 10.1 URLs e views
 
-| Etapa | Conteúdo | Situação |
+| Método | URL | Nome | View | Comportamento |
+| --- | --- | --- | --- | --- |
+| GET | `/` | `inicio` | `RedirectView` | → `/documentos/` |
+| GET, POST | `/documentos/` | `documento_inicio` | `documento_inicio` | GET: formulário + 10 documentos recentes (`-enviado_em`). POST: `DocumentoUploadForm` → `_salvar_documento` → redirect ao detalhe; inválido → erro no campo; `DatabaseError`/`OSError` → "Não foi possível salvar o documento." |
+| POST | `/documentos/upload/` | `documento_upload` | `upload_documento` | endpoint JSON da GR-7 (201/400/500), mantido |
+| GET | `/documentos/<pk>/` | `documento_detalhe` | `documento_detalhe` | só leitura de `status`, `resultado_estruturado` e `metadados`; apresentação por status |
+| POST | `/documentos/<pk>/processar/` | `documento_processar` | `documento_processar` | **só chama `processar_documento(pk)`**; mensagens: `CONCLUIDO` → "Processamento concluído."; `ERRO` → "O processamento falhou. Veja os detalhes abaixo."; `DocumentoEmProcessamentoError` → info; `DoesNotExist` → 404; outra exceção → `logger.exception` + mensagem genérica |
+
+Todas com `@staff_member_required` (login pelo `/admin/login/`) e CSRF nos POSTs. `views.py` importa de `documentos.processamento` apenas `processar_documento` e `DocumentoEmProcessamentoError`; **não** menciona `agents`, `GeminiClient` nem `genai` (há teste).
+
+### 10.2 Página do documento por status
+
+| Status | Conteúdo | Botão |
 | --- | --- | --- |
-| **1** | `documentos/urls.py`; upload JSON movido (mesma URL e nome); helper `_salvar_documento`; testes do caminho 500 | ✅ concluída |
-| **2** | raiz `/`; `documento_inicio` (tela de envio + upload HTML + recentes); `base.html`, `inicio.html`, `documentos.css` | ✅ concluída |
-| **3** | página de detalhe, apresentação por status, resumo, avisos, justificativa, JSON ordenado, erro seguro; upload → detalhe; links na lista | ✅ concluída |
-| **4** | botão **Processar / Tentar novamente funcional**: `documento_processar` → `processar_documento(pk)` (GR-12) | ✅ concluída |
-| **5** | `documentos.js`: proteção **visual** contra clique duplo + texto "Enviando..."/"Processando..." nos botões | ✅ concluída |
-| **6** | validação manual no navegador (com **uma** execução real da Gemini) + auditoria Git final + relatório | ✅ concluída (seção 10.3) |
+| `PENDENTE` | "Pronto para processar." | **Processar** (form POST + CSRF) |
+| `PROCESSANDO` | "Processando... a página atualiza automaticamente." + `meta refresh` de 5 s | nenhum |
+| `CONCLUIDO` | resumo (tipo de despesa com rótulo, valor em R$, parcelas, fornecedor, número, data) + avisos de CPF/CNPJ com DV inválido + justificativa + **JSON final** (`<pre>`, reordenado pela ordem do contrato, escapado) | nenhum |
+| `ERRO` | `metadados.erro.mensagem` + sugestão por `codigo` | **Tentar novamente** (form POST + CSRF) |
 
-### 10.2 Como está a interface hoje
-
-| Item | Situação real |
-| --- | --- |
-| Telas | `/documentos/` (envio + recentes com link) e `/documentos/<id>/` (detalhe). Também o Django Admin |
-| Raiz `/` | 302 → `/documentos/`; anônimo → `/admin/login/?next=/documentos/` |
-| Upload pela tela | `DocumentoUploadForm` → `_salvar_documento` → redirect para `/documentos/<id>/` |
-| Upload JSON (GR-7) | inalterado (`POST /documentos/upload/`) |
-| **Processamento pela tela** | ✅ `PENDENTE` → botão **Processar**; `ERRO` → **Tentar novamente**. Ambos são `<form method="post">` com CSRF para `/documentos/<id>/processar/` |
-| Detalhe | `PROCESSANDO` com refresh de 5 s; `CONCLUIDO` com resumo, avisos, justificativa e JSON; `ERRO` com mensagem segura, sugestão e nova tentativa |
-| Atividade do professor | ✅ **fluxo completo validado no navegador:** carregar o PDF → botão → JSON na tela (seção 10.3) |
-| JavaScript | `documentos.js` (carregado com `defer` pelo `base.html`) desabilita o botão e troca o texto nos 3 formulários marcados com `data-submit-lock`; **só melhoria visual** (seção 14.1) |
-| Templates / static | `base.html`, `inicio.html`, `detalhe.html`, `documentos.css`; settings **não alterados** |
-| Acesso | `@staff_member_required` em todas as páginas |
-
-### 10.3 Validação manual no navegador (etapa 6) — concluída
-
-Feita com o **`runserver` local**, a **Gemini API real** e o PDF **fictício** `uploads/teste-gr10/danfe (ciclano - pecas).pdf`, que é ignorado pelo Git.
-
-| Passo | Resultado real |
-| --- | --- |
-| `python manage.py migrate` | "No migrations to apply." |
-| `python manage.py runserver` | iniciou normalmente; system check sem problemas |
-| `/documentos/` | carregou; `documentos.css` e `documentos.js` com **HTTP 200**; documento anterior (ID 1) listado como `CONCLUIDO` |
-| Único 404 observado | `/favicon.ico`: **irrelevante** para a atividade (o navegador pede o ícone automaticamente); **não exige correção** |
-| Upload pelo navegador do PDF fictício | **Documento ID 2** criado; redirect para `/documentos/2/`; status inicial `PENDENTE`; botão "Processar" exibido |
-| "Processar" pela interface | `documento_processar` → `processar_documento` → `AgentExtrator` → `AgentClassificador`, **com a Gemini real** → `CONCLUIDO`; mensagem **"Processamento concluído."** |
-
-**Resultado exibido na página do Documento ID 2** (documento de demonstração fictício):
-
-| Campo do resumo | Valor exibido |
-| --- | --- |
-| Tipo de despesa | Manutenção e operação |
-| Valor total | R$ 3.086,75 |
-| Quantidade de parcelas | 1 |
-| Fornecedor | IGUACU MAQUINAS AGRICOLAS LTDA |
-| Número da nota | 000.084.682 |
-| Data de emissão | 19/09/2025 |
-
-- **Validação local:** o CPF fictício do faturado foi sinalizado como "com dígitos verificadores inválidos", **sem impedir o processamento** (política da seção 7).
-- **Justificativa da classificação:** exibida corretamente.
-- **JSON final:** exibido formatado, com os campos da atividade (fornecedor, faturado, número, data, itens, `quantidade_parcelas`, parcelas, valor total, `tipo_despesa`, `validacoes`).
-- **Nenhum dado interno da Gemini exposto na tela:** nem modelo, nem resposta bruta, nem status HTTP, nem chave.
-
-**Fluxo exigido pela atividade, validado ponta a ponta:**
-
-```
-upload PDF → Documento PENDENTE → botão Processar → GR-12 → AgentExtrator → AgentClassificador
-          → JSON final → CONCLUIDO → resultado exibido no navegador
-```
-
-Os documentos ID 1 e ID 2 e seus arquivos em `media/`, ignorado pelo Git, existem só no **banco e disco locais**.
+- **JavaScript** (`documentos.js`, com `defer`): só nos forms `data-submit-lock`. No 1º submit, desabilita o botão e troca o texto ("Enviando..." / "Processando..."); não cancela o POST; sem `fetch`, `innerHTML` ou `eval`. É **proteção visual**; a real é o lock da GR-12. Tudo funciona sem JS.
+- **Validação manual da GR-14** (Documento ID 2 pela interface, com a Gemini real → `CONCLUIDO`): seção 18.
 
 ---
 
-## 11. Arquitetura
+# Parte III — GR-21: auditoria final
 
-**Django templates + HTML + 1 CSS + 1 JS mínimo.** Sem frontend separado, framework, CDN, build, Node/npm ou dependências novas.
+Tudo abaixo foi conferido no **código real** da `main` (`acedf6b`), não apenas neste documento.
 
-1. ✅ **Upload por formulário HTML** (`DocumentoUploadForm`, validação da GR-8 intacta) + PRG para o detalhe.
-2. ✅ **`_salvar_documento`** compartilhado pelo endpoint JSON e pela tela.
-3. ✅ **Apresentação só lê** `status`, `resultado_estruturado` e `metadados` (contrato da GR-12).
-4. ✅ **Processamento em POST separado**, disparado por botão. **A única entrada é `processar_documento(pk)`.** `views.py` importa apenas `processar_documento` e `DocumentoEmProcessamentoError` de `documentos.processamento`, e não menciona `agents`, `AgentExtrator`, `AgentClassificador`, `GeminiClient` nem `genai` (há teste).
-5. ✅ **Processamento síncrono** na requisição do botão (sem threads ou filas). `PROCESSANDO` se atualiza sozinho com `meta refresh` (sem JS). ✅ O JS da etapa 5 dá só **proteção visual** contra clique duplo. A **proteção real contra concorrência** continua na GR-12 (`transaction.atomic()` + `select_for_update()` → `DocumentoEmProcessamentoError`).
-6. ✅ **Acesso** `@staff_member_required` + **CSRF** em todos os POSTs.
-7. ✅ **Sem simulação**; ✅ **sem alterar** models, migrations, forms, validators, `processamento.py`, `agents/**` e settings.
+## 11. Requisito por requisito
 
-```
-Navegador                                    Django (documentos/views.py)                          Backend
-─────────                                    ────────────────────────────                          ───────
-GET  /                           ─► RedirectView → /documentos/
-GET  /documentos/                ─► documento_inicio (form + 10 recentes com link)
-POST /documentos/  (PDF)         ─► documento_inicio ─► DocumentoUploadForm ─► validar_pdf       (GR-8)
-                                         └ válido → _salvar_documento → redirect /documentos/<id>/
-GET  /documentos/<id>/           ─► documento_detalhe → helpers de apresentação → detalhe.html
-POST /documentos/<id>/processar/ ─► documento_processar ─► processar_documento(pk)                (GR-12)
-                                         │                    └─► AgentExtrator (GR-10) → AgentClassificador (GR-11)
-                                         └ messages + redirect /documentos/<id>/
-POST /documentos/upload/         ─► upload_documento (JSON)                                       (GR-7)
-```
+| # | Requisito (slides) | Situação | Onde (código) | Teste automatizado | Evidência manual | Limitação |
+| --- | --- | --- | --- | --- | --- | --- |
+| A | Receber PDF de NF de contas a pagar | ✅ IMPLEMENTADO | `documentos/views.py::documento_inicio` (+ `upload_documento`), `forms.py`, `validators.py::validar_pdf` | `test_interface.UploadHtmlTests`, `test_upload` | ID 2 enviado pelo navegador | "contas a pagar" não é verificado (qualquer NF é aceita) |
+| B | Utilizar Agents (Gemini) | ✅ IMPLEMENTADO | `agents/extrator/agent.py::AgentExtrator`, `agents/classificador/agent.py::AgentClassificador`, `agents/gemini_client.py` | `agents/*/test_agent.py`, `test_gemini_client` | ID 1 (shell) e ID 2 (interface) com a Gemini real | Agent2 **classifica**; a persistência é do serviço (nos slides, o exemplo de Agent2 "persiste"). Ver M6 |
+| C | Devolver JSON | ✅ IMPLEMENTADO | `documentos/processamento.py::_montar_resultado` → `Documento.resultado_estruturado` | `test_processamento.MontarResultadoTests` | JSON do ID 2 | — |
+| D | Interface Web: carregar PDF, **Button**, JSON na **tela** | ✅ IMPLEMENTADO | `views.py` (`documento_inicio`, `documento_detalhe`, `documento_processar`), `templates/documentos/*.html` | `test_interface` (83) | ID 2: upload → Processar → JSON na tela | acesso só para staff (login do admin) |
+| E1 | Fornecedor: Razão Social / Fantasia / CNPJ | ✅ | `extrator/schemas.py::Fornecedor` | `extrator/test_schemas` | razão social e CNPJ do ID 2 conferem com o PDF | nome fantasia `null` quando o PDF não o traz (caso do DANFE de teste; correto) |
+| E2 | Faturado: Nome Completo / CPF | ✅ | `Faturado(nome, cpf)` | idem | conferem com o PDF | CPF com DV inválido é preservado e sinalizado |
+| E3 | Número da NF / Data de Emissão | ✅ | `numero_nota`, `data_emissao` (ISO) | idem | conferem com o PDF | `data_emissao` pode ser `null` se ilegível |
+| E4 | Descrição dos produtos | ✅ | `itens[].descricao` (obrigatória; + quantidade e valores) | idem | 10 itens do ID 2 conferem com o PDF | — |
+| E5 | QuantidadeParcela | ✅ | `quantidade_parcelas = len(parcelas)` em `_montar_resultado` | `MontarResultadoTests.test_quantidade_de_parcelas` (0, 1, 3) | ID 2: 1 | nota à vista → `0` e `parcelas: []` |
+| E6 | Data de Vencimento | ✅ | `parcelas[].data_vencimento` | `extrator/test_schemas` | vencimento do ID 2 confere | só existe dentro de parcelas; pode ser `null` |
+| E7 | ValorTotal | ✅ | `valor_total` (obrigatório, > 0, 2 casas) | idem | R$ 3.086,75 = "valor total da nota" do PDF | — |
+| E8 | TipoDespesa | ✅ IMPLEMENTADO (uma classificação por documento) | `ClassificacaoDespesa.tipo_despesa` → `resultado["tipo_despesa"]` (string única) | `classificador/*`, `test_processamento` | ID 2: `MANUTENCAO_E_OPERACAO` | o slide 18 menciona "estrutura para receber mais de uma"; **decisão do MVP:** uma classificação principal por documento; múltiplas ficam como evolução futura (D-I1) |
+| F | Múltiplas parcelas | ✅ | lista `parcelas` + numeração 1..n | `ParcelasTests`, `test_quantidade_de_parcelas` | ID 2 tem 1 parcela (conforme o PDF) | múltiplas parcelas **não** foram testadas com a Gemini real (só com dados fictícios nos testes) |
+| G | TipoDespesa interpretado pelo Gemini a partir dos produtos | ✅ | `AgentClassificador` envia `itens` (descrição/quantidade/valor), fornecedor e total ao Gemini; `TipoDespesa` sai do schema `ClassificacaoDespesa` | `classificador/test_agent` | justificativa exibida no ID 2 | **limitação aceita do MVP (D-I2):** só 2 categorias; itens fora delas → `ERRO` (`classificacao_inconclusiva`), com a limitação explicada na tela e "Tentar novamente" |
+| H | Sem entidade Produto | ✅ | itens só no JSON; nenhum model Produto | — | — | — |
 
 ---
 
-## 12. Fluxo da GR-14 (implementado)
+## 12. Fluxo completo
 
 ```
-1. Usuário abre /  → /documentos/  (login do admin se necessário)
-2. Tela inicial: formulário "Enviar nota fiscal" + "Documentos recentes" (nome → detalhe)
-3. "Enviar PDF"
-      ├─ inválido → mesma tela, mensagem do form no campo; nenhum Documento
-      ├─ falha ao salvar → mesma tela, "Não foi possível salvar o documento."
-      └─ válido → Documento PENDENTE → /documentos/<id>/ + "Documento “<nome>” enviado."
-4. Página do documento (PENDENTE): "Pronto para processar." + botão "Processar" (form POST + CSRF)
-5. "Processar" → POST /documentos/<id>/processar/ → processar_documento(pk)   (segundos a minutos; síncrono)
-      ├─ CONCLUIDO           → "Processamento concluído."                           (success)
-      ├─ ERRO                → "O processamento falhou. Veja os detalhes abaixo."   (error)
-      ├─ já em processamento → "O documento já está sendo processado."              (info)
-      ├─ inexistente         → 404
-      └─ falha excepcional   → "Não foi possível processar o documento agora. Tente novamente mais tarde." (error)
-      → sempre redirect para /documentos/<id>/
-6. CONCLUIDO: resumo + avisos + justificativa + JSON final   (sem botão; não reprocessa)
-   ERRO:      mensagem segura + sugestão + "Tentar novamente" (form POST + CSRF)
-   PROCESSANDO (outra aba): "Processando..." + refresh de 5 s (sem botão)
+PDF ─► documento_inicio (POST) ─► DocumentoUploadForm ─► validar_pdf (GR-8)
+    ─► _salvar_documento ─► Documento PENDENTE ─► redirect /documentos/<id>/
+    ─► botão Processar (POST + CSRF) ─► documento_processar ─► processar_documento(pk)
+          ─► _reservar (atomic + select_for_update; transação curta) ─► PROCESSANDO
+          ─► AgentExtrator.extrair_documento ─► NotaFiscalExtraida
+          ─► AgentClassificador.classificar(nota) ─► ClassificacaoDespesa
+          ─► _montar_resultado ─► _registrar_sucesso ─► resultado_estruturado + CONCLUIDO
+    ─► redirect ─► documento_detalhe ─► resumo + JSON na tela
 ```
+
+- **Nenhum ponto quebrado:** confirmado pelos testes de integração (`ProcessarIntegracaoTests`: view real + serviço real + Agents falsos) e pelo teste manual do ID 2.
+- **Sem duplicação de lógica de negócio:**
+  - a validação existe só no form/`validar_pdf`;
+  - a gravação do documento só em `_salvar_documento`;
+  - o processamento só em `processar_documento`;
+  - as views não chamam Agents.
+- **Duplicação menor:** a ordem das chaves do JSON existe em dois lugares, `_montar_resultado` (persistência) e `CHAVES_RESULTADO` (`views.py`, apresentação). Achado **M2**.
 
 ---
 
-## 13. URLs e views
+## 13. JSON final
 
-### 13.1 URLs (todas implementadas)
+**Chaves persistidas** (`_montar_resultado`; conferidas no banco local para ID 1 e ID 2): `fornecedor`, `faturado`, `numero_nota`, `data_emissao`, `itens`, `quantidade_parcelas`, `parcelas`, `valor_total`, `tipo_despesa`, `validacoes`. **Não** contém `documento_e_nota_fiscal` nem `justificativa` (a justificativa fica em `metadados`).
 
-| Método | URL | Nome | View |
-| --- | --- | --- | --- |
-| GET | `/` | `inicio` | `RedirectView(pattern_name="documento_inicio")` (em `config/urls.py`) |
-| GET, POST | `/documentos/` | `documento_inicio` | `documento_inicio` |
-| POST | `/documentos/upload/` | `documento_upload` | `upload_documento` (JSON, GR-7) |
-| GET | `/documentos/<int:pk>/` | `documento_detalhe` | `documento_detalhe` |
-| POST | `/documentos/<int:pk>/processar/` | `documento_processar` | `documento_processar` |
+| Aspecto | Resultado |
+| --- | --- |
+| Tipos | textos `str \| null`; CNPJ 14 caracteres e CPF 11 dígitos (normalizados); `quantidade_parcelas` `int`; `tipo_despesa` `str` |
+| Datas | ISO `AAAA-MM-DD` (validadas; `dd/mm/aaaa` rejeitado); na tela, `dd/mm/aaaa` |
+| Valores monetários | strings com 2 casas (`"3086.75"`), sem perda de precisão; quantidade sem quantizar; na tela, `R$ 3.086,75` |
+| Múltiplas parcelas | lista ordenada; numeração 1..n quando ausente; numeração parcial ou repetida → rejeitada |
+| Campos ausentes | opcionais → `null` (não inventados); obrigatórios: `valor_total` (> 0), ≥ 1 item com descrição, `documento_e_nota_fiscal = true` |
+| Ordem | **persistência:** `jsonb` não preserva a ordem; **apresentação:** `_json_ordenado` reordena pela ordem do contrato. A ordem é só de apresentação; nenhum consumidor depende dela |
+| `validacoes` | calculado localmente (não vem do Gemini): `fornecedor_cnpj`/`faturado_cpf` → `valido`/`invalido`/`ausente` |
 
-**Sem `app_name`** (nomes globais).
+**Decisão do MVP (D-I1):** `tipo_despesa` permanece **escalar**, uma classificação principal por documento. A estrutura para várias classificações, mencionada no slide 18, fica como evolução futura.
 
-### 13.2 Views e helpers (`documentos/views.py`)
+---
 
-| Nome | Tipo | Comportamento |
+## 14. Agents e classificação
+
+| Ponto | Confirmado no código |
+| --- | --- |
+| Estrutura (slides 14–16) | `agents/extrator/` e `agents/classificador/` com `__init__.py`, `agent.py` (classe `AgentExtrator`/`AgentClassificador`) e `schemas.py`; cliente compartilhado em `agents/gemini_client.py` |
+| Coordenação (slides 10–11) | **sequencial síncrona**: Agent1 (extrai) → Agent2 (classifica), orquestrados por `processar_documento`, que persiste |
+| Reuso do `GeminiClient` | os dois Agents usam só `gerar_json` com schema Pydantic e `temperatura=0`, com criação preguiçosa; nenhum outro arquivo usa o SDK |
+| Entrada do Classificador | `classificar(nota)` exige `NotaFiscalExtraida` (`isinstance`) |
+| Uso dos produtos | contexto enviado: `itens[].descricao/quantidade/valor_total` + fornecedor (razão social/fantasia) + `valor_total`; **sem** CPF, CNPJ ou faturado |
+| Origem do TipoDespesa | resposta do Gemini validada por `ClassificacaoDespesa` (Enum); **nada é copiado do PDF** e **nada é hardcoded na interface** (`ROTULOS_TIPO_DESPESA` em `views.py` só traduz o rótulo para exibição) |
+| Categorias | `MANUTENCAO_E_OPERACAO`, `INFRAESTRUTURA_E_UTILIDADES` (exatamente os 2 exemplos do slide 19) |
+| Inconclusiva | `tipo_despesa = null` → `ClassificacaoInconclusivaError` → `ERRO` (`classificacao_inconclusiva`); a tela explica a limitação do MVP e oferece "Tentar novamente". **Limitação aceita (D-I2)** |
+| Justificativa | `ClassificacaoDespesa.justificativa` (1–500 caracteres) → `metadados.processamento.classificacao.justificativa` → exibida no detalhe |
+| Resultado real | ID 2 (nota de peças de máquinas agrícolas) → "Manutenção e operação", **coerente** com o slide 19 |
+
+---
+
+## 15. Segurança
+
+| Item | Verificação | Resultado |
 | --- | --- | --- |
-| `_salvar_documento(arquivo)` | helper | cria o `Documento` (`PENDENTE`); se o save falhar depois de gravar o arquivo, remove-o e relança |
-| `upload_documento` | view (`staff`, `POST`) | JSON da GR-7: 201 · 400 · 500 |
-| `documento_inicio` | view (`staff`, `GET/POST`) | form + 10 recentes; POST válido → `_salvar_documento` → `messages.success` → redirect `documento_detalhe`; `DatabaseError`/`OSError` → erro geral seguro |
-| `documento_detalhe` | view (`staff`, `GET`) | `get_object_or_404`; `CONCLUIDO` → `resumo`, `avisos`, `justificativa`, `json_resultado`; `ERRO` → `erro` (`mensagem`, `sugestao`). Só leitura |
-| **`documento_processar`** | view (`staff`, `POST`) | chama **somente** `processar_documento(pk)` e traduz o resultado em mensagem + redirect (seção 13.3) |
-| `_dicionario`, `_json_ordenado`, `_rotulo_tipo_despesa`, `_formatar_moeda`, `_formatar_data`, `_resumo`, `_avisos_validacao`, `_justificativa`, `_erro_para_exibir` | helpers | apresentação (seção 15) |
-
-Constantes: `LIMITE_DOCUMENTOS_RECENTES`, `MENSAGEM_FALHA_AO_SALVAR`, `MENSAGEM_PROCESSAMENTO_CONCLUIDO`, `MENSAGEM_PROCESSAMENTO_FALHOU`, `MENSAGEM_FALHA_INESPERADA`, `CHAVES_RESULTADO`, `ROTULOS_TIPO_DESPESA`, `AVISOS_VALIDACAO`, `MENSAGEM_ERRO_PADRAO`, `SUGESTAO_ERRO_PADRAO`, `SUGESTOES_ERRO`. Há um `logger` do módulo.
-
-### 13.3 `documento_processar` (implementada)
-
-```python
-@staff_member_required
-@require_POST
-def documento_processar(request, pk):
-    try:
-        documento = processar_documento(pk)
-    except Documento.DoesNotExist:
-        raise Http404("Documento não encontrado.")
-    except DocumentoEmProcessamentoError as exc:
-        messages.info(request, str(exc))                       # "O documento já está sendo processado."
-    except Exception:
-        # Só falhas excepcionais escapam do serviço (ex.: banco indisponível).
-        logger.exception("Falha inesperada ao processar o documento %s pela interface.", pk)
-        messages.error(request, MENSAGEM_FALHA_INESPERADA)
-    else:
-        if documento.status == Documento.Status.CONCLUIDO:
-            messages.success(request, MENSAGEM_PROCESSAMENTO_CONCLUIDO)
-        elif documento.status == Documento.Status.ERRO:
-            messages.error(request, MENSAGEM_PROCESSAMENTO_FALHOU)
-    return redirect("documento_detalhe", pk=pk)
-```
-
-- **Erros normais de Extrator e Classificador não chegam como exceção:** a GR-12 já os grava como `Documento` em `ERRO`, e a view só lê o status.
-- **`CONCLUIDO` é idempotente:** o serviço devolve o documento sem chamar os Agents (sem gasto de cota), e a view mostra "Processamento concluído.".
-- O serviço recebe **apenas o `pk`**. Nenhum parâmetro do request (ex.: `api_key`, `modelo`) é repassado; há teste.
+| `.env` ignorado | `git check-ignore -v .env` → `.gitignore:12` | ✅ |
+| `uploads/` ignorado | `.gitignore:20` | ✅ |
+| `media/` ignorado | `.gitignore:19` | ✅ |
+| Chave real versionada | auditoria da GR-14 (valor real e padrão `AIza…` ausentes); a GR-21 não alterou arquivos | ✅ |
+| Chave/modelo na interface | testes `nao_mostra_metadados_internos_nem_modelo`, `nao_exibe_dados_internos` | ✅ |
+| CSRF | `ProcessarRotaEAcessoTests.test_csrf_obrigatorio` (403 sem token) | ✅ |
+| Acesso staff | `@staff_member_required` em todas as páginas; testes de anônimo e não-staff | ✅ |
+| XSS | escape automático; sem `\|safe`/`autoescape off` (teste); `<script>` testado em nome, JSON e mensagens | ✅ |
+| PDF exposto | sem link para `arquivo`/`MEDIA`; `MEDIA_URL` não é servido | ✅ |
+| Traceback / dados internos da Gemini | não persistidos em `metadados` (GR-12) nem exibidos (GR-14); testado | ✅ |
 
 ---
 
-## 14. Templates, CSS e JS
+## 16. Erros
 
-| Arquivo | Etapa | Conteúdo real |
+| Situação | Comportamento real | Coberto por |
 | --- | --- | --- |
-| `templates/documentos/base.html` | 2 (+3, +5) | `lang="pt-BR"`, viewport, CSS via `{% static %}`, **`<script src="{% static 'documentos/documentos.js' %}" defer>`** (etapa 5), `{% block head_extra %}`, topo com "Enviar nota", `messages`, `{% block conteudo %}` |
-| `templates/documentos/inicio.html` | 2 (+3, +5) | formulário de upload (multipart, CSRF, `accept`, `required`, **`data-submit-lock data-submit-texto="Enviando..."`**), erros do form, limite de MB, tabela de recentes com link para o detalhe |
-| `templates/documentos/detalhe.html` | 3 (+4, +5) | voltar; nome, selo, data; `PENDENTE`: form POST "Processar"; `PROCESSANDO`: mensagem + meta refresh; `CONCLUIDO`: resumo, avisos, justificativa, JSON; `ERRO`: mensagem, sugestão e form POST "Tentar novamente". Os 2 forms de processamento têm **`data-submit-lock data-submit-texto="Processando..."`** (etapa 5) |
-| `static/documentos/documentos.css` | 2 (+3) | layout, mensagens, formulário, tabela, selos, detalhe, resumo, avisos, erro, bloco JSON. Etapa 4 sem mudanças de CSS |
-| `static/documentos/documentos.js` | **5** | proteção visual contra clique duplo (seção 14.1) |
-
-Nenhum template usa `|safe` ou `autoescape off`, nem JS inline (há testes).
-
-### 14.1 `documentos.js` — como funciona
-
-- **Onde age:** só em `form[data-submit-lock]`, ou seja, nos 3 formulários marcados: **upload** (`inicio.html`), **Processar** e **Tentar novamente** (`detalhe.html`). Não se aplica automaticamente a outros forms.
-- **No 1º submit:** marca o form (`data-enviando="true"`), guarda o texto original do botão, troca o texto via **`textContent`** para o valor de `data-submit-texto` ("Enviar PDF" → "Enviando..."; "Processar"/"Tentar novamente" → "Processando..."), desabilita o botão (`disabled` + `aria-busy`). **Não cancela o envio:** o POST HTML normal segue, com CSRF, e o navegador espera a resposta do processamento síncrono.
-- **Em um 2º submit** enquanto o 1º está em curso (ex.: Enter repetido): `preventDefault()`, e só nesse ramo.
-- **Voltar pelo histórico** (`pageshow` com `persisted`): restaura o botão e o texto original, para a página não ficar travada.
-- **Não usa:** `fetch`, AJAX/`XMLHttpRequest`, `setInterval`, polling, WebSocket, `innerHTML`, `eval` nem bibliotecas. Não recebe nem conhece chave, modelo, metadados ou PDF. `PROCESSANDO` continua com `meta refresh` de 5 s, **sem** JS.
-- **Sem JavaScript**, tudo funciona igual (upload, Processar, Tentar novamente, CSRF). O JS é **só melhoria visual**.
-- **A proteção real contra processamento concorrente continua na GR-12** (lock no banco): mesmo com JS desativado, ou com duas abas, a segunda execução recebe "O documento já está sendo processado.".
-- Validação local: `node --check documentos.js` OK. O Node **não** é dependência do projeto; foi só uma verificação de sintaxe na máquina.
-
----
-
-## 15. Apresentação por status, JSON e erros
-
-### 15.1 Por status
-
-| Status | O que aparece | Botão |
-| --- | --- | --- |
-| `PENDENTE` | "Pronto para processar." + "O processamento pode levar alguns minutos." | **Processar**: `<form method="post" action="/documentos/<id>/processar/">` + CSRF |
-| `PROCESSANDO` | "Processando... a página atualiza automaticamente." + `<meta http-equiv="refresh" content="5">` **só nesse status** | nenhum |
-| `CONCLUIDO` | resumo + avisos de validação + justificativa + JSON final | nenhum (não reprocessa pela interface) |
-| `ERRO` | "O processamento não foi concluído." + `metadados.erro.mensagem` + sugestão pelo `codigo` | **Tentar novamente**: mesmo form POST + CSRF |
-
-### 15.2 `CONCLUIDO`
-
-- **Resumo:** tipo de despesa (rótulo amigável), valor total (`R$ 1.500,00`), quantidade de parcelas (inclusive `0`), fornecedor, número e data da nota (`20/09/2026`); ausentes → "—".
-- **Rótulos:** `MANUTENCAO_E_OPERACAO` → "Manutenção e operação"; `INFRAESTRUTURA_E_UTILIDADES` → "Infraestrutura e utilidades"; valor desconhecido aparece como veio, escapado.
-- **Avisos:** "CNPJ do fornecedor com dígitos verificadores inválidos." / "CPF do faturado com dígitos verificadores inválidos.", seguidos de "Isso não impediu o processamento. A verificação confere apenas o formato e os dígitos verificadores, não a existência do documento."
-- **Justificativa:** só se existir em `metadados.processamento.classificacao.justificativa`.
-- **JSON:** `json.dumps(ordenado, ensure_ascii=False, indent=2)` na ordem de `CHAVES_RESULTADO` (chaves desconhecidas no fim), em `<pre>` com escape automático.
-- **Nunca aparecem:** modelo Gemini, versões de schema, datas de processamento ou outras chaves de `metadados`.
-
-### 15.3 `ERRO` — sugestões por `codigo`
-
-| `codigo` | Sugestão |
-| --- | --- |
-| `documento_ilegivel` | "Envie o arquivo PDF novamente." |
-| `servico_indisponivel` | "Tente novamente mais tarde." |
-| `resposta_invalida` | "Confira se o arquivo enviado é uma nota fiscal válida." |
-| `classificacao_invalida` | "Tente novamente." |
-| `classificacao_inconclusiva` | "Os itens da nota não se encaixaram nas categorias de despesa disponíveis no MVP (Manutenção e operação; Infraestrutura e utilidades)." |
-| `erro_interno` e código desconhecido | "Tente novamente. Se o problema persistir, avise a equipe." |
-
-- Sem `mensagem` → "Não foi possível processar o documento."
-- Nunca aparecem `etapa`, `codigo`, traceback, `__cause__`, status HTTP, resposta da Gemini, API Key ou modelo.
-
-### 15.4 Mensagens flash de `documento_processar`
-
-| Situação | Tag | Texto |
-| --- | --- | --- |
-| `CONCLUIDO` | success | "Processamento concluído." |
-| `ERRO` | error | "O processamento falhou. Veja os detalhes abaixo." |
-| `DocumentoEmProcessamentoError` | info | "O documento já está sendo processado." |
-| falha excepcional (fora do serviço) | error | "Não foi possível processar o documento agora. Tente novamente mais tarde." (detalhe **só** no log via `logger.exception`) |
-
-### 15.5 Robustez
-
-`resultado_estruturado`/`metadados` que não sejam objetos, ou chaves ausentes, não quebram a página.
-
----
-
-## 16. Arquivos
-
-### 16.1 Criados na GR-14
-
-| Arquivo | Etapa |
-| --- | --- |
-| `documentos/urls.py` (`""`, `upload/`, `<int:pk>/`, `<int:pk>/processar/`) | 1–4 |
-| `documentos/templates/documentos/base.html` | 2 (+3, +5) |
-| `documentos/templates/documentos/inicio.html` | 2 (+3, +5) |
-| `documentos/templates/documentos/detalhe.html` | 3 (+4, +5) |
-| `documentos/static/documentos/documentos.css` | 2 (+3) |
-| `documentos/static/documentos/documentos.js` | 5 |
-| `documentos/test_interface.py` (83 testes) | 2–5 |
-
-### 16.2 Modificados na GR-14
-
-| Arquivo | Mudança |
-| --- | --- |
-| `config/urls.py` | `include("documentos.urls")` (1) + raiz `inicio` (2) |
-| `documentos/views.py` | `_salvar_documento` (1); `documento_inicio` (2); `documento_detalhe` + apresentação, e upload redirecionando ao detalhe (3); **`documento_processar`, import de `processar_documento`/`DocumentoEmProcessamentoError`, `logger` e mensagens de processamento (4)** |
-| `documentos/test_upload.py` | +4 testes (1); 8 originais inalterados |
-| `analisetemporaria.md` | este registro |
-
-### 16.3 Arquivos do commit da GR-14 (lista exata)
-
-```
-analisetemporaria.md
-config/urls.py
-documentos/views.py
-documentos/urls.py
-documentos/test_upload.py
-documentos/test_interface.py
-documentos/templates/documentos/base.html
-documentos/templates/documentos/inicio.html
-documentos/templates/documentos/detalhe.html
-documentos/static/documentos/documentos.css
-documentos/static/documentos/documentos.js
-```
-
-A etapa 6 não criou nem alterou código; só este relatório. **Não** entram `.env`, `uploads/` nem `media/` (ignorados pelo `.gitignore`).
-
-### 16.4 Não alterados (e não precisam mudar)
-
-`documentos/processamento.py`, `forms.py`, `validators.py`, `models.py`, `migrations/*`, `admin.py`, `tests.py`, `test_processamento.py`, `agents/**`, `config/settings.py`, `requirements.txt`, `.env.example`, `financeiro/*` e `usuarios/*`. Conferido com `git diff --stat`, que sai vazio para esses caminhos. **Na etapa 5, `views.py`, `urls.py` e `config/urls.py` também não mudaram** (contratos de views e URLs preservados).
+| PDF inválido (extensão, vazio, tamanho, content-type, cabeçalho) | upload rejeitado; mensagem no campo; nenhum `Documento` | `UploadHtmlTests`, `test_upload` |
+| Documento ilegível (sem arquivo, removido, vazio) | `ERRO` / `documento_ilegivel`; Gemini **não** é chamado; sugestão "Envie o arquivo PDF novamente." | `ProcessamentoComAgentsReaisTests`, `DetalheErroTests` |
+| Serviço indisponível (429/503/timeout/rede/config) | `ERRO` / `servico_indisponivel`; "Tente novamente mais tarde." + botão "Tentar novamente" | `FalhasDoGeminiTests`, `ProcessarIntegracaoTests` |
+| Resposta inválida / não é nota fiscal | `ERRO` / `resposta_invalida` | `RespostaInvalidaTests`, `ProcessamentoErroExtracaoTests` |
+| Classificação inválida | `ERRO` / `classificacao_invalida` | `ProcessamentoErroClassificacaoTests` |
+| Classificação inconclusiva | `ERRO` / `classificacao_inconclusiva`; sugestão explica a limitação do MVP; **extração descartada** | idem + `ProcessarIntegracaoTests` |
+| Erro interno | `ERRO` / `erro_interno`; `logger.exception`; mensagem genérica | `ProcessamentoErroInesperadoTests`, `ProcessarServicoMockadoTests` |
+| Documento `PROCESSANDO` | POST → "O documento já está sendo processado."; sem Agents; lock testado com 2 threads | `ReservaConcorrenteTests`, `ProcessamentoEstadosTests` |
+| Reprocessar após `ERRO` | permitido; erro antigo limpo; pode terminar `CONCLUIDO` | `test_erro_pode_reprocessar`, `ProcessarIntegracaoTests` |
+| Reprocessar `CONCLUIDO` | não chama Agents (sem cota) | `test_documento_concluido_nao_reprocessa` |
 
 ---
 
 ## 17. Testes
 
-### 17.1 Estado atual
+| Arquivo | Testes | Área |
+| --- | --- | --- |
+| `documentos/test_upload.py` | 12 | upload JSON (GR-7) + caminho 500 / `_salvar_documento` |
+| `documentos/tests.py` | 3 | model `Documento` |
+| (validação GR-8) | — | coberta em `test_upload` e `test_interface` (não há arquivo próprio) |
+| `agents/test_gemini_client.py` | 27 | `GeminiClient` |
+| `agents/extrator/test_schemas.py` + `test_agent.py` | 52 + 34 | Extrator |
+| `agents/classificador/test_schemas.py` + `test_agent.py` | 11 + 15 | Classificador |
+| `documentos/test_processamento.py` | 49 | orquestração (inclui concorrência real) |
+| `documentos/test_interface.py` | 83 | interface Web (inclui integração view + serviço real + Agents falsos) |
+| `financeiro/tests.py` | 17 | models financeiros |
+| `usuarios/tests.py` | 0 | — |
+| **Total** | **303** | `python manage.py test` → OK |
 
-| Comando | Resultado |
+**Nenhum teste usa a Gemini real:**
+
+- **Conferido por código:** todos os testes de Agents, serviço e interface usam `mock.Mock(spec=GeminiClient)`, Agents falsos ou `genai.Client` patchado para falhar, além de `GEMINI_API_KEY=None`.
+- **Conferido por execução:** a suíte completa rodou com `socket.connect` bloqueado para qualquer host que não fosse localhost (PostgreSQL). Resultado: **303 OK e 0 tentativas de conexão externa**.
+
+---
+
+## 18. Testes manuais já realizados e conferência com o PDF
+
+| Documento | Como | Resultado |
+| --- | --- | --- |
+| **ID 1** | shell, `processar_documento` com a Gemini real (GR-12; seção 9.6) | `CONCLUIDO`; `quantidade_parcelas = 1`; `MANUTENCAO_E_OPERACAO`; CNPJ válido; CPF fictício inválido |
+| **ID 2** | **navegador**: upload → Processar, com a Gemini real (GR-14) | `CONCLUIDO`; "Processamento concluído."; tela com Manutenção e operação, **R$ 3.086,75**, **1** parcela, fornecedor IGUACU MAQUINAS AGRICOLAS LTDA, nota 000.084.682, 19/09/2025; aviso de CPF fictício inválido; justificativa; JSON formatado; nada interno exposto. CSS/JS com HTTP 200; o único 404 foi `/favicon.ico` (irrelevante) |
+
+**Conferência do JSON do ID 2 com o texto do PDF** (GR-21, **sem chamar a Gemini**: `pdftotext` no PDF fictício + leitura do `resultado_estruturado` salvo no banco local):
+
+| Campo | Confere com o PDF? |
 | --- | --- |
-| `python manage.py test documentos.test_interface` | **83 — OK** |
-| `python manage.py test documentos.test_processamento` | **49 — OK** (GR-12, inalterado) |
-| `python manage.py test documentos.test_upload` | **12 — OK** |
-| `python manage.py test documentos` | **147 — OK** |
-| `python manage.py test` | **303 — OK** |
-| `python manage.py check` | OK |
-| `git diff --check` | OK |
+| razão social, CNPJ, nome do faturado, CPF, número, data de emissão | ✅ todos presentes no PDF |
+| valor total R$ 3.086,75 | ✅ = "VALOR TOTAL DA NOTA". A soma dos 10 itens é R$ 3.754,67 = "VALOR TOTAL DOS PRODUTOS"; a diferença é o **desconto de R$ 667,92** impresso no PDF, então a extração está correta |
+| parcela (valor e vencimento) | ✅ presentes no PDF; `quantidade_parcelas = 1` |
+| 10 itens | ✅ as 10 descrições estão no PDF |
+| nome fantasia | `null`: o DANFE não imprime nome fantasia separado; correto não inventar |
+| `validacoes` | CNPJ `valido`; CPF fictício `invalido` (esperado) |
 
-### 17.2 `documentos/test_interface.py` (83 testes)
+**Sem evidência real (aceito):** uma nota com **várias parcelas** e uma nota da categoria **INFRAESTRUTURA E UTILIDADES**. Faltam PDFs fictícios desses casos. Os dois comportamentos estão cobertos por testes automatizados, e a etapa 5 foi dispensada (seção 21).
 
-Todos usam `InterfaceTestMixin`: `MEDIA_ROOT` temporário, staff logado e `genai.Client` patchado para falhar. **Nenhum teste chama a API real da Gemini.**
+### 18.1 Validação manual final da GR-21 (etapa 4) — concluída
 
-| Classe | Testes | Cobre |
-| --- | --- | --- |
-| `AcessoTests` | 6 | raiz; staff 200; anônimo e não-staff → login; 405 |
-| `TelaInicialTests` | 8 | formulário; limite; lista vazia; máx. 10 em ordem; status; escape; nada interno; link para o detalhe |
-| `UploadHtmlTests` | 7 | upload válido → detalhe; mensagem na página do documento; `_salvar_documento`; inválidos; limite; sem validação duplicada; **`views.py` só processa via `processar_documento`** (não menciona `agents`, `AgentExtrator`, `AgentClassificador`, `GeminiClient`, `genai`) |
-| `UploadHtmlFalhaAoSalvarTests` | 2 | falha no banco e no storage → erro seguro, sem arquivo órfão |
-| `RegressaoUploadJsonTests` | 2 | endpoint JSON da GR-7 |
-| `DetalheAcessoTests` | 7 | acesso, 404, 405, nome/data/voltar, escape, sem `/media/` |
-| `DetalhePendenteTests` | 1 | "Pronto para processar." + **form POST com CSRF, `action` correto, botão não desabilitado e marcado com `data-submit-lock`**; abrir a página não chama o serviço |
-| `DetalheProcessandoTests` | 2 | mensagem + refresh de 5 s, sem botão; refresh ausente nos outros status |
-| `DetalheConcluidoTests` | 13 | resumo, rótulos, justificativa, avisos, JSON ordenado e escapado, nada interno, sem botão, robustez |
-| `DetalheErroTests` | 5 | mensagem + sugestão + **form POST "Tentar novamente" com CSRF**; 6 códigos; desconhecido; escape; nada interno |
-| `SegurancaTemplatesTests` | 1 | sem `|safe` e sem `autoescape off` |
-| **`ProcessarRotaEAcessoTests`** | 5 | `reverse` → `/documentos/<pk>/processar/`; GET/PUT/DELETE/PATCH → 405 sem chamar o serviço; anônimo e não-staff → login sem chamar o serviço; **CSRF obrigatório** (403 sem token, com `enforce_csrf_checks`); o token do formulário da página é aceito |
-| **`ProcessarEstadosDaPaginaTests`** | 1 | `PROCESSANDO` e `CONCLUIDO` sem botão, form ou link de processamento |
-| **`ProcessarServicoMockadoTests`** | 7 | `processar_documento` chamado **1×** com o `pk`; parâmetros do request (`api_key`, `modelo`…) não são repassados; `CONCLUIDO` → "Processamento concluído."; `ERRO` → "O processamento falhou. Veja os detalhes abaixo."; `DocumentoEmProcessamentoError` → mensagem info; `DoesNotExist` → 404; exceção inesperada → mensagem genérica, `logger.exception` com traceback no log e nada interno na página |
-| **`ProcessarIntegracaoTests`** | 4 | **`processar_documento` real** com `AgentExtrator`/`AgentClassificador` falsos, patchados em `documentos.processamento`, e `GEMINI_API_KEY=None`: **(A)** sucesso → `CONCLUIDO`, `tipo_despesa`, `quantidade_parcelas = 1`, `valor_total` persistidos, redirect para o detalhe, página com rótulo, valor, aviso de CPF, justificativa e JSON, sem modelo; **(B)** falha do Extrator → `ERRO`, `{}`, Classificador não chamado, mensagem segura + sugestão + "Tentar novamente"; **(C)** falha do Classificador → `ERRO`, `{}`, sem dados da extração nos metadados nem na página; `CONCLUIDO` não reprocessa |
-| **`JavaScriptTests`** | 12 | `documentos.js` existe e é achado pelo `staticfiles`; `base.html` carrega `<script src="/static/documentos/documentos.js" defer>`; form de upload com `data-submit-lock` + "Enviando...", `method="post"` e CSRF; forms de Processar/Tentar novamente marcados, com "Processando..."; `PROCESSANDO`/`CONCLUIDO` sem form marcado; `PROCESSANDO` mantém o `meta refresh`; o JS só age em `form[data-submit-lock]`, usa `textContent` e `disabled`; `preventDefault` só no 2º envio (não cancela o 1º); o JS não tem `fetch`, `XMLHttpRequest`, `WebSocket`, `setInterval`, `innerHTML`/`outerHTML`/`insertAdjacentHTML`, `eval`, `new Function` nem `document.write`; o JS não menciona Gemini, chave, modelo, metadados nem PDF; templates sem `fetch(`, `XMLHttpRequest` nem `<script>` inline; o fluxo upload → processar funciona como POST HTML puro, sem executar JS |
+Feita no navegador (`runserver`), **sem chamar a Gemini**:
 
-Sem navegador automatizado no projeto (nada de Selenium/Playwright/Node/npm), o comportamento no navegador foi conferido na **validação manual da etapa 6** (seção 10.3): CSS e JS carregados (HTTP 200), upload, processamento real e exibição do resultado.
+| Cenário | Resultado |
+| --- | --- |
+| **IDs 1 e 2** (`CONCLUIDO`) | ID 2 conferido pela interface: resumo correto, JSON exibido, "Manutenção e operação", **R$ 3.086,75**, **1** parcela, justificativa exibida, CPF fictício inválido sinalizado corretamente, **sem botão de reprocessamento** |
+| **Estado `ERRO`** | documento de teste exibiu o erro seguro e o botão "Tentar novamente" |
+| **`documento_ilegivel`** | **ID 4** criado como `PENDENTE`; arquivo removido manualmente do storage; ao processar → `ERRO` com "Não foi possível ler o arquivo PDF do documento." + "Envie o arquivo PDF novamente." + botão "Tentar novamente". O caminho falha **antes** de chamar a Gemini |
+| **Estado `PROCESSANDO`** | ID 4 colocado temporariamente em `PROCESSANDO` pelo Django Admin: status "Processando", mensagem "Processando... a página atualiza automaticamente.", **nenhum** botão Processar ou Tentar novamente. Depois o ID 4 foi **restaurado para `ERRO`** |
+| **Demais comportamentos** (login/staff, PDFs inválidos, CSRF, XSS, PDF não exposto, sem traceback/chave/modelo) | **não repetidos manualmente:** já cobertos pela suíte automatizada (seções 15–17) |
 
 ---
 
-## 18. Riscos
+## 19. Achados e limitações conhecidas
 
-| # | Risco | Mitigação |
-| --- | --- | --- |
-| R1 | **Requisição longa:** o POST de Processar espera o serviço síncrono (até cerca de 6 min) | aceitável com `runserver`; o botão mostra "Processando..." e fica desabilitado (JS); outra aba mostra `PROCESSANDO` com refresh. Em produção com timeout de worker → execução em segundo plano (tarefa futura) |
-| R2 | Documento preso em `PROCESSANDO` (processo interrompido) | mudar para `ERRO` no Django Admin; depois o botão "Tentar novamente" funciona |
-| R3 | **Duplo clique / duas abas** | proteção **real** na GR-12 (lock + `DocumentoEmProcessamentoError` → mensagem info), que vale mesmo sem JS; ✅ proteção **visual** no `documentos.js` (botão desabilitado + "Processando...") |
-| R4 | **Cota da Gemini:** cada POST em `PENDENTE`/`ERRO` faz 2 chamadas | só por botão explícito; `CONCLUIDO` não reprocessa (testado) |
-| R5 | XSS | escape automático, sem `|safe`; testado em nome, JSON, tipo desconhecido, mensagem de erro |
-| R6 | Exposição do PDF | sem link para arquivo/`MEDIA` (testado) |
-| R7 | `DEBUG=False` → sem CSS no `runserver` | `DJANGO_DEBUG=True` em desenvolvimento |
-| R8 | Acesso só para staff | `python manage.py createsuperuser` |
-| R9 | Refatoração do upload JSON | ✅ mitigado |
-| R10 | Ordem das chaves do JSON | ✅ mitigado |
-| R11 | `classificacao_inconclusiva` frequente (2 categorias) | sugestão explica a limitação do MVP |
-| R12 | Banco local sem migrations | `python manage.py migrate` (seção 21.3) |
-| R13 | Mensagem de arquivo vazio vem do Django ("O arquivo submetido está vázio.") | comportamento existente; `forms.py` não alterado |
-| R14 | CSRF em POST de processamento | ✅ testado: sem token → 403 e o serviço não é chamado |
-| R15 | Botão travado ao voltar pelo histórico (cache do navegador) | ✅ `pageshow` restaura botão e texto |
-| R16 | JS não testado em navegador automatizado | testes estáticos do arquivo e da marcação + ✅ validação manual no navegador (etapa 6); a página funciona sem JS |
-| R17 | `/favicon.ico` retorna 404 no `runserver` | **irrelevante**: pedido automático do navegador, sem impacto na atividade; não exige correção |
+### CRÍTICO (pode comprometer a entrega)
 
----
+**Nenhum.** Todos os campos obrigatórios existem, o fluxo exigido funciona ponta a ponta com a Gemini real e a suíte está verde.
 
-## 19. Decisões
+### IMPORTANTE → decididos na etapa 2 como limitações ou escopo do MVP
 
-| # | Decisão | Situação |
-| --- | --- | --- |
-| D1 | Upload por formulário HTML + PRG; endpoint JSON mantido | ✅ |
-| D2 | `_salvar_documento` compartilhado | ✅ |
-| D3 | Processamento **síncrono**, em POST separado, por botão | ✅ etapa 4 |
-| D4 | `@staff_member_required` + CSRF | ✅ |
-| D5 | Botão "Copiar JSON" | **descartado** nesta tarefa: não é pedido pela atividade; o JSON já pode ser selecionado e copiado no `<pre>`; `navigator.clipboard` exige contexto seguro (funciona em `localhost`, não em HTTP pela rede); manter o JS mínimo. Pode ser adicionado depois sem mudar o backend |
-| D6 | Raiz `/` → `/documentos/` | ✅ |
-| D7 | 10 documentos recentes | ✅ |
-| D8 | Resumo + avisos acima do JSON | ✅ |
-| D9 | Upload redireciona para o detalhe | ✅ |
-| D10 | Botões de processamento | ✅ **forms POST reais** em `PENDENTE` ("Processar") e `ERRO` ("Tentar novamente"); nenhum botão em `PROCESSANDO`/`CONCLUIDO` |
-| D11 | Apresentação em helpers de `views.py` | ✅ |
-| D13 | JavaScript | ✅ **opt-in** por `data-submit-lock` (não pega todo `<form>`); texto temporário em `data-submit-texto`; carregado com `defer` no `base.html`; `PROCESSANDO` continua com `meta refresh` |
-| D12 | Tratamento de exceções na view | `DoesNotExist` → 404; `DocumentoEmProcessamentoError` → info; `Exception` → `logger.exception` + mensagem genérica; **sem reinterpretar** erros de Extrator/Classificador (já são `ERRO` no `Documento`) |
+Encontrados na auditoria (etapa 1) e **resolvidos por decisão consciente de escopo** (etapa 2, seção 20). **Não são correções pendentes.**
+
+| # | Achado da auditoria | Como fica no MVP | Evolução futura possível |
+| --- | --- | --- | --- |
+| **I1** | o slide 18 menciona "estrutura para receber mais de uma" classificação de DESPESA; o JSON tem `tipo_despesa` escalar | **limitação aceita:** uma classificação principal por documento (`"tipo_despesa": "MANUTENCAO_E_OPERACAO"`); JSON e Classificador inalterados | lista de classificações no JSON (ex.: `classificacoes`) |
+| **I2** | uma nota com itens fora das 2 categorias termina em `ERRO` (`classificacao_inconclusiva`), sem JSON na tela | **limitação aceita:** categorias só `MANUTENCAO_E_OPERACAO` e `INFRAESTRUTURA_E_UTILIDADES` (os exemplos da atividade); a tela explica a limitação e permite nova tentativa | ampliar `TipoDespesa`, ou concluir com a extração e `tipo_despesa: null` |
+| **I3** | não existe `README.md` de execução | **adiado:** o `ContextoProjeto.md` é a documentação técnica consolidada (inclui comandos de execução) | README público/de execução |
+
+### MELHORIA (pode ficar para depois)
+
+| # | Achado |
+| --- | --- |
+| M1 | `djangorestframework` está em `requirements.txt` e em `INSTALLED_APPS`, mas **não é usado**. **Decisão D-M1: não alterar antes da entrega** |
+| M2 | Ordem das chaves do JSON definida em dois lugares (`_montar_resultado` e `CHAVES_RESULTADO` em `views.py`) |
+| M3 | Processamento síncrono (até cerca de 6 min no pior caso); em produção seria em segundo plano |
+| M4 | Arquivo vazio mostra a mensagem do Django ("O arquivo submetido está vázio.") em vez da mensagem da GR-8 |
+| M5 | `/favicon.ico` 404 (irrelevante) |
+| M6 | Nos slides, o exemplo tem Agent2 "persiste"; aqui o Agent2 **classifica** e a persistência é do serviço. Está dentro da proposta (A2A sequencial), mas **vale explicar na apresentação** |
+| M7 | Módulo `financeiro` (`LancamentoFinanceiro`/`Parcela`) não é alimentado pela extração (2ª etapa) |
+| M8 | Com `DJANGO_DEBUG=False` e `ALLOWED_HOSTS = []`, o `runserver` recusa requisições; a demonstração usa `DJANGO_DEBUG=True` (comandos em `ContextoProjeto.md`, seção 20) |
+| M9 | "Contas a pagar" não é verificado; qualquer NF válida é aceita |
+
+**Documentação:** a única divergência encontrada (este arquivo ainda dizia "GR-14 aguardando commit/PR") foi corrigida na etapa 1.
+
+**Código morto:** nenhum relevante. `ProcessamentoError` é base de `DocumentoEmProcessamentoError`; o endpoint JSON `upload_documento` não é usado pela tela, mas é mantido de propósito (contrato da GR-7).
 
 ---
 
-## 20. Ordem de implementação e próximos passos
+## 20. Decisões da GR-21
 
-1. ✅ **Etapa 1:** rotas do app + `_salvar_documento` + testes do caminho 500.
-2. ✅ **Etapa 2:** raiz, `documento_inicio`, `base.html`, `inicio.html`, `documentos.css`.
-3. ✅ **Etapa 3:** `documento_detalhe`, `detalhe.html`, apresentação por status, redirect do upload, links.
-4. ✅ **Etapa 4:** `documento_processar` + rota; botões viram forms POST com CSRF; testes de rota, acesso, CSRF, serviço mockado e integração real sem Gemini.
-5. ✅ **Etapa 5:** `documentos.js` (proteção visual contra clique duplo), 3 forms marcados; "Copiar JSON" descartado (D5).
-6. ✅ **Etapa 6:** validação manual no navegador com **uma** execução real da Gemini (Documento ID 2 → `CONCLUIDO`, seção 10.3); auditoria final da branch (arquivos protegidos intocados; `.env`, `uploads/` e `media/` ignorados; nenhuma chave em arquivos versionáveis); suíte completa, `check` e `git diff --check` OK.
+Tomadas na etapa 2. **Decisão geral: manter o MVP como está; nenhum código é alterado.**
 
-**Próximos passos (somente com autorização):**
+| # | Tema | Decisão | Justificativa |
+| --- | --- | --- | --- |
+| **D-I1** | Estrutura para múltiplas classificações | **Aceito como limitação do MVP.** Continua `"tipo_despesa": "<VALOR>"`, valor único por documento; **sem** `classificacoes`; JSON e `AgentClassificador` inalterados | o MVP trabalha com uma classificação principal por nota fiscal; múltiplas classificações ficam como evolução futura |
+| **D-I2** | Notas fora das 2 categorias | **Aceito como limitação do MVP.** Categorias continuam só `MANUTENCAO_E_OPERACAO` e `INFRAESTRUTURA_E_UTILIDADES`; fora delas → `ClassificacaoInconclusivaError` → `ERRO` (`classificacao_inconclusiva`) → a interface mostra a limitação e permite nova tentativa. **Sem** ampliar categorias e **sem** `CONCLUIDO` com `tipo_despesa: null` | as duas categorias correspondem aos exemplos fornecidos na atividade e bastam para o escopo atual |
+| **D-I3** | README | **Não criar `README.md` na GR-21** | o `ContextoProjeto.md` já é a documentação técnica consolidada; um README público/de execução pode vir depois |
+| **D-M1** | Django REST Framework (sem uso) | **Não alterar** | evitar mudanças desnecessárias antes da entrega |
 
-1. `git add` dos arquivos da seção 16.3 → `git diff --cached` (conferir que `.env`, `uploads/` e `media/` não entram).
-2. Commit com a mensagem sugerida: `feat(documentos): implementar interface web GR-14`.
-3. Push da branch `feature/GR-14-interface-web` e PR para a `main`.
-4. Depois do merge: **GR-21 — validação final** (seção 23).
+---
+
+## 21. Plano da GR-21
+
+| Etapa | Situação |
+| --- | --- |
+| 1 — Auditoria | ✅ concluída |
+| 2 — Decisões | ✅ concluída (MVP mantido; seção 20) |
+| 3 — Correções de código | ⏭ não necessária (nenhuma correção aprovada) |
+| 4 — Validação manual final | ✅ concluída (seção 18.1) |
+| 5 — Nova chamada à Gemini | ⏭ **dispensada** |
+| 6 — Encerramento | ⬅ **AGORA**: validação concluída, aguardando commit/PR |
+
+**Por que a etapa 5 foi dispensada:** já existem **duas evidências reais** com a Gemini, o **ID 1** (pelo backend) e o **ID 2** (pela interface Web), ambos `CONCLUIDO` e conferidos com o PDF (seção 18). Uma nova execução da mesma nota **não acrescenta evidência** e só consome cota. Os casos sem evidência real (várias parcelas, categoria INFRAESTRUTURA) dependeriam de novos PDFs fictícios e estão cobertos por testes automatizados.
+
+**Etapa 6 — Encerramento:** `check`, `test`, `git diff --check`, `git status` e `git diff` executados (seção 25).
+
+> **Observação de estabilidade:** na **primeira** execução da suíte no encerramento houve **1 falha intermitente** (`FAILED (failures=1)`), com **nenhum código alterado**. O nome do teste não foi capturado, porque essa execução mostrou só o resumo. Em seguida a suíte completa passou em **19 execuções consecutivas** (303 OK), e os testes sensíveis a tempo ou transação (`ReservaConcorrenteTests` e as classes `...FalhaAoSalvarTests`) passaram em mais **20 execuções**. **Não reproduzido.** Se reaparecer, rodar `python manage.py test -v 2` e registrar o teste, para tratar numa tarefa própria.
+
+Falta, **somente com autorização**:
+
+1. `git add analisetemporaria.md ContextoProjeto.md`;
+2. `git diff --cached`;
+3. commit, push e PR para a `main`.
+
+---
+
+## 22. Arquivos
+
+**Alterados na GR-21 (só documentação):**
+
+| Arquivo | Situação |
+| --- | --- |
+| `analisetemporaria.md` | modificado (auditoria + decisões) |
+| `ContextoProjeto.md` | **novo** (contexto estável; decisões consolidadas) |
+
+**Nenhum arquivo de código será alterado na GR-21** (etapa 3 não necessária). Continuam intocados: `agents/**` (incluindo `gemini_client.py`, extrator e classificador), `documentos/processamento.py`, `models.py`, `forms.py`, `validators.py`, `views.py`, `urls.py`, `migrations/**`, templates, CSS, JS, `config/**`, `requirements.txt`, `.env` e `.env.example`. Nenhum `README.md` é criado (D-I3).
 
 ---
 
 # Parte IV — Operação
 
-## 21. Guia da Gemini API
+## 23. Guia da Gemini API
 
-### 21.1 Conferir a configuração sem expor a chave
+### 23.1 Conferir a configuração sem expor a chave
 
 ```bash
 python manage.py shell -c 'from django.conf import settings; print("API Key carregada:", bool(settings.GEMINI_API_KEY)); print("Modelo:", settings.GEMINI_MODEL)'
@@ -808,12 +683,12 @@ python manage.py shell -c 'from django.conf import settings; print("API Key carr
 - Cada `manage.py shell` relê o `.env`. **O `runserver` precisa ser reiniciado** depois de alterar o `.env`.
 - ⚠️ Uma **variável exportada no terminal vence o `.env`** (`load_dotenv()` não sobrescreve). Confira com `echo $GEMINI_MODEL` e remova com `unset GEMINI_MODEL`.
 
-### 21.2 Retry e timeout
+### 23.2 Retry e timeout
 
 - **Retry:** 3 tentativas no total por chamada, feitas pelo SDK (408/429/500/502/503/504, timeout, conexão). Não crie retry manual. Não resolve cota diária esgotada.
 - **Timeout:** 60 s por tentativa. Pior caso por documento (2 chamadas) ≈ 6 min.
 
-### 21.3 Diagnóstico por sintoma
+### 23.3 Diagnóstico por sintoma
 
 | Sintoma | Significado | Ação | Bug do projeto? |
 | --- | --- | --- | --- |
@@ -834,7 +709,7 @@ python manage.py shell -c 'from django.conf import settings; print("API Key carr
 - No `Documento`, erros de serviço aparecem como `metadados["erro"]["codigo"] == "servico_indisponivel"`. O status HTTP exato (429/503) fica **só no log** dos Agents (`... indisponível (GeminiAPIError, status=429)`).
 - Na GR-14, a tela mostra a mensagem segura. Para diagnosticar, olhe o **terminal do `runserver`**.
 
-### 21.4 Modelos já testados
+### 23.4 Modelos já testados
 
 Resultado do momento de cada teste; nada é permanente.
 
@@ -844,7 +719,7 @@ Resultado do momento de cada teste; nada é permanente.
 | `gemini-3.7-flash` | 503 |
 | `gemini-3.5-flash-lite` | processou o PDF com structured output |
 
-### 21.5 Teste manual do processamento pelo shell (API real; uma vez só)
+### 23.5 Teste manual do processamento pelo shell (API real; uma vez só)
 
 ```bash
 python manage.py shell -c '
@@ -864,10 +739,10 @@ print("erro:", json.dumps(doc.metadados.get("erro"), ensure_ascii=False))
 
 Para ver os avisos dos Agents, acrescente `import logging; logging.basicConfig(level=logging.WARNING)` no início.
 
-### 21.6 Se a Gemini parar de funcionar
+### 23.6 Se a Gemini parar de funcionar
 
 1. Não altere código.
-2. Confira a chave e o modelo (21.1).
+2. Confira a chave e o modelo (23.1).
 3. Leia `metadados["erro"]` (na tela ou no admin) e o log do terminal.
 4. 429 → cota; 503 → aguardar; timeout → serviço, rede e PDF.
 5. CPF/CNPJ inválido ou classificação inconclusiva **não** são falha da API.
@@ -876,9 +751,11 @@ Para ver os avisos dos Agents, acrescente `import logging; logging.basicConfig(l
 
 ---
 
-## 22. Checklist de segurança
+---
 
-Situação na auditoria final da GR-14:
+## 24. Checklist de segurança
+
+Situação confirmada nas auditorias da GR-14 e da GR-21:
 
 - [x] `.env` nunca vai para o Git (`git check-ignore -v .env` → `.gitignore:12`; não rastreado).
 - [x] A API Key nunca aparece em commit, PR, chat, log, **tela** ou documentação. Se vazar, revogue no AI Studio. *(Confirmado: o valor real e padrões de chave Google estão ausentes de todos os arquivos versionáveis; a tela não mostra chave.)*
@@ -887,34 +764,22 @@ Situação na auditoria final da GR-14:
 - [x] Formulários com `{% csrf_token %}`; nada de `|safe` em conteúdo vindo do banco (testes de CSRF e de templates).
 - [x] Testes automatizados nunca chamam a API real; documentos de teste são fictícios.
 - [x] Antes do commit: `git status` e `git diff` (executados na auditoria final).
-- [ ] Antes do commit: `git diff --cached`. **Pendente:** só pode ser executado depois do `git add`.
+- [x] `git diff --cached` executado antes do commit da GR-14 (PR #13).
+- [x] GR-21: `git status` e `git diff` executados no encerramento.
+- [ ] GR-21: `git diff --cached`, **pendente** até o `git add`.
 
 ---
 
-## 23. Depois da GR-14: GR-21
-
-| Tarefa | Entrega |
-| --- | --- |
-| **GR-21 — Validação final** (próxima tarefa, depois do merge da GR-14) | a partir da `main` já com a GR-14: repetir o fluxo no navegador com PDF fictício (login → enviar PDF → processar → JSON), conferir **cada campo exigido pela atividade** (seção 1), incluindo `tipo_despesa` e `quantidade_parcelas`; conferir mensagens de erro (PDF inválido, `ERRO` com “Tentar novamente”); rodar a suíte completa. A etapa 6 da GR-14 já antecipou boa parte disso (seção 10.3) |
-| Melhorias futuras (fora do escopo atual) | processamento em segundo plano (R1); destravar `PROCESSANDO` automaticamente; ampliar `TipoDespesa` (R11); vincular `Titular` e gerar `LancamentoFinanceiro`/`Parcela` |
-
-```
-Navegador → upload (GR-7/8) → Documento → botão Processar (GR-14) → processar_documento (GR-12)
-          → Extrator (GR-10) → Classificador (GR-11) → JSON final → tela (GR-14) → validação (GR-21)
-```
-
----
-
-## 24. Estado do Git
+## 25. Estado do Git
 
 | Item | Estado |
 | --- | --- |
-| Branch | `feature/GR-14-interface-web` |
-| Base | `main` em `292ee0c` (merge da GR-12, PR #12) |
-| GR-14 | **concluída (etapas 1–6) e pronta para commit/PR**; aguardando autorização |
-| Alterações atuais (sem commit) | `M analisetemporaria.md` · `M config/urls.py` · `M documentos/test_upload.py` · `M documentos/views.py` · `?? documentos/static/` · `?? documentos/templates/` · `?? documentos/test_interface.py` · `?? documentos/urls.py` (11 arquivos, seção 16.3) |
-| Arquivos protegidos | **intocados**: `documentos/processamento.py`, `models.py`, `forms.py`, `validators.py`, `migrations/`, `agents/`, `config/settings.py`, `requirements.txt` |
-| Auditoria de segredos | `.env` (`.gitignore:12`), `uploads/` (`.gitignore:20`) e `media/` (`.gitignore:19`) ignorados e não rastreados; valor real da `GEMINI_API_KEY` e padrões de chave Google **ausentes** de todos os arquivos versionáveis |
+| Branch | `feature/GR-21-validacao-final` |
+| Base | `main` em `acedf6b` (merge da GR-14, **PR #13**); a branch está idêntica à `main` |
+| Working tree antes da auditoria | limpa |
+| GR-21 | **validação concluída, aguardando commit/PR** |
+| Alterações da GR-21 | `M analisetemporaria.md` · `?? ContextoProjeto.md`: **só documentação; nenhum código alterado** |
+| Arquivos do commit | `analisetemporaria.md`, `ContextoProjeto.md` |
 | `git add` / commit / push / PR | **não realizados** |
 | `.env` / `uploads/` / `media/` | ignorados e não rastreados |
-| Banco local | migrations aplicadas ("No migrations to apply."); documentos de teste ID 1 e ID 2 em `CONCLUIDO` |
+| Banco local (referências de desenvolvimento) | migrations aplicadas; ID 1 e ID 2 em `CONCLUIDO`; ID 4 em `ERRO` (teste de `documento_ilegivel`) |
