@@ -1,20 +1,14 @@
 {% extends "documentos/base.html" %}
 
-{% block titulo %}Enviar nota fiscal — Gestão Rural{% endblock %}
+{% block titulo %}Processar nota fiscal — Gestão Rural{% endblock %}
 
 {% block conteudo %}
   <section class="cartao">
-    <h1>Enviar nota fiscal</h1>
-    <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB).</p>
+    <h1>Processar nota fiscal</h1>
+    <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB). O arquivo é usado só neste processamento e não é guardado.</p>
 
-    <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Enviando...">
+    <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
       {% csrf_token %}
-
-      {% if form.non_field_errors %}
-        <div class="erro-geral" role="alert">
-          {% for erro in form.non_field_errors %}<p>{{ erro }}</p>{% endfor %}
-        </div>
-      {% endif %}
 
       <label for="id_arquivo" class="formulario__rotulo">Arquivo PDF</label>
       <input type="file" name="arquivo" id="id_arquivo" accept="application/pdf,.pdf" required
@@ -26,36 +20,51 @@
         </ul>
       {% endif %}
 
-      <button type="submit" class="botao">Enviar PDF</button>
+      <button type="submit" class="botao">Processar</button>
     </form>
+    <p class="texto-apoio texto-apoio--pequeno">O processamento pode levar alguns minutos.</p>
   </section>
 
-  <section class="cartao">
-    <h2>Documentos recentes</h2>
-
-    {% if documentos %}
-      <div class="tabela-rolagem">
-        <table class="tabela">
-          <thead>
-            <tr>
-              <th scope="col">Arquivo</th>
-              <th scope="col">Enviado em</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for documento in documentos %}
-              <tr>
-                <td class="tabela__nome"><a href="{% url 'documento_detalhe' documento.pk %}">{{ documento.nome_original }}</a></td>
-                <td>{{ documento.enviado_em|date:"d/m/Y H:i" }}</td>
-                <td><span class="selo selo--{{ documento.status|lower }}">{{ documento.get_status_display }}</span></td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+  {% if erro %}
+    <section class="cartao">
+      <div class="erro-processamento" role="alert">
+        <p class="erro-processamento__titulo">O processamento de “{{ nome_arquivo }}” não foi concluído.</p>
+        <p>{{ erro.mensagem }}</p>
+        <p class="erro-processamento__sugestao">{{ erro.sugestao }}</p>
       </div>
-    {% else %}
-      <p class="texto-apoio">Nenhum documento enviado ainda.</p>
-    {% endif %}
-  </section>
+    </section>
+  {% endif %}
+
+  {% if json_resultado %}
+    <section class="cartao">
+      <h2>Resultado — {{ nome_arquivo }}</h2>
+      <dl class="resumo">
+        <div class="resumo__item"><dt>Tipo de despesa</dt><dd>{{ resumo.tipo_despesa|default:"—" }}</dd></div>
+        <div class="resumo__item"><dt>Valor total</dt><dd>{{ resumo.valor_total|default:"—" }}</dd></div>
+        <div class="resumo__item"><dt>Quantidade de parcelas</dt><dd>{{ resumo.quantidade_parcelas|default_if_none:"—" }}</dd></div>
+        <div class="resumo__item"><dt>Fornecedor</dt><dd>{{ resumo.fornecedor|default:"—" }}</dd></div>
+        <div class="resumo__item"><dt>Número da nota</dt><dd>{{ resumo.numero_nota|default:"—" }}</dd></div>
+        <div class="resumo__item"><dt>Data de emissão</dt><dd>{{ resumo.data_emissao|default:"—" }}</dd></div>
+      </dl>
+
+      {% if avisos %}
+        <div class="aviso" role="note">
+          <ul>
+            {% for aviso in avisos %}<li>{{ aviso }}</li>{% endfor %}
+          </ul>
+          <p>Isso não impediu o processamento. A verificação confere apenas o formato e os dígitos verificadores, não a existência do documento.</p>
+        </div>
+      {% endif %}
+
+      {% if justificativa %}
+        <h3>Justificativa da classificação</h3>
+        <p class="justificativa">{{ justificativa }}</p>
+      {% endif %}
+    </section>
+
+    <section class="cartao">
+      <h2>JSON final</h2>
+      <pre class="bloco-json"><code>{{ json_resultado }}</code></pre>
+    </section>
+  {% endif %}
 {% endblock %}

@@ -12,21 +12,16 @@
   <header class="topo">
     <div class="container topo__conteudo">
       <span class="topo__marca">Gestão Rural</span>
-      <nav class="topo__nav">
-        <a href="{% url 'documento_inicio' %}">Enviar nota</a>
-      </nav>
+      {% block navegacao %}
+        <nav class="topo__nav">
+          <a href="{% url 'documento_inicio' %}">Enviar nota</a>
+          <a href="{% url 'logout' %}">Sair</a>
+        </nav>
+      {% endblock %}
     </div>
   </header>
 
   <main class="container">
-    {% if messages %}
-      <ul class="mensagens">
-        {% for message in messages %}
-          <li class="mensagem mensagem--{{ message.tags|default:'info' }}">{{ message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-
     {% block conteudo %}{% endblock %}
   </main>
 </body>

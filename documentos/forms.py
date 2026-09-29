@@ -5,7 +5,10 @@ from .validators import validar_pdf
 
 class DocumentoUploadForm(forms.Form):
     arquivo = forms.FileField(
-        error_messages={"required": "Selecione um arquivo PDF."}
+        error_messages={
+            "required": "Selecione um arquivo PDF.",
+            "empty": "O arquivo PDF está vazio.",
+        }
     )
 
     def clean_arquivo(self):

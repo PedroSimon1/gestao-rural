@@ -1,4 +1,4 @@
-/* Gestão Rural — interface de documentos (GR-14). Sem dependências externas. */
+/* Gestão Rural — interface da N2 - Etapa 1. Sem dependências externas. */
 
 :root {
   --cor-fundo: #f5f6f4;
@@ -8,12 +8,8 @@
   --cor-borda: #d9ded8;
   --cor-marca: #2f6b3a;
   --cor-marca-escura: #245330;
-  --cor-sucesso-fundo: #e5f3e8;
-  --cor-sucesso-texto: #1e5a2b;
   --cor-erro-fundo: #fbe9e7;
   --cor-erro-texto: #8a2418;
-  --cor-info-fundo: #e7eef8;
-  --cor-info-texto: #1f4a80;
   --cor-aviso-fundo: #fff4d6;
   --cor-aviso-texto: #7a5500;
   --raio: 8px;
@@ -78,6 +74,11 @@ h2 {
   font-size: 1.1rem;
 }
 
+.topo__nav {
+  display: flex;
+  gap: 20px;
+}
+
 .topo__nav a {
   color: #ffffff;
   text-decoration: none;
@@ -102,37 +103,6 @@ h2 {
 .texto-apoio {
   margin: 0 0 16px;
   color: var(--cor-texto-suave);
-}
-
-/* Mensagens (django.contrib.messages) */
-
-.mensagens {
-  list-style: none;
-  margin: 0 0 20px;
-  padding: 0;
-}
-
-.mensagem {
-  padding: 12px 16px;
-  border-radius: var(--raio);
-  margin-bottom: 8px;
-  background: var(--cor-info-fundo);
-  color: var(--cor-info-texto);
-}
-
-.mensagem--success {
-  background: var(--cor-sucesso-fundo);
-  color: var(--cor-sucesso-texto);
-}
-
-.mensagem--error {
-  background: var(--cor-erro-fundo);
-  color: var(--cor-erro-texto);
-}
-
-.mensagem--warning {
-  background: var(--cor-aviso-fundo);
-  color: var(--cor-aviso-texto);
 }
 
 /* Formulário */
@@ -192,102 +162,11 @@ h2 {
   cursor: not-allowed;
 }
 
-/* Tabela de documentos */
-
-.tabela-rolagem {
-  overflow-x: auto;
-}
-
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tabela th,
-.tabela td {
-  padding: 10px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--cor-borda);
-}
-
-.tabela th {
-  color: var(--cor-texto-suave);
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.tabela__nome {
-  word-break: break-all;
-}
-
-/* Selos de status */
-
-.selo {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-  background: var(--cor-info-fundo);
-  color: var(--cor-info-texto);
-}
-
-.selo--pendente {
-  background: var(--cor-aviso-fundo);
-  color: var(--cor-aviso-texto);
-}
-
-.selo--processando {
-  background: var(--cor-info-fundo);
-  color: var(--cor-info-texto);
-}
-
-.selo--concluido {
-  background: var(--cor-sucesso-fundo);
-  color: var(--cor-sucesso-texto);
-}
-
-.selo--erro {
-  background: var(--cor-erro-fundo);
-  color: var(--cor-erro-texto);
-}
-
-/* Página de detalhe */
+/* Resultado */
 
 h3 {
   margin: 16px 0 4px;
   font-size: 1rem;
-}
-
-.voltar {
-  margin: 0 0 12px;
-}
-
-.voltar a,
-.tabela__nome a {
-  color: var(--cor-marca);
-}
-
-.detalhe-cabecalho {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-
-.detalhe-cabecalho__nome {
-  margin: 0;
-  word-break: break-all;
-}
-
-.estado {
-  margin: 0 0 8px;
-  font-weight: 600;
-}
-
-.estado--processando {
-  color: var(--cor-info-texto);
 }
 
 .texto-apoio--pequeno {

@@ -1,12 +1,10 @@
 /*
- * Gestão Rural — proteção VISUAL contra clique duplo (GR-14).
+ * Gestão Rural — proteção VISUAL contra clique duplo.
  *
  * Só age em formulários marcados com data-submit-lock: no primeiro submit,
- * desabilita o botão e troca o texto (data-submit-texto). O POST continua
- * sendo um envio HTML normal; sem JavaScript tudo funciona igual.
- *
- * A proteção real contra processamento concorrente é da GR-12
- * (transaction.atomic + select_for_update em documentos/processamento.py).
+ * desabilita o botão e troca o texto (data-submit-texto), indicando que o
+ * processamento está em andamento. O POST continua sendo um envio HTML
+ * normal; sem JavaScript tudo funciona igual.
  */
 (function () {
   "use strict";

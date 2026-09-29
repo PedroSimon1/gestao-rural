@@ -1,0 +1,33 @@
+{% extends "documentos/base.html" %}
+{% load static %}
+
+{% block titulo %}Entrar — Gestão Rural{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'usuarios/login.css' %}">
+{% endblock %}
+
+{% block navegacao %}{% endblock %}
+
+{% block conteudo %}
+  <section class="cartao login">
+    <h1>Entrar</h1>
+    <p class="texto-apoio">Acesse com o login e a senha da demonstração.</p>
+
+    <form method="post" action="{% url 'login' %}" class="formulario" data-submit-lock data-submit-texto="Entrando...">
+      {% csrf_token %}
+
+      {% if erro %}
+        <div class="erro-geral" role="alert"><p>{{ erro }}</p></div>
+      {% endif %}
+
+      <label for="id_login" class="formulario__rotulo">Login</label>
+      <input type="text" name="login" id="id_login" class="login__campo" maxlength="150" autocomplete="username" required autofocus>
+
+      <label for="id_senha" class="formulario__rotulo">Senha</label>
+      <input type="password" name="senha" id="id_senha" class="login__campo" maxlength="256" autocomplete="current-password" required>
+
+      <button type="submit" class="botao">Entrar</button>
+    </form>
+  </section>
+{% endblock %}

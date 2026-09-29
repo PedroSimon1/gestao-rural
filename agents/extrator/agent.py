@@ -81,8 +81,7 @@ def _campos_invalidos(erro):
 class AgentExtrator:
     """Extrai dados estruturados de uma nota fiscal em PDF usando o Gemini.
 
-    Não altera o Documento: status, resultado_estruturado e metadados são
-    responsabilidade da orquestração (GR-12).
+    Recebe os bytes do PDF e devolve a NotaFiscalExtraida; não grava nada.
     """
 
     def __init__(self, cliente=None):
@@ -145,22 +144,3 @@ class AgentExtrator:
             raise ExtracaoInvalidaError()
 
         return nota
-
-    def extrair_documento(self, documento):
-        """Lê o PDF de um Documento pelo storage e delega para extrair()."""
-        arquivo = documento.arquivo
-        if not arquivo:
-            raise DocumentoIlegivelError()
-
-        try:
-            with arquivo.open("rb") as conteudo:
-                pdf_bytes = conteudo.read()
-        except (OSError, ValueError) as exc:
-            logger.warning(
-                "Falha ao ler o arquivo do documento %s (%s).",
-                documento.pk,
-                type(exc).__name__,
-            )
-            raise DocumentoIlegivelError() from exc
-
-        return self.extrair(pdf_bytes)
