@@ -1,80 +1,38 @@
-"""Orquestração do processamento de um Documento (GR-12).
+"""Orquestração stateless do processamento de uma nota fiscal em PDF.
 
-Fluxo: Documento → AgentExtrator → AgentClassificador → JSON final,
-com o estado e o resultado gravados no próprio Documento.
+Fluxo: bytes do PDF → AgentExtrator → AgentClassificador → JSON final.
+Nada é gravado: o PDF e o resultado existem só durante a requisição.
 """
 
 import logging
-
-from django.db import transaction
-from django.utils import timezone
+from dataclasses import dataclass
 
 from agents.classificador.agent import AgentClassificador, ClassificadorError
-from agents.classificador.schemas import VERSAO_SCHEMA as VERSAO_SCHEMA_CLASSIFICACAO
 from agents.extrator.agent import AgentExtrator, ExtratorError
-from agents.extrator.schemas import VERSAO_SCHEMA as VERSAO_SCHEMA_EXTRACAO
-
-from .models import Documento
 
 logger = logging.getLogger(__name__)
-
-VERSAO_RESULTADO = 1
 
 MENSAGEM_ERRO_INTERNO = "Erro inesperado ao processar o documento."
 
 
 class ProcessamentoError(Exception):
-    """Erro base do processamento. A mensagem é segura para exibir."""
+    """Falha do processamento. `mensagem` é segura para exibir na tela."""
 
-    codigo = "erro_processamento"
-    mensagem_padrao = "Não foi possível processar o documento."
-
-    def __init__(self, mensagem=None):
-        super().__init__(mensagem or self.mensagem_padrao)
-
-
-class DocumentoEmProcessamentoError(ProcessamentoError):
-    codigo = "documento_em_processamento"
-    mensagem_padrao = "O documento já está sendo processado."
+    def __init__(self, etapa, codigo, mensagem):
+        super().__init__(mensagem)
+        self.etapa = etapa
+        self.codigo = codigo
+        self.mensagem = mensagem
 
 
-def _reservar(documento_id):
-    """Passa o Documento para PROCESSANDO numa transação curta.
-
-    O lock (select_for_update) só dura a leitura, a checagem e o save:
-    as chamadas ao Gemini acontecem depois, fora da transação. Uma
-    execução concorrente espera o lock e então encontra PROCESSANDO.
-
-    Retorna (documento, reservado):
-    - PENDENTE ou ERRO → (documento em PROCESSANDO, True);
-    - CONCLUIDO        → (documento inalterado, False).
-    Lança DocumentoEmProcessamentoError se já estiver PROCESSANDO e
-    Documento.DoesNotExist se não existir.
-    """
-    with transaction.atomic():
-        documento = Documento.objects.select_for_update().get(pk=documento_id)
-
-        if documento.status == Documento.Status.PROCESSANDO:
-            raise DocumentoEmProcessamentoError()
-        if documento.status == Documento.Status.CONCLUIDO:
-            return documento, False
-
-        metadados = dict(documento.metadados)
-        metadados.pop("erro", None)
-        metadados["processamento"] = {
-            "versao_resultado": VERSAO_RESULTADO,
-            "iniciado_em": timezone.now().isoformat(),
-        }
-
-        documento.metadados = metadados
-        documento.status = Documento.Status.PROCESSANDO
-        documento.save(update_fields=["status", "metadados"])
-
-    return documento, True
+@dataclass(frozen=True)
+class ResultadoProcessamento:
+    resultado: dict
+    justificativa: str
 
 
-def _montar_resultado(nota, classificacao):
-    """Monta o JSON final da atividade (resultado_estruturado).
+def montar_resultado(nota, classificacao):
+    """Monta o JSON final da atividade.
 
     Parte do dump JSON da extração (dinheiro como string, datas ISO,
     validacoes incluído) e acrescenta quantidade_parcelas e tipo_despesa.
@@ -97,118 +55,47 @@ def _montar_resultado(nota, classificacao):
     }
 
 
-def _erro_seguro(documento, etapa, exc):
+def _erro(etapa, exc):
     # Só o código e a mensagem fixa da exceção; nunca __cause__ ou traceback,
     # que podem conter dados da nota ou detalhes da API.
-    logger.warning(
-        "Processamento do documento %s falhou (%s/%s).",
-        documento.pk,
-        etapa,
-        exc.codigo,
-    )
-    return {"etapa": etapa, "codigo": exc.codigo, "mensagem": str(exc)}
+    logger.warning("Processamento falhou (%s/%s).", etapa, exc.codigo)
+    return ProcessamentoError(etapa, exc.codigo, str(exc))
 
 
-def _registrar_sucesso(documento, resultado, processamento):
-    metadados = dict(documento.metadados)
-    metadados.pop("erro", None)
-    metadados["processamento"] = {
-        **metadados.get("processamento", {}),
-        **processamento,
-        "finalizado_em": timezone.now().isoformat(),
-    }
-
-    documento.status = Documento.Status.CONCLUIDO
-    documento.resultado_estruturado = resultado
-    documento.metadados = metadados
-    documento.save(update_fields=["status", "resultado_estruturado", "metadados"])
-
-
-def _registrar_erro(documento, erro):
-    metadados = dict(documento.metadados)
-    metadados["erro"] = erro
-    # Reconstruído do zero: se o save de sucesso falhou, dados das etapas
-    # (extracao, classificacao, justificativa) já estariam em memória.
-    metadados["processamento"] = {
-        "versao_resultado": VERSAO_RESULTADO,
-        "iniciado_em": metadados.get("processamento", {}).get("iniciado_em"),
-        "finalizado_em": timezone.now().isoformat(),
-    }
-
-    documento.status = Documento.Status.ERRO
-    documento.resultado_estruturado = {}
-    documento.metadados = metadados
-    documento.save(update_fields=["status", "resultado_estruturado", "metadados"])
-
-
-def _executar(documento, extrator, classificador):
-    """Roda Extrator e Classificador e grava o sucesso.
-
-    Retorna o erro seguro de uma falha esperada, ou None no sucesso.
-    """
+def _executar(pdf_bytes, extrator, classificador):
     if extrator is None:
         extrator = AgentExtrator()
     if classificador is None:
         classificador = AgentClassificador()
 
     try:
-        nota = extrator.extrair_documento(documento)
+        nota = extrator.extrair(pdf_bytes)
     except ExtratorError as exc:
-        return _erro_seguro(documento, "extracao", exc)
+        raise _erro("extracao", exc) from None
 
     try:
         classificacao = classificador.classificar(nota)
     except ClassificadorError as exc:
-        return _erro_seguro(documento, "classificacao", exc)
+        raise _erro("classificacao", exc) from None
 
-    resultado = _montar_resultado(nota, classificacao)
-    _registrar_sucesso(
-        documento,
-        resultado,
-        {
-            # modelo só é conhecido depois da chamada (cliente preguiçoso).
-            "extracao": {
-                "versao_schema": VERSAO_SCHEMA_EXTRACAO,
-                "modelo": extrator.modelo,
-            },
-            "classificacao": {
-                "versao_schema": VERSAO_SCHEMA_CLASSIFICACAO,
-                "modelo": classificador.modelo,
-                "justificativa": classificacao.justificativa,
-            },
-        },
+    return ResultadoProcessamento(
+        resultado=montar_resultado(nota, classificacao),
+        justificativa=classificacao.justificativa,
     )
-    return None
 
 
-def processar_documento(documento_id, *, extrator=None, classificador=None):
-    """Processa o PDF de um Documento e grava o resultado nele.
+def processar_pdf(pdf_bytes, *, extrator=None, classificador=None):
+    """Processa os bytes de um PDF e devolve o JSON final e a justificativa.
 
-    - PENDENTE ou ERRO → processa; termina em CONCLUIDO ou ERRO.
-    - CONCLUIDO        → devolve o documento sem chamar os Agents.
-    - PROCESSANDO      → DocumentoEmProcessamentoError (nada é alterado).
-    - inexistente      → Documento.DoesNotExist.
-
-    Falhas de extração, classificação ou inesperadas não são relançadas:
-    ficam registradas no Documento (status ERRO + metadados["erro"]).
-    Nenhuma transação fica aberta durante as chamadas aos Agents.
+    Toda falha (extração, classificação ou inesperada) vira
+    ProcessamentoError com etapa, código e mensagem seguros.
     """
-    documento, reservado = _reservar(documento_id)
-    if not reservado:
-        return documento
-
     try:
-        erro = _executar(documento, extrator, classificador)
+        return _executar(pdf_bytes, extrator, classificador)
+    except ProcessamentoError:
+        raise
     except Exception:
-        logger.exception("Erro inesperado ao processar o documento %s.", documento.pk)
-        erro = {
-            "etapa": "processamento",
-            "codigo": "erro_interno",
-            "mensagem": MENSAGEM_ERRO_INTERNO,
-        }
-
-    if erro is not None:
-        # Se esta gravação falhar, a exceção sobe.
-        _registrar_erro(documento, erro)
-
-    return documento
+        logger.exception("Erro inesperado ao processar o documento.")
+        raise ProcessamentoError(
+            "processamento", "erro_interno", MENSAGEM_ERRO_INTERNO
+        ) from None

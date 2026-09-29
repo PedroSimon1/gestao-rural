@@ -1,0 +1,23 @@
+/* Gestão Rural — tela de login da demonstração. Usa as variáveis de documentos.css. */
+
+.login {
+  max-width: 400px;
+  margin: 24px auto 0;
+}
+
+.login__campo {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  font: inherit;
+}
+
+.login__campo:focus-visible {
+  outline: 2px solid var(--cor-marca);
+  outline-offset: 1px;
+}
+
+.login .botao {
+  width: 100%;
+}

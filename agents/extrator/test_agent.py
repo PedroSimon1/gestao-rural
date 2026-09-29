@@ -2,12 +2,10 @@ import base64
 import json
 import logging
 from decimal import Decimal
-from tempfile import TemporaryDirectory
 from unittest import mock
 
 import httpx
-from django.core.files.base import ContentFile
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, override_settings
 from google.genai import types
 
 from agents.gemini_client import (
@@ -18,7 +16,6 @@ from agents.gemini_client import (
     GeminiRespostaInvalidaError,
     GeminiTimeoutError,
 )
-from documentos.models import Documento
 
 from .agent import (
     INSTRUCAO_SISTEMA,
@@ -449,82 +446,3 @@ class PayloadEnviadoAoGeminiTests(SimpleTestCase):
         self.assertIn("systemInstruction", corpo)
 
         self.assertEqual(nota.validacoes.faturado_cpf.status, "invalido")
-
-
-@override_settings(GEMINI_API_KEY=None)
-class ExtrairDocumentoTests(TestCase):
-    def setUp(self):
-        self.pasta_temporaria = TemporaryDirectory()
-        self.addCleanup(self.pasta_temporaria.cleanup)
-
-        configuracao = override_settings(MEDIA_ROOT=self.pasta_temporaria.name)
-        configuracao.enable()
-        self.addCleanup(configuracao.disable)
-
-        self.cliente = mock.Mock(spec=GeminiClient)
-        self.cliente.gerar_json.return_value = nota_valida()
-        self.agent = AgentExtrator(cliente=self.cliente)
-
-    def criar_documento(self, conteudo=PDF):
-        return Documento.objects.create(
-            arquivo=ContentFile(conteudo, name="nota.pdf"),
-            nome_original="nota.pdf",
-        )
-
-    def assert_documento_inalterado(self, documento):
-        documento.refresh_from_db()
-        self.assertEqual(documento.status, Documento.Status.PENDENTE)
-        self.assertEqual(documento.resultado_estruturado, {})
-        self.assertEqual(documento.metadados, {})
-
-    def test_documento_com_pdf_valido(self):
-        documento = self.criar_documento()
-
-        nota = self.agent.extrair_documento(documento)
-
-        self.assertIsInstance(nota, NotaFiscalExtraida)
-        parte_pdf = self.cliente.gerar_json.call_args.args[0][1]
-        self.assertEqual(parte_pdf.inline_data.data, PDF)
-        self.assertTrue(documento.arquivo.closed)
-        self.assert_documento_inalterado(documento)
-
-    def test_arquivo_removido_do_storage(self):
-        documento = self.criar_documento()
-        documento.arquivo.storage.delete(documento.arquivo.name)
-        documento = Documento.objects.get(pk=documento.pk)
-
-        with self.assertLogs("agents.extrator.agent", "WARNING"):
-            with self.assertRaises(DocumentoIlegivelError) as contexto:
-                self.agent.extrair_documento(documento)
-
-        self.assertIsInstance(contexto.exception.__cause__, OSError)
-        self.cliente.gerar_json.assert_not_called()
-        self.assert_documento_inalterado(documento)
-
-    def test_documento_sem_arquivo(self):
-        documento = Documento.objects.create(arquivo="", nome_original="nota.pdf")
-
-        with self.assertRaises(DocumentoIlegivelError):
-            self.agent.extrair_documento(documento)
-
-        self.cliente.gerar_json.assert_not_called()
-        self.assert_documento_inalterado(documento)
-
-    def test_arquivo_vazio(self):
-        documento = self.criar_documento(b"")
-
-        with self.assertRaises(DocumentoIlegivelError):
-            self.agent.extrair_documento(documento)
-
-        self.cliente.gerar_json.assert_not_called()
-        self.assert_documento_inalterado(documento)
-
-    def test_falha_do_gemini_nao_altera_o_documento(self):
-        documento = self.criar_documento()
-        self.cliente.gerar_json.side_effect = GeminiTimeoutError("timeout")
-
-        with self.assertLogs("agents.extrator.agent", "WARNING"):
-            with self.assertRaises(ExtracaoIndisponivelError):
-                self.agent.extrair_documento(documento)
-
-        self.assert_documento_inalterado(documento)

@@ -32,20 +32,13 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
+# MVP da N2 - Etapa 1 sem banco de dados: sem admin, auth, contenttypes,
+# sessions (app), messages nem models próprios.
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Bibliotecas externas
-    'rest_framework',
-
     # Apps do projeto
-    'financeiro',
     'documentos',
     'usuarios',
 ]
@@ -55,8 +48,6 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -70,8 +61,6 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
@@ -81,43 +70,15 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+# Nenhum banco: o Django usa o backend "dummy", que recusa qualquer consulta.
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT"),
-    }
-}
+DATABASES = {}
 
 
-# Custom user model
-# https://docs.djangoproject.com/en/6.1/topics/auth/customizing/#substituting-a-custom-user-model
+# Sessão
+# Cookie assinado (sem banco). Guarda só o indicador do login da demonstração.
 
-AUTH_USER_MODEL = "usuarios.Usuario"
-
-
-# Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 
 # Internationalization
@@ -135,13 +96,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MEDIA_ROOT = BASE_DIR / "media"
-MEDIA_URL = "/media/"
-
-# Limite máximo para upload de PDFs
+# Limite máximo para upload de PDFs (o PDF não é gravado; só é lido na requisição)
 
 MAX_PDF_UPLOAD_SIZE_MB = int(os.getenv("MAX_PDF_UPLOAD_SIZE_MB", "10"))
 MAX_PDF_UPLOAD_SIZE = MAX_PDF_UPLOAD_SIZE_MB * 1024 * 1024
@@ -153,3 +108,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL")
 GEMINI_TIMEOUT_SEGUNDOS = os.getenv("GEMINI_TIMEOUT_SEGUNDOS") or "60"
 GEMINI_MAX_TENTATIVAS = os.getenv("GEMINI_MAX_TENTATIVAS") or "3"
+
+# Login da demonstração (usuarios/demo.py)
+# Sem usuários: as credenciais vêm do ambiente e a autenticação fica só na
+# sessão (cookie assinado). Ausentes ou vazias, o login recusa todo acesso.
+
+DEMO_LOGIN = os.getenv("DEMO_LOGIN")
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD")

@@ -14,9 +14,6 @@ def validar_pdf(arquivo):
     if not nome_original.lower().endswith(".pdf"):
         raise ValidationError("Selecione um arquivo PDF.")
 
-    if arquivo.size == 0:
-        raise ValidationError("O arquivo PDF está vazio.")
-
     if arquivo.size > settings.MAX_PDF_UPLOAD_SIZE:
         raise ValidationError(
             f"O arquivo excede o limite de "
@@ -33,6 +30,7 @@ def validar_pdf(arquivo):
     if cabecalho != b"%PDF-":
         raise ValidationError("O arquivo enviado não é um PDF válido.")
 
+    # O nome só é exibido na tela; o arquivo nunca é gravado.
     arquivo.name = get_valid_filename(nome_original)
 
     return arquivo
