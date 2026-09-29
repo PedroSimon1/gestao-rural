@@ -15,6 +15,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+
+def _lista_do_ambiente(nome):
+    """Lista separada por vírgulas: remove espaços, itens vazios e duplicados."""
+    itens = (item.strip() for item in os.getenv(nome, "").split(","))
+    return list(dict.fromkeys(item for item in itens if item))
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,7 +35,30 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+# Hosts e origens vêm do ambiente (DJANGO_ALLOWED_HOSTS e
+# DJANGO_CSRF_TRUSTED_ORIGINS, separados por vírgula). No Render, o hostname
+# externo (RENDER_EXTERNAL_HOSTNAME, definido pela plataforma) entra sozinho.
+# Com DEBUG=True e lista vazia, o Django já aceita localhost e 127.0.0.1.
+ALLOWED_HOSTS = _lista_do_ambiente("DJANGO_ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = _lista_do_ambiente("DJANGO_CSRF_TRUSTED_ORIGINS")
+
+_render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if _render_hostname:
+    ALLOWED_HOSTS = list(dict.fromkeys([*ALLOWED_HOSTS, _render_hostname]))
+    CSRF_TRUSTED_ORIGINS = list(
+        dict.fromkeys([*CSRF_TRUSTED_ORIGINS, f"https://{_render_hostname}"])
+    )
+
+# HTTPS
+# O Render termina o TLS no proxy e informa o protocolo original neste
+# cabeçalho; sem ele, o Django veria HTTP e recusaria o CSRF do login.
+# HSTS e redirecionamento HTTP→HTTPS ficam com a plataforma (ver 34.7).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Cookies só por HTTPS em produção; em desenvolvimento (DEBUG=True) o login
+# continua funcionando em http://127.0.0.1. HttpOnly segue o padrão do Django.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
@@ -45,6 +75,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Serve os arquivos estáticos em produção (sem servidor web separado).
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -94,6 +126,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+# Destino do collectstatic (build). Não versionado (.gitignore).
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Em produção, WhiteNoise com nomes com hash e compressão (exige collectstatic).
+# Em desenvolvimento e nos testes, o storage simples do Django, que não depende
+# do manifesto. "default" mantém o alias padrão; nenhum arquivo é gravado nele.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
 
 
 # Limite máximo para upload de PDFs (o PDF não é gravado; só é lido na requisição)
