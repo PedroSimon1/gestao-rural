@@ -2333,3 +2333,177 @@ Arquivos versionados alterados: `.env.example` e `analisetemporaria.md`.
 - fixar a versão do Python; nova `DJANGO_SECRET_KEY` de produção; `DEMO_*` iguais ao `README.txt`; decidir timeout e tentativas do Gemini para a apresentação;
 - testes das configurações de produção; `check --deploy` sem avisos relevantes.
 - Commit/PR desta fase não realizados.
+
+## 34.7 - Preparação Local para Produção no Render
+
+**Data:** 2026-09-29 · **Branch:** `feature/n2-etapa1-render-deploy` · **Commit base:** `72174ce` (merge do PR #17: Fases A e B) · **Estado:** implementado e validado localmente, **sem commit e sem deploy**.
+
+### Objetivo
+
+Fase C.1: deixar o repositório pronto e testado localmente para produção no Render, tratando os 6 bloqueadores e os itens de prioridade alta da 34.4. **Nenhum serviço foi criado no Render**, o Dashboard não foi acessado e não há `render.yaml`. A aplicação funcional (Agents, JSON, login, chave, PDF, templates, CSS, JS, rotas, sessão) não foi alterada, e nenhum banco foi introduzido.
+
+### Estado inicial
+
+Branch `feature/n2-etapa1-render-deploy`, árvore limpa, Python 3.14.7, `check` sem problemas, **272 testes OK**, `git diff --check` limpo.
+
+### Premissas do Render consideradas
+
+- o Web Service escuta em `0.0.0.0:$PORT`, e o `PORT` é definido pela plataforma;
+- o TLS termina no proxy do Render, que encaminha a requisição com `X-Forwarded-Proto`;
+- `RENDER_EXTERNAL_HOSTNAME` traz o hostname externo do serviço;
+- `WEB_CONCURRENCY` pode vir da plataforma conforme o plano;
+- o limite relevante de duração da resposta é o timeout do próprio Gunicorn (padrão de 30 s);
+- a versão do Python pode ser fixada com `.python-version`.
+
+### Dependências adicionadas
+
+| Pacote | Versão | Dependências próprias | Uso |
+| --- | --- | --- | --- |
+| `gunicorn` | **26.2.0** (mais recente disponível) | nenhuma (só extras opcionais) | servidor WSGI de produção |
+| `whitenoise` | **6.12.0** (mais recente disponível) | nenhuma | static files em produção |
+
+`requirements.txt`: só as 2 linhas adicionadas, em ordem alfabética. Todas as versões existentes foram preservadas. `pip freeze` do `.venv` == `requirements.txt` (31 pacotes); `pip check` sem problemas. Não foram adicionados `uvicorn`, `psycopg*`, `dj-database-url`, DRF, `celery` nem `redis`.
+
+### Compatibilidade WhiteNoise + Django 6.1.1 (e Gunicorn + Python 3.14)
+
+| Item | Resultado |
+| --- | --- |
+| Versões | WhiteNoise 6.12.0 · Gunicorn 26.2.0 · Django 6.1.1 · Python 3.14.7 |
+| Metadados do WhiteNoise | `Requires-Python >=3.10`; classifiers de Django **4.2, 5.0, 5.1, 5.2 e 6.0**, **sem 6.1**; Python até 3.14 |
+| Metadados do Gunicorn | `Requires-Python >=3.10`; classifiers de Python até **3.13**, **sem 3.14** |
+| Instalação | primeiro em venv descartável fora do projeto, depois no `.venv` do projeto; sem conflitos (`pip check` OK) |
+| `collectstatic` (`DEBUG=False`) | OK: 3 arquivos, 9 pós-processados (nomes com hash + `.gz`) + `staticfiles.json` |
+| Middleware | carrega sem erro nem warning; posição validada por teste |
+| Static com `DEBUG=False` + Gunicorn | 200 para as URLs com hash referenciadas no HTML e para as URLs sem hash; `Content-Type` correto; `Content-Encoding: gzip` quando pedido |
+| Suíte completa | 291 OK |
+| Warnings/erros | nenhum no log do Gunicorn, no `collectstatic` nem nos testes |
+
+**Classificação:** compatibilidade funcional validada neste projeto; verificar o suporte oficial do pacote para Django 6.1 antes de considerar uso de longo prazo. Os metadados do WhiteNoise **não declaram Django 6.1**, e os do Gunicorn **não declaram Python 3.14**. Os dois funcionaram sem nenhum problema nesta validação, mas isso não é declaração oficial de suporte.
+
+### Alterações em `config/settings.py`
+
+- **`_lista_do_ambiente(nome)`**: lê uma variável separada por vírgulas, remove espaços, itens vazios e duplicados (mantendo a ordem).
+- **`ALLOWED_HOSTS`** = `DJANGO_ALLOWED_HOSTS` + `RENDER_EXTERNAL_HOSTNAME` (quando existir), sem duplicados. Nenhum domínio fixo no código (testado). Em desenvolvimento, com `DEBUG=True` e lista vazia, o Django continua aceitando `localhost`/`127.0.0.1`/`[::1]`, então o `.env` local não precisa mudar.
+- **`CSRF_TRUSTED_ORIGINS`** = `DJANGO_CSRF_TRUSTED_ORIGINS` + `https://<RENDER_EXTERNAL_HOSTNAME>`, sem duplicados.
+- **`SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`**: o Django reconhece a requisição original HTTPS atrás do proxy. Sem isso, o POST do login seria recusado por CSRF (bloqueador 4 da 34.4). O cabeçalho só é confiável porque o proxy do Render o define. Em desenvolvimento local não há risco relevante.
+- **Cookies:** `SESSION_COOKIE_SECURE = not DEBUG` e `CSRF_COOKIE_SECURE = not DEBUG`. `SESSION_COOKIE_HTTPONLY` continua `True` (padrão). O backend `signed_cookies` não mudou.
+- **Middleware:** `whitenoise.middleware.WhiteNoiseMiddleware` logo após `SecurityMiddleware`. Os demais ficaram na mesma ordem.
+- **Static:** `STATIC_URL = 'static/'` (inalterado), `STATIC_ROOT = BASE_DIR / "staticfiles"`.
+- **`STORAGES`:** `"default"` = `FileSystemStorage` (alias padrão preservado; nada é gravado nele, sem `MEDIA_ROOT`). `"staticfiles"` = `whitenoise.storage.CompressedManifestStaticFilesStorage` **quando `DEBUG=False`**, e `django.contrib.staticfiles.storage.StaticFilesStorage` quando `DEBUG=True`.
+  - **Por que condicional:** o storage com manifesto exige `collectstatic` e troca as URLs por nomes com hash. Se estivesse sempre ativo, a suíte (que roda com `DEBUG=False` em tempo de execução) passaria a depender do `collectstatic`, e testes existentes que conferem `/static/documentos/documentos.js` quebrariam. Em produção o build sempre roda `collectstatic`. Consequência: rode a suíte no modo de desenvolvimento (como sempre foi feito); a configuração de produção é coberta pelos testes em subprocesso.
+- **HSTS / `SECURE_SSL_REDIRECT`:** **não** configurados, por decisão (ver `check --deploy`).
+
+### `.gitignore`, `.env.example` e `.python-version`
+
+- `.gitignore`: + `staticfiles/` (seção Django). Confirmado com `git check-ignore -v staticfiles/` → `.gitignore:17`.
+- `.env.example` (preservadas as variáveis da 34.6):
+  - + `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1`;
+  - + `DJANGO_CSRF_TRUSTED_ORIGINS=` (vazio, para origens extras);
+  - + `GUNICORN_TIMEOUT=420`;
+  - comentários: o hostname e a origem do Render entram automaticamente; `PORT` e `WEB_CONCURRENCY` são do Render e **não** devem ser definidos manualmente;
+  - continuam fora: `GEMINI_API_KEY`, `DB_*`, `DATABASE_URL`, valores reais e hostname real (testado).
+- `.python-version`: **`3.14.7`**, a mesma versão do ambiente local validado (publicada, é a que está instalada). A aceitação pelo Render será confirmada no log do primeiro build (pendência).
+
+### `build.sh` e `start.sh`
+
+```bash
+# build.sh (Build Command: ./build.sh)
+python -m pip install -r requirements.txt
+python manage.py collectstatic --noinput
+```
+
+```bash
+# start.sh (Start Command: ./start.sh)
+exec python -m gunicorn config.wsgi:application \
+    --bind "0.0.0.0:${PORT:-8000}" \
+    --workers "${WEB_CONCURRENCY:-1}" \
+    --timeout "${GUNICORN_TIMEOUT:-420}"
+```
+
+- Os dois usam `#!/usr/bin/env bash` + `set -o errexit`, modo **755**. Com `core.fileMode=true`, o bit executável será versionado.
+- `build.sh` não roda `migrate`, `makemigrations`, `createsuperuser` nem nenhum comando de banco (testado, ignorando comentários).
+- `start.sh` não usa `runserver`; `exec` faz o Gunicorn receber os sinais do Render diretamente.
+- **Localmente**, os dois devem rodar com o `.venv` ativado (eles chamam `python`). Sem ele, o `pip install` do `build.sh` tentaria usar o Python do sistema.
+
+### Timeout e workers
+
+- **`GUNICORN_TIMEOUT=420` s (7 min)**. Pior caso do fluxo: 2 chamadas × até 3 tentativas × 60 s + backoff ≈ 6 min+. O padrão de 30 s do Gunicorn mataria o worker (bloqueador 5 da 34.4). `GEMINI_TIMEOUT_SEGUNDOS` (60) e `GEMINI_MAX_TENTATIVAS` (3) **não foram alterados**; podem ser reduzidos depois, só pelas variáveis do Render, para limitar o pior caso na apresentação.
+- **Workers:** `${WEB_CONCURRENCY:-1}` (o valor da plataforma quando existir; 1 localmente). Worker `sync`, sem threads. Com 1 worker, um processamento longo ocupa o servidor. Se o plano do Render definir `WEB_CONCURRENCY` ≥ 2, o login e outras telas continuam respondendo.
+
+### Testes novos: `config/test_producao.py` (19)
+
+Cada cenário de settings roda em um **subprocesso Python novo** com o ambiente controlado. Todas as variáveis lidas pelo settings são definidas explicitamente, para que o `.env` local não interfira (o `load_dotenv()` não sobrescreve variáveis presentes). `DATABASE_URL`, `GEMINI_API_KEY` e `GOOGLE_API_KEY` são removidas do ambiente do subprocesso.
+
+| Classe | Testes |
+| --- | --- |
+| `HostsECsrfTests` (5) | `RENDER_EXTERNAL_HOSTNAME` entra em `ALLOWED_HOSTS` e gera `https://...` em `CSRF_TRUSTED_ORIGINS`; múltiplos hosts com espaços, itens vazios e duplicados; múltiplas origens sem duplicar a do Render; listas vazias sem variáveis; nenhum domínio fixo no settings |
+| `HttpsECookiesTests` (3) | `SECURE_PROXY_SSL_HEADER`; cookies `Secure` com `DEBUG=False`; não `Secure` com `DEBUG=True`; `HttpOnly` nos dois |
+| `ArquivosEstaticosTests` (3) | WhiteNoise na 2ª posição, logo após `SecurityMiddleware`; `STATIC_ROOT` configurado e `staticfiles/` no `.gitignore`; backend de static por modo + alias `default` preservado |
+| `SemBancoNemChaveEmProducaoTests` (2) | produção com backend `dummy`, sem `DATABASE_URL` e sem `GEMINI_API_KEY` em settings; `check --deploy` em produção simulada **só** com W004/W008 |
+| `ScriptsDeDeployTests` (6) | scripts existem, são executáveis, têm shebang e `errexit`; build sem comandos de banco; start com Gunicorn, `0.0.0.0:$PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT` e sem `runserver`; `.python-version` válido (≥ 3.12, exigência do Django 6.1); `gunicorn`/`whitenoise` fixados e sem pacotes de banco; `.env.example` com as novas variáveis, sem chave, banco, hostname real ou `PORT`, e com segredos vazios |
+
+**Total final: 291 testes** (272 + 19), todos OK. Os testes de ausência de banco e de sigilo continuam passando sem alteração.
+
+### Validações executadas
+
+| Validação | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` (antes e depois do `build.sh`) |
+| `python manage.py test` | **`Ran 291 tests` — OK** |
+| `git diff --check` | sem problemas; arquivos novos sem espaços no fim da linha e com newline final |
+| `./build.sh` (`.venv` ativado, `.env` local de desenvolvimento) | instalação OK; `collectstatic`: 3 arquivos (`documentos.css`, `documentos.js`, `login.css`); `staticfiles/` criada e ignorada |
+| `findstatic` | os 3 arquivos são encontrados nas pastas `static/` dos apps |
+| `./start.sh` em desenvolvimento (porta 8766) | Gunicorn 26.2.0, worker `sync`, escutando em `0.0.0.0`; `/login/` 200; `/documentos/` sem sessão → 302 `/login/`; os 3 statics 200; encerrado de forma limpa, sem warnings |
+
+**Simulação de produção** (variáveis só no processo; `.env` intacto; `DJANGO_SECRET_KEY` forte gerada em memória e não registrada; login e senha fictícios):
+
+| Verificação | Resultado |
+| --- | --- |
+| `collectstatic` com `DEBUG=False` | manifesto `staticfiles.json` + arquivos com hash e `.gz` |
+| `/login/` (host `127.0.0.1` listado) | 200 |
+| CSS e JS com hash (referenciados no HTML) e sem hash | 200 (`text/css` / `text/javascript`); gzip servido quando pedido |
+| host inválido (`Host: invasor.exemplo.com`) | **400** |
+| `DEBUG` desligado | rota inexistente → 404 **sem** página técnica do Django |
+| cookie `csrftoken` | `Secure; SameSite=Lax` |
+| POST do login por HTTP puro, sem `X-Forwarded-Proto` | 403 (esperado: sem HTTPS, o CSRF recusa) |
+| **Proxy HTTPS simulado** (`RENDER_EXTERNAL_HOSTNAME=app-simulado.onrender.com`, sem `DJANGO_ALLOWED_HOSTS`, cabeçalhos `Host` e `X-Forwarded-Proto: https`) | host do Render aceito (200) e `127.0.0.1` recusado (400); **login completo → 302 `/documentos/`**; cookie `sessionid` com `HttpOnly; Secure; SameSite=Lax`; `/documentos/` autenticado → 200 com o campo da Gemini API Key; POST com `Origin` de outro site → 403 |
+| Log do Gunicorn | sem warnings nem erros |
+
+A validação completa do login foi feita pelo caminho do proxy HTTPS simulado. Os cookies continuam `Secure` em produção; nenhuma proteção foi afrouxada para testar por HTTP.
+
+### `check --deploy` (produção simulada)
+
+Resultado: **2 avisos**, ambos aceitos deliberadamente:
+
+| Aviso | Decisão |
+| --- | --- |
+| `security.W004` (`SECURE_HSTS_SECONDS` não definido) | **aceito**. HSTS mal configurado é difícil de desfazer (o navegador guarda a política); perto da entrega não se justifica. O Render já serve só HTTPS no domínio `onrender.com` |
+| `security.W008` (`SECURE_SSL_REDIRECT` não é `True`) | **aceito**. O Render já redireciona HTTP→HTTPS na borda |
+
+W009 (secret fraca), W011/W016 (cookies), W018 (`DEBUG`) e W020 (`ALLOWED_HOSTS`) **não aparecem** mais na simulação (verificado também por teste).
+
+### Git
+
+Arquivos modificados: `requirements.txt`, `config/settings.py`, `.env.example`, `.gitignore`, `analisetemporaria.md`. Criados: `config/test_producao.py`, `build.sh`, `start.sh`, `.python-version`. `README.txt`, `.env` (SHA-256 iguais antes e depois) e `ContextoProjeto.md` não foram alterados. `staticfiles/` está ignorada. Sem commit, push ou PR.
+
+### Limitações
+
+- WhiteNoise sem declaração oficial para Django 6.1 e Gunicorn sem declaração oficial para Python 3.14 (validados só funcionalmente, neste projeto).
+- A suíte deve rodar no modo de desenvolvimento (`DJANGO_DEBUG=True`, como no `.env` local). Com `DJANGO_DEBUG=False` no ambiente, os testes passariam a exigir o manifesto do `collectstatic`.
+- Com 1 worker, um processamento longo bloqueia outras requisições até terminar.
+- A aceitação do Python 3.14.7 e o comportamento real do Render (cold start, `WEB_CONCURRENCY` do plano) só serão confirmados no deploy.
+- Nenhuma chamada real ao Gemini foi feita nesta fase.
+
+### Pendências para o Dashboard do Render (Fase C.2)
+
+- **Build Command:** `./build.sh` · **Start Command:** `./start.sh`;
+- variáveis:
+  - `DJANGO_SECRET_KEY` (nova, forte, só no Render);
+  - `DEMO_LOGIN`/`DEMO_PASSWORD` (iguais ao `README.txt`);
+  - `GEMINI_MODEL`, `GEMINI_TIMEOUT_SEGUNDOS`, `GEMINI_MAX_TENTATIVAS`;
+  - `GUNICORN_TIMEOUT` (opcional, padrão 420);
+  - `DJANGO_ALLOWED_HOSTS`/`DJANGO_CSRF_TRUSTED_ORIGINS` só se houver domínio extra;
+  - **não** definir `DJANGO_DEBUG` (ou definir `False`), `PORT` nem `GEMINI_API_KEY`;
+- confirmar no log do build a versão do Python (3.14.7) e o `collectstatic`;
+- verificar o `WEB_CONCURRENCY` do plano e o cold start;
+- depois do deploy: login, static, processamento real com uma chave e a URL no `README.txt` (Fase D).
