@@ -45,7 +45,7 @@ INSTRUCAO_EXTRACAO = (
 
 
 class ExtratorError(Exception):
-    """Erro base do Agent Extrator. A mensagem é segura para exibir ou gravar."""
+    """Erro base do Agent Extrator. A mensagem é segura para exibir ao usuário."""
 
     codigo = "erro_extracao"
     mensagem_padrao = "Não foi possível extrair os dados do documento."
