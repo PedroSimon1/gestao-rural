@@ -2278,3 +2278,58 @@ Só comentário e docstring. `LIMITE_VALOR_MONETARIO`, validators, schema, promp
 - **Fase C:** os 6 bloqueadores do Render e os itens de prioridade alta (achados 1 a 10 e 16).
 - **Fase D:** URL no `README.txt`, teste real no Render e consolidação do `ContextoProjeto.md`.
 - Commit/PR não realizados.
+
+## 34.6 - Ajustes Leves Pré-Deploy
+
+**Data:** 2026-09-29 · **Branch:** `chore/n2-etapa1-pre-deploy-cleanup` · **Base:** `bf94c9d` (Fase A commitada) · **Estado:** executado, **sem commit**.
+
+### Objetivo
+
+Executar a **Fase B** do plano da 34.4 (achados 21 e 24): deixar o `.env.example` só com exemplos, sem credenciais reais ou parecidas com reais, e documentar `MAX_PDF_UPLOAD_SIZE_MB`. Não é a configuração do Render.
+
+### Alteração do `.env.example`
+
+| Variável | Antes | Depois |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | placeholder textual `SUA_CHAVE_SECRETA_DJANGO` | **vazio**, com comentário: obrigatória, gerar valor longo e aleatório |
+| `DJANGO_DEBUG` | `True` | `True` (inalterado, uso local) |
+| `DEMO_LOGIN` | **valor igual ao login real da apresentação** | **vazio** |
+| `DEMO_PASSWORD` | placeholder textual `SUA_SENHA_DE_LOGIN` | **vazio** |
+| `GEMINI_MODEL` / `GEMINI_TIMEOUT_SEGUNDOS` / `GEMINI_MAX_TENTATIVAS` | `gemini-3.5-flash-lite` / `60` / `3` | inalterados |
+| `MAX_PDF_UPLOAD_SIZE_MB` | ausente | **`10`** (mesmo padrão do `settings.py`), com comentário "Tamanho máximo do PDF enviado, em MB." |
+| `GEMINI_API_KEY` | ausente | **continua ausente** |
+
+Comentários do arquivo:
+
+- cabeçalho: copiar para `.env`, preencher e nunca versionar valores reais;
+- `DJANGO_SECRET_KEY` vazia faz **toda requisição falhar** (`ImproperlyConfigured: The SECRET_KEY setting must not be empty`; verificado nesta fase, e o `check` sozinho não detecta). Por isso o comentário diz "requisição falha", e não "o Django não inicia";
+- `DEMO_*` vazias fazem o login recusar todo acesso (comportamento de `usuarios/demo.py`);
+- Gemini API Key: "NÃO é configurada aqui: ela é informada na interface a cada processamento e não é armazenada."
+
+**Valor real encontrado e removido:** somente o exemplo de `DEMO_LOGIN`, que coincidia com o login real (identificado na 34.4). Os outros eram placeholders textuais, trocados por vazio. O valor não é repetido aqui. Continua no histórico do Git (commits anteriores), mas é só o login; a senha e a chave nunca foram versionadas.
+
+Nenhum valor do `.env` real foi lido ou copiado, e o `.env` e o `README.txt` não foram alterados.
+
+### Não feito nesta fase (Fase C)
+
+Nenhuma variável ou configuração do Render foi adicionada: `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `RENDER_EXTERNAL_HOSTNAME`, `PORT` e `PYTHON_VERSION` continuam fora. Nenhum código, setting, dependência ou `.gitignore` mudou.
+
+### Validações executadas
+
+| Comando | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` |
+| `python manage.py test` | **`Ran 272 tests` — OK** |
+| `git diff --check` | sem problemas |
+
+Arquivos versionados alterados: `.env.example` e `analisetemporaria.md`.
+
+### Pendências para a Fase C
+
+- `requirements.txt`: + `gunicorn`, + `whitenoise`;
+- `settings.py`: `ALLOWED_HOSTS` do ambiente (+ `RENDER_EXTERNAL_HOSTNAME`), `CSRF_TRUSTED_ORIGINS`, `SECURE_PROXY_SSL_HEADER`, cookies seguros quando `not DEBUG`, `STATIC_ROOT` + WhiteNoise; `.gitignore` + `staticfiles/`;
+- `.env.example`: documentar as novas variáveis de deploy;
+- build (`pip install` + `collectstatic`, sem `migrate`) e start (`gunicorn ... --bind 0.0.0.0:$PORT --timeout <N>`);
+- fixar a versão do Python; nova `DJANGO_SECRET_KEY` de produção; `DEMO_*` iguais ao `README.txt`; decidir timeout e tentativas do Gemini para a apresentação;
+- testes das configurações de produção; `check --deploy` sem avisos relevantes.
+- Commit/PR desta fase não realizados.
