@@ -1,7 +1,10 @@
 import json
+import logging
+import os
 from unittest import mock
 
 from django.test import SimpleTestCase, override_settings
+from google.genai import errors
 
 from agents.classificador.agent import (
     AgentClassificador,
@@ -17,10 +20,10 @@ from agents.extrator.agent import (
     ExtracaoInvalidaError,
 )
 from agents.extrator.schemas import NotaFiscalExtraida
-from agents.gemini_client import GeminiClient
 
 from .processamento import (
     MENSAGEM_ERRO_INTERNO,
+    MENSAGEM_GEMINI_NAO_CONFIGURADO,
     ProcessamentoError,
     ResultadoProcessamento,
     montar_resultado,
@@ -28,6 +31,7 @@ from .processamento import (
 )
 
 PDF = b"%PDF-1.4\nconteudo de teste\n%%EOF\n"
+CHAVE_FORMULARIO = "chave-do-formulario-teste-n2"
 DETALHE_INTERNO = "detalhe-interno-xyz"
 
 CHAVES_RESULTADO = [
@@ -197,9 +201,8 @@ class MontarResultadoTests(SimpleTestCase):
         self.assertEqual(len(segundo["parcelas"]), 2)
 
 
-# GEMINI_API_KEY ausente: mesmo que algo escape dos mocks, não há como autenticar.
 # SimpleTestCase: qualquer consulta ao banco faria o teste falhar.
-@override_settings(GEMINI_API_KEY=None, GEMINI_MODEL="modelo-teste")
+@override_settings(GEMINI_MODEL="modelo-teste")
 class ProcessarPdfTestBase(SimpleTestCase):
     def setUp(self):
         patcher = mock.patch(
@@ -216,7 +219,7 @@ class ProcessarPdfTestBase(SimpleTestCase):
 
     def processar(self, pdf=PDF):
         return processar_pdf(
-            pdf, extrator=self.extrator, classificador=self.classificador
+            pdf, CHAVE_FORMULARIO, extrator=self.extrator, classificador=self.classificador
         )
 
     def assert_erro(self, etapa, codigo, mensagem=None):
@@ -264,17 +267,21 @@ class ProcessarPdfSucessoTests(ProcessarPdfTestBase):
 
         self.assertEqual(ordem, ["extrator", "classificador"])
 
-    def test_agents_padrao_sao_criados_quando_nao_injetados(self):
-        with mock.patch("documentos.processamento.AgentExtrator") as extrator, mock.patch(
+    def test_agents_padrao_compartilham_um_cliente_com_a_chave_informada(self):
+        with mock.patch("documentos.processamento.GeminiClient") as gemini, mock.patch(
+            "documentos.processamento.AgentExtrator"
+        ) as extrator, mock.patch(
             "documentos.processamento.AgentClassificador"
         ) as classificador:
             extrator.return_value.extrair.return_value = nota_extraida()
             classificador.return_value.classificar.return_value = classificacao()
 
-            processar_pdf(PDF)
+            processar_pdf(PDF, CHAVE_FORMULARIO)
 
-        extrator.assert_called_once_with()
-        classificador.assert_called_once_with()
+        gemini.assert_called_once_with(api_key=CHAVE_FORMULARIO)
+        extrator.assert_called_once_with(cliente=gemini.return_value)
+        classificador.assert_called_once_with(cliente=gemini.return_value)
+        extrator.return_value.extrair.assert_called_once_with(PDF)
 
 
 class ProcessarPdfErrosTests(ProcessarPdfTestBase):
@@ -336,21 +343,105 @@ class ProcessarPdfErrosTests(ProcessarPdfTestBase):
                 # O traceback completo fica só no log do servidor.
                 self.assertIn("Traceback", "\n".join(logs.output))
 
-    def test_erro_de_configuracao_do_gemini_vira_servico_indisponivel(self):
-        # Agents reais, GEMINI_API_KEY ausente: nenhuma chamada real possível.
-        with self.assertLogs("documentos.processamento", "WARNING"), self.assertLogs(
-            "agents.extrator.agent", "WARNING"
-        ):
+    def test_chave_ausente_vira_servico_indisponivel_sem_chamar_o_gemini(self):
+        # Agents reais, sem chave: nenhuma chamada real possível.
+        for chave in (None, "", "   "):
+            with self.subTest(chave=chave):
+                with self.assertLogs("documentos.processamento", "WARNING"):
+                    with self.assertRaises(ProcessamentoError) as contexto:
+                        processar_pdf(PDF, chave)
+
+                erro = contexto.exception
+                self.assertEqual(
+                    (erro.etapa, erro.codigo, erro.mensagem),
+                    ("configuracao", "servico_indisponivel", MENSAGEM_GEMINI_NAO_CONFIGURADO),
+                )
+                self.assertIsNone(erro.__cause__)
+
+    @override_settings(GEMINI_MODEL=None)
+    def test_configuracao_invalida_nao_expoe_a_chave(self):
+        with self.assertLogs("documentos.processamento", "WARNING") as logs:
             with self.assertRaises(ProcessamentoError) as contexto:
-                processar_pdf(PDF)
+                processar_pdf(PDF, CHAVE_FORMULARIO)
 
         self.assertEqual(contexto.exception.codigo, "servico_indisponivel")
+        self.assertNotIn(CHAVE_FORMULARIO, str(contexto.exception))
+        self.assertNotIn(CHAVE_FORMULARIO, "\n".join(logs.output))
 
     def test_pdf_ilegivel_com_agents_reais_nao_chama_o_gemini(self):
-        with mock.patch.object(GeminiClient, "gerar_json") as gerar_json:
+        with mock.patch("agents.gemini_client.genai.Client") as sdk:
             with self.assertLogs("documentos.processamento", "WARNING"):
                 with self.assertRaises(ProcessamentoError) as contexto:
-                    processar_pdf(b"nao e pdf")
+                    processar_pdf(b"nao e pdf", CHAVE_FORMULARIO)
 
         self.assertEqual(contexto.exception.codigo, "documento_ilegivel")
-        gerar_json.assert_not_called()
+        sdk.return_value.models.generate_content.assert_not_called()
+
+
+class GeminiApiKeyDaRequisicaoTests(ProcessarPdfTestBase):
+    """processar_pdf com Agents e GeminiClient REAIS; só o SDK é falso (sem rede)."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch("agents.gemini_client.genai.Client")
+        self.sdk_classe = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.generate_content = self.sdk_classe.return_value.models.generate_content
+        self.generate_content.side_effect = [
+            mock.Mock(text=json.dumps(dados_nota())),
+            mock.Mock(text=json.dumps(
+                {"tipo_despesa": "MANUTENCAO_E_OPERACAO", "justificativa": "Pecas de manutencao."}
+            )),
+        ]
+
+    def test_extrator_e_classificador_usam_o_mesmo_cliente_com_a_chave_informada(self):
+        processamento = processar_pdf(PDF, CHAVE_FORMULARIO)
+
+        # Um único SDK, criado com a chave do formulário, atende os dois Agents.
+        self.sdk_classe.assert_called_once()
+        self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
+        self.assertEqual(self.generate_content.call_count, 2)
+        pdf_enviado = self.generate_content.call_args_list[0].kwargs["contents"][1]
+        self.assertEqual(pdf_enviado.inline_data.data, PDF)
+        self.assertEqual(
+            processamento.resultado, montar_resultado(nota_extraida(), classificacao())
+        )
+
+    def test_chaves_do_ambiente_nao_substituem_a_chave_informada(self):
+        ambiente = {"GOOGLE_API_KEY": "CHAVE_ERRADA_DO_AMBIENTE"}
+        with mock.patch.dict(os.environ, ambiente):
+            os.environ.pop("GEMINI_API_KEY", None)
+            processar_pdf(PDF, CHAVE_FORMULARIO)
+
+        self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
+
+    def test_chave_fica_fora_do_resultado_e_dos_logs(self):
+        raiz = logging.getLogger()
+        with self.assertLogs(raiz, "DEBUG") as logs:
+            raiz.debug("marcador")  # assertLogs exige ao menos um registro
+            processamento = processar_pdf(PDF, CHAVE_FORMULARIO)
+
+        self.assertNotIn(CHAVE_FORMULARIO, json.dumps(processamento.resultado))
+        self.assertNotIn(CHAVE_FORMULARIO, processamento.justificativa)
+        self.assertNotIn(CHAVE_FORMULARIO, repr(processamento))
+        self.assertNotIn(CHAVE_FORMULARIO, "\n".join(logs.output))
+
+    def test_chave_recusada_pela_api_vira_erro_seguro(self):
+        for codigo, status in ((400, "INVALID_ARGUMENT"), (401, "UNAUTHENTICATED"),
+                               (403, "PERMISSION_DENIED")):
+            with self.subTest(codigo=codigo):
+                self.generate_content.side_effect = errors.ClientError(
+                    codigo,
+                    {"error": {"code": codigo, "status": status,
+                               "message": f"API key not valid: {CHAVE_FORMULARIO}"}},
+                )
+
+                with self.assertLogs(level="DEBUG") as logs:
+                    with self.assertRaises(ProcessamentoError) as contexto:
+                        processar_pdf(PDF, CHAVE_FORMULARIO)
+
+                erro = contexto.exception
+                self.assertEqual(erro.codigo, "servico_indisponivel")
+                self.assertIsNone(erro.__cause__)
+                self.assertNotIn(CHAVE_FORMULARIO, str(erro))
+                self.assertNotIn(CHAVE_FORMULARIO, "\n".join(logs.output))

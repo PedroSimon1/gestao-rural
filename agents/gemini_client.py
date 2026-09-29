@@ -59,9 +59,11 @@ def _inteiro_positivo(valor, padrao, nome):
 class GeminiClient:
     """Cliente compartilhado do Gemini usado pelos agents.
 
-    A configuração vem de django.conf.settings, mas pode ser sobrescrita
-    por parâmetros explícitos. O SDK é criado somente quando esta classe
-    é instanciada.
+    A chave é sempre explícita (`api_key`): vem do formulário da tela e só
+    existe durante a requisição. Não há fallback para settings nem para
+    variáveis de ambiente. Modelo, timeout e tentativas vêm de
+    django.conf.settings, mas podem ser sobrescritos por parâmetros.
+    O SDK é criado somente quando esta classe é instanciada.
     """
 
     @sensitive_variables("api_key", "chave")
@@ -73,12 +75,9 @@ class GeminiClient:
         timeout_segundos=None,
         max_tentativas=None,
     ):
-        chave = _texto_ou_none(
-            api_key if api_key is not None
-            else getattr(settings, "GEMINI_API_KEY", None)
-        )
+        chave = _texto_ou_none(api_key)
         if chave is None:
-            raise GeminiConfiguracaoError("GEMINI_API_KEY não configurada.")
+            raise GeminiConfiguracaoError("Gemini API Key não informada.")
 
         self.modelo = _texto_ou_none(
             modelo if modelo is not None
@@ -101,7 +100,8 @@ class GeminiClient:
         )
 
         # api_key e vertexai explícitos impedem que o SDK use GOOGLE_API_KEY
-        # ou troque de backend a partir de variáveis de ambiente.
+        # ou GEMINI_API_KEY do ambiente, ou troque de backend a partir dele.
+        # A chave fica só dentro do SDK; esta classe não guarda cópia.
         self._client = genai.Client(
             api_key=chave,
             vertexai=False,

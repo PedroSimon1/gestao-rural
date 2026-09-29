@@ -37,8 +37,8 @@ PDF = b"%PDF-1.4\nconteudo de teste\n%%EOF\n"
 DETALHE_INTERNO = "detalhe-interno-xyz"
 
 
-# GEMINI_API_KEY ausente: mesmo que algo escape dos mocks, não há como autenticar.
-@override_settings(GEMINI_API_KEY=None, GEMINI_MODEL="modelo-teste")
+# Sem chave explícita: mesmo que algo escape dos mocks, não há como autenticar.
+@override_settings(GEMINI_MODEL="modelo-teste")
 class AgentExtratorTestBase(SimpleTestCase):
     def setUp(self):
         # Rede de segurança: qualquer criação do SDK real falha o teste.
@@ -385,7 +385,7 @@ class CriacaoPreguicosaDoClienteTests(AgentExtratorTestBase):
         classe_cliente.assert_not_called()
 
     def test_sem_api_key_vira_extracao_indisponivel(self):
-        # GeminiClient real, com GEMINI_API_KEY=None (settings da classe base).
+        # GeminiClient real criado sem chave: a chave só vem do formulário.
         agent = AgentExtrator()
 
         with self.assertLogs("agents.extrator.agent", "WARNING"):
@@ -396,7 +396,6 @@ class CriacaoPreguicosaDoClienteTests(AgentExtratorTestBase):
         self.sdk_client_classe.assert_not_called()
 
 
-@override_settings(GEMINI_API_KEY=None)
 class PayloadEnviadoAoGeminiTests(SimpleTestCase):
     """Usa o SDK real, mas substitui o envio HTTP: nada sai da máquina."""
 

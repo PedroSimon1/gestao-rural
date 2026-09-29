@@ -49,7 +49,7 @@ def nota_valida(descricao="Óleo diesel S10"):
     )
 
 
-@override_settings(GEMINI_API_KEY=None, GEMINI_MODEL="modelo-teste")
+@override_settings(GEMINI_MODEL="modelo-teste")
 class AgentClassificadorTestBase(SimpleTestCase):
     def setUp(self):
         patcher = mock.patch(
