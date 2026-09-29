@@ -1840,3 +1840,496 @@ Nenhum teste faz chamada real ao Gemini: o SDK é sempre falso, ou real com o en
 - Consolidar o `ContextoProjeto.md` ao final da preparação da entrega.
 - Opcional: remover a linha `GEMINI_API_KEY` do `.env` local (ignorada pela aplicação).
 - Commit/PR não realizados.
+
+## 34.4 - Auditoria de Limpeza Pré-Deploy
+
+**Data:** 2026-09-29 · **Branch:** `chore/n2-etapa1-pre-deploy-cleanup` · **Commit base:** `841eacc` (merge do PR #16, 34.3) · **Estado:** somente análise, **sem commit**.
+
+### Objetivo e modo de trabalho
+
+Identificar resíduos da arquitetura anterior, pontos de confusão e tudo o que precisa ser tratado antes da hospedagem no Render, **sem executar nenhuma limpeza**. Nenhum arquivo foi removido, movido ou alterado, exceto este. Nenhuma dependência foi instalada ou removida. Os comandos usados foram de leitura (`git`, `grep`, `find`, `pip show/freeze`, AST do Python com `-B`, `manage.py check`, `check --deploy` e `test`).
+
+Segredos: os valores de `.env` e `README.txt` **não foram lidos em claro nem registrados**. Foram verificadas só a presença das variáveis, se os campos estão preenchidos (e o tamanho) e comparações de igualdade com resultado booleano.
+
+### Estado inicial do Git
+
+| Comando | Resultado |
+| --- | --- |
+| `git branch --show-current` | `chore/n2-etapa1-pre-deploy-cleanup` |
+| `git status` | `nothing to commit, working tree clean` |
+| `git log --oneline -5` | `841eacc` merge PR #16 · `8acad04` feat: add temporary Gemini API key input · `33d1be3` merge PR #15 · `69b7ca4` refactor stateless · `bf7208e` merge PR #14 |
+
+### Estrutura atual
+
+48 arquivos versionados. Seis `__init__.py` vazios (`agents/`, `agents/extrator/`, `agents/classificador/`, `config/`, `documentos/`, `usuarios/`): são marcadores de pacote necessários e **não** são código morto.
+
+| Diretório | Conteúdo | Participa da Etapa 1? | Resíduo de banco, Admin ou migrations? | Classificação |
+| --- | --- | --- | --- | --- |
+| `config/` | settings, urls, wsgi, asgi, `test_sem_banco.py` | sim | não (só `DATABASES = {}` intencional e comentários "sem banco") | **MANTER** |
+| `agents/` | `GeminiClient`, Extrator, Classificador, schemas, testes | sim, é o núcleo | não; 2 comentários desatualizados (achados 26 e 27) | **MANTER** |
+| `documentos/` | form, validators, processamento, view, template, CSS, JS, testes | sim | não | **MANTER** |
+| `usuarios/` | login e logout da demonstração, form, template, CSS, testes | sim | não (sem models, admin nem migrations) | **MANTER** |
+| `media/` | 7 arquivos em `media/documentos/` (2026-09-23), 108 KB | não | resíduo local do upload persistido antigo | **LOCAL/IGNORADO** (pode apagar localmente) |
+| `uploads/` | 1 arquivo em `uploads/teste-gr10/` (2026-09-28), 16 KB | não | resíduo local de teste antigo | **LOCAL/IGNORADO** (pode apagar localmente) |
+| `.venv/` | ambiente local (Python 3.14.7) | só local | contém `djangorestframework`, `psycopg` e `psycopg-binary`, fora do `requirements.txt` | **LOCAL/IGNORADO** (ver achado 17) |
+| `__pycache__/` | bytecode | não | não | **LOCAL/IGNORADO** |
+| `.env` | variáveis locais | só local | `DB_*` e `GEMINI_API_KEY`: VARIAVEL_AUSENTE | **LOCAL/IGNORADO** |
+| `README.txt` | instruções e credenciais para o professor | entrega, fora do Git | não | **LOCAL/IGNORADO** (intencional) |
+
+Nenhuma pasta `migrations/`, nenhum `models.py`, `admin.py` ou `financeiro/` existe (confirmado também por `config/test_sem_banco.py`).
+
+### Resíduos do banco antigo
+
+Termos procurados: PostgreSQL, psycopg, `DATABASES`, `DB_*`, `django.db`, `models.Model`, `.objects`, `transaction`, `select_for_update`, migration(s), `Documento.objects`, `LancamentoFinanceiro`, `Parcela`, `Amortizacao`, `Titular`, `AUTH_USER_MODEL`, `contrib.admin/auth/contenttypes`, `MEDIA_`, `media`, `uploads`, `staff_member`, `financeiro`, estados `PENDENTE/PROCESSANDO/CONCLUIDO`, `documento_id` e `rest_framework`.
+
+| Tipo de ocorrência | Onde | Situação |
+| --- | --- | --- |
+| **ativa no código** | `config/settings.py:75` `DATABASES = {}` | intencional (backend `dummy`) → MANTER |
+| só comentário | `config/settings.py:35` ("sem admin, auth, contenttypes") | correto e atual → MANTER |
+| só comentário | `agents/extrator/schemas.py:33` "Compatível com DecimalField(...) do financeiro" | **desatualizado** (achado 26) |
+| falso positivo | `documentos.css:281` `@media (max-width: 480px)` | CSS responsivo, não é media de upload |
+| configuração | `.gitignore:19-20` `media/`, `uploads/` | obsoleto, mas protege os resíduos locais (achado 23) |
+| só testes | `config/test_sem_banco.py` (19), `documentos/test_interface.py` (2) | são **as garantias** de ausência de banco → MANTER |
+| histórico | `ContextoProjeto.md` (35), `analisetemporaria.md` (192) | documentação histórica, não é código morto |
+
+**Conclusão:** não há nenhum resíduo ativo do banco, do Admin, das migrations ou do app financeiro no código.
+
+### `media/` e `uploads/`
+
+- **Uso pelo código atual:** nenhum. A busca por `media`/`uploads`/`MEDIA_` em código de produção só encontra o `@media` do CSS. `settings` não tem `MEDIA_ROOT`/`MEDIA_URL` (testado em `test_sem_armazenamento_de_media`), e as URLs não servem media.
+- **Git:** ignorados (`.gitignore:19-20`, confirmado com `git check-ignore`). Nunca vão para o Render, porque o Render faz o build a partir do repositório.
+- **Conteúdo:** só resíduos locais das arquiteturas anteriores. São PDFs de notas usadas em testes e **podem conter dados pessoais** (CPF/CNPJ). O conteúdo não foi aberto nesta auditoria.
+- **Classificação:** **PODE APAGAR LOCALMENTE** (apagar manualmente, fora do Git, depois de confirmar que nenhum PDF é necessário como amostra para a apresentação).
+
+### `.gitignore`
+
+| Entrada | Classificação | Observação |
+| --- | --- | --- |
+| `.env` | **IMPORTANTE PARA SEGURANÇA** | contém `DJANGO_SECRET_KEY` e `DEMO_PASSWORD` |
+| `README.txt` | **IMPORTANTE PARA SEGURANÇA** | contém login, senha e Gemini API Key. Nunca entrou no histórico (`git log --all -- README.txt` vazio) |
+| `.venv/`, `venv/` | MANTER | |
+| `__pycache__/`, `*.pyc`, `*.pyo`, `*.pyd` | MANTER | |
+| `*.log` | MANTER | |
+| `.vscode/`, `.idea/`, `.DS_Store` | MANTER | |
+| `media/`, `uploads/` | OBSOLETA MAS INOFENSIVA | **manter** enquanto existirem resíduos locais com possíveis dados pessoais |
+| `db.sqlite3` | OBSOLETA MAS INOFENSIVA | protege contra criação acidental de SQLite → manter |
+| *(ausente)* `staticfiles/` | a adicionar na Fase C | destino previsto do `collectstatic` (`STATIC_ROOT`) |
+
+Nenhuma entrada é candidata real a remoção.
+
+### `.env.example`
+
+| Variável | Usada no código? | No `.env.example`? | Situação |
+| --- | --- | --- | --- |
+| `DJANGO_SECRET_KEY` | `settings.py:26` | sim (placeholder) | OK |
+| `DJANGO_DEBUG` | `settings.py:29` (padrão `False`) | sim, `True` | OK para desenvolvimento. No Render **não** definir ou usar `False` |
+| `DEMO_LOGIN` / `DEMO_PASSWORD` | `settings.py` → `usuarios/demo.py` | sim | OK. Observação no achado 24 |
+| `GEMINI_MODEL` | `settings.py` → `GeminiClient` | sim | OK |
+| `GEMINI_TIMEOUT_SEGUNDOS` / `GEMINI_MAX_TENTATIVAS` | `settings.py` (padrões 60/3) | sim (60/3) | OK, coerente com os padrões |
+| `MAX_PDF_UPLOAD_SIZE_MB` | `settings.py:100` (padrão 10) | **não** | opcional, não documentada (achado 21) |
+| `DB_*`, `GEMINI_API_KEY` | não | não | OK. Há comentário explicando que a chave é informada na tela |
+| *(futuras)* `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | ainda não | não | entram na Fase C (achado 11) |
+
+`.env` local: tem as 7 variáveis esperadas (VARIAVEL_CONFIGURADA). `DB_*` e `GEMINI_API_KEY`: VARIAVEL_AUSENTE. Nenhuma variável usada no código está ausente do `.env` local.
+
+### `config/settings.py`
+
+- **Imports:** `Path`, `os` e `load_dotenv` são todos usados. `load_dotenv()` é inofensivo no Render (sem `.env`, não faz nada) → MANTER.
+- **Apps:** só `staticfiles`, `documentos` e `usuarios`. **Middleware:** Security, Session, Common, Csrf e XFrame, todos necessários.
+- **Context processor `request`:** nenhum template usa `request.` (inofensivo, achado 30).
+- **Banco, auth, Admin, media, variáveis Gemini antigas:** nenhum resíduo. Não há duplicações.
+- **Desenvolvimento (pode ficar):** `DEBUG` vindo do ambiente com padrão `False`, `LANGUAGE_CODE`/`TIME_ZONE`, `SESSION_ENGINE` com cookie assinado, `MAX_PDF_UPLOAD_SIZE_MB`, `GEMINI_*`, `DEMO_*`.
+- **Precisa mudar para deploy (Fase C):** `ALLOWED_HOSTS = []` fixo; sem `STATIC_ROOT` nem WhiteNoise; sem `CSRF_TRUSTED_ORIGINS`/`SECURE_PROXY_SSL_HEADER`; sem `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE`. Ver a tabela pré-deploy.
+
+### `config/urls.py`
+
+Rotas finais: `/` (redirect), `/login/`, `/logout/`, `/documentos/`, além de `/static/` em desenvolvimento. Não há `/admin/`, rotas por ID, API de upload nem media. Os `include` usados são os dois apps. A única sobra é a docstring padrão do `startproject` (achado 31). As rotas antigas retornam 404 (testado).
+
+### App `usuarios`
+
+| Arquivo | Avaliação |
+| --- | --- |
+| `demo.py` | enxuto; todas as funções são usadas (views e `documentos/views.py`); comparação em tempo constante; `sensitive_variables` → MANTER |
+| `forms.py` | `LoginDemoForm` usado só para validar (o template escreve os inputs à mão) → MANTER |
+| `views.py` | `login_demo` e `logout_demo`; logout aceita GET (achado 22) → MANTER |
+| `urls.py`, `apps.py` | mínimos → MANTER |
+| `testing.py` | helper usado pelos testes de `documentos` e `usuarios` → MANTER |
+| `tests.py` | 37 testes de login, logout, CSRF e sessão em cookie → MANTER |
+| `templates/usuarios/login.html`, `static/usuarios/login.css` | usados; todas as classes CSS têm uso → MANTER |
+
+Não há models, admin, migrations nem imports de `contrib.auth`.
+
+### App `documentos`
+
+| Arquivo | Avaliação |
+| --- | --- |
+| `forms.py` | chave + PDF → MANTER |
+| `validators.py` | `validar_pdf` único ponto de validação (a view não duplica, testado) → MANTER |
+| `processamento.py` | stateless, cliente único → MANTER |
+| `views.py` | tela única; `SUGESTOES_ERRO` cobre os códigos atuais → MANTER |
+| `urls.py` | 1 rota → MANTER |
+| `templates/documentos/base.html` | base também usada pelo login → MANTER |
+| `templates/documentos/inicio.html` | textos coerentes com o comportamento atual ("não é guardado", "pode levar alguns minutos") → MANTER |
+| `static/documentos/documentos.css` | **todas** as classes são usadas (verificação por classe contra templates, Python e JS); duplicação leve `.formulario__campo` × `.login__campo` (achado 29) → MANTER |
+| `static/documentos/documentos.js` | trava visual de duplo envio; ainda necessário (processamento longo) → MANTER |
+| `test_*.py` | ver "Testes" |
+
+Não há código de persistência, conceito de `Documento`, estados, rotas antigas nem templates antigos (`detalhe.html` já foi removido).
+
+### Agents
+
+- **Imports:** nenhum sem uso (análise AST de todos os `.py` versionados).
+- **Fallback para `GEMINI_API_KEY`:** removido na 34.3 (não existe mais).
+- **Caminho "cliente padrão sob demanda"** (`GeminiClient()` dentro de `extrair`/`classificar` quando não há cliente): inalcançável em produção, porque `processar_pdf` sempre injeta o cliente, e hoje sempre resultaria em erro seguro de indisponibilidade. É testado (`CriacaoPreguicosaDoClienteTests`) → MANTER (achado 19).
+- **Símbolos usados só em testes** (restos dos metadados da arquitetura com banco): `VERSAO_SCHEMA` (nos dois schemas) e a property `modelo` dos dois Agents → MANTER (achado 20).
+- **Duplicação:** `_campos_invalidos` é idêntica nos dois Agents → MANTER (achado 28).
+- **Comentários desatualizados:** `schemas.py:33` (financeiro) e a docstring de `ExtratorError` ("exibir ou gravar") → achados 26 e 27.
+- **Deploy:** nada nos Agents impede o deploy. O ponto sensível é o tempo das chamadas (ver "Processamento síncrono").
+
+### `requirements.txt`
+
+Freeze completo (29 pacotes, versões fixas). Dependências diretas de fato (importadas pelo código): **Django**, **google-genai**, **pydantic**, **python-dotenv** e **httpx** (importado diretamente em `gemini_client.py` e nos testes).
+
+| Pacote | Origem | Classificação |
+| --- | --- | --- |
+| `Django` | direto | NECESSÁRIA |
+| `google-genai` | direto | NECESSÁRIA |
+| `pydantic` | direto (também dependência do google-genai) | NECESSÁRIA |
+| `python-dotenv` | direto (`settings.py`) | NECESSÁRIA (inofensiva em produção) |
+| `httpx` | direto (import) e dependência do google-genai | NECESSÁRIA |
+| `asgiref`, `sqlparse` | Django | TRANSITIVA |
+| `google-auth`, `requests`, `anyio`, `sniffio`, `distro`, `tenacity`, `websockets`, `typing_extensions` | google-genai | TRANSITIVA |
+| `httpcore`, `h11`, `certifi`, `idna` | httpx | TRANSITIVA |
+| `cryptography`, `cffi`, `pycparser`, `pyasn1`, `pyasn1_modules` | google-auth | TRANSITIVA |
+| `charset-normalizer`, `urllib3` | requests | TRANSITIVA |
+| `pydantic_core`, `annotated-types`, `typing-inspection` | pydantic | TRANSITIVA |
+| *(ausente)* `gunicorn` | — | **SERÁ NECESSÁRIA NO DEPLOY** |
+| *(ausente)* `whitenoise` | — | **SERÁ NECESSÁRIA NO DEPLOY** (ou alternativa para servir static) |
+
+`psycopg` e `djangorestframework` **não** estão no `requirements.txt` (removidos na 34.2). Nenhum pacote do arquivo está sobrando: todos são diretos ou transitivos (conferido com `pip show` → `Required-by`). **Nenhuma dependência é candidata a remoção.** Porém ainda estão **instalados no `.venv` local** (achado 17).
+
+### Imports e código morto
+
+- Imports sem uso: **nenhum** (varredura AST de todos os `.py` versionados).
+- Símbolos sem referência direta: só classes de teste (descobertas pelo runner) e `DocumentosConfig`/`UsuariosConfig` (carregadas pelo Django por convenção). **Não são código morto.**
+- Usados só em testes: `VERSAO_SCHEMA` e a property `modelo` (achado 20).
+- Sem TODO/FIXME/XXX/HACK. Sem código comentado relevante.
+
+### HTML, CSS e JavaScript
+
+- Templates usados: `documentos/base.html`, `documentos/inicio.html` e `usuarios/login.html`. Não há template órfão.
+- Referências a static: `documentos/documentos.css`, `documentos/documentos.js` e `usuarios/login.css`. Todas existem, e o `finders` localiza o JS (testado).
+- CSS: nenhuma classe sem uso; nenhuma classe do fluxo com estados (selos, lista ou detalhe já foram removidos na 34.2).
+- JS: ainda necessário; sem rede, sem storage, sem referência a Gemini ou chave (testado).
+- Textos: coerentes com o comportamento atual. O link "Enviar nota" aponta para a própria tela (aceitável).
+- Com `DEBUG=False` sem WhiteNoise/`STATIC_ROOT`, **todo** o CSS e o JS retornariam 404 (achado 2).
+
+### Nomenclaturas
+
+| Nome | Classificação | Motivo |
+| --- | --- | --- |
+| app `documentos` sem model `Documento` | CONFUSO MAS NÃO VALE MEXER AGORA | renomear app, templates, static e testes perto da entrega tem risco alto e nenhum benefício funcional |
+| app `usuarios` sem usuários | CONFUSO MAS NÃO VALE MEXER AGORA | idem; hoje é "autenticação da demonstração" |
+| `DocumentoUploadForm` (agora também leva a chave) | ACEITÁVEL | o upload continua sendo o foco |
+| `documento_inicio`, `documentos/base.html` usado pelo login | ACEITÁVEL | |
+| `ValidacaoDocumento` (schemas) | ACEITÁVEL | refere-se a documento fiscal (CPF/CNPJ), não ao model antigo |
+| `VERSAO_SCHEMA`, `modelo` | ACEITÁVEL | ver achado 20 |
+
+Não há candidato real a renomeação antes da entrega.
+
+### Testes
+
+**272 testes, todos passando.** Todos são `SimpleTestCase`: qualquer consulta ao banco falharia.
+
+- **Importantes para a entrega (manter):** ausência de banco (`config/test_sem_banco.py`); sigilo da Gemini Key (`GeminiApiKeyFormularioTests`, `NaoPersistenciaDaChaveTests`, `GeminiApiKeyDaRequisicaoTests`, testes de ambiente no `test_gemini_client.py`); login, logout, CSRF e sessão (`usuarios/tests.py`); fluxo PDF → JSON (`IntegracaoTests`, `ProcessarPdf*Tests`, `MontarResultadoTests`); schemas.
+- **Comportamento não usado em produção:** `CriacaoPreguicosaDoClienteTests` (cliente padrão dos Agents) e as asserções de `VERSAO_SCHEMA`/`modelo`. São baratos e não atrapalham → MANTER.
+- **Acoplados à implementação:** asserções de HTML literal (tag `<form ...>` e botão em `TelaTests`), contagem de `preventDefault` no JS e busca de strings no código-fonte (`test_validacao_nao_e_duplicada_na_view`). Quebram com mudanças cosméticas de template, mas protegem contratos visíveis → MANTER, ciente do custo (achado 25).
+- **Redundância:** há sobreposição proposital entre testes de unidade e de integração (ex.: chave vazia no form e em `processar_pdf`). Não há benefício em remover.
+- **Lacunas pré-deploy:** não há teste das configurações de produção (leitura de `ALLOWED_HOSTS`/`DEBUG`/cookies do ambiente) → incluir na Fase C (achado 16). Não há medição de tempo do fluxo real (fora do escopo dos testes automatizados).
+
+### Validações executadas
+
+| Comando | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` |
+| `python manage.py check --deploy` (com o `.env` local) | 7 avisos: W004 (HSTS), W008 (SSL redirect), W009 (`SECRET_KEY` local fraca), W011 (`SESSION_COOKIE_SECURE`), W016 (`CSRF_COOKIE_SECURE`), W018 (`DEBUG=True`), W020 (`ALLOWED_HOSTS` vazio). É a evidência dos achados de deploy |
+| `python manage.py test` | **`Ran 272 tests` — OK** |
+| `git diff --check` | sem problemas |
+
+Todos os comandos Python rodaram com `-B` (sem gerar `__pycache__`).
+
+### Pré-deploy (Render)
+
+| Ponto | Situação | Detalhe |
+| --- | --- | --- |
+| `DEBUG` | **JÁ PRONTO** | padrão `False` quando `DJANGO_DEBUG` não é definido. No Render não definir, ou definir `False` |
+| `ALLOWED_HOSTS` | **PRECISA AJUSTE** | `[]` fixo → com `DEBUG=False` toda requisição recebe 400 (W020). Ler do ambiente e/ou de `RENDER_EXTERNAL_HOSTNAME` |
+| `DJANGO_SECRET_KEY` | **PRECISA AJUSTE** (configuração) | gerar valor novo e forte no Render. O valor local não serve (W009). Sem ele, a sessão em cookie assinado não funciona |
+| CSRF | **PRECISA AJUSTE** | o TLS termina no proxy do Render: sem `SECURE_PROXY_SSL_HEADER` e/ou `CSRF_TRUSTED_ORIGINS=https://<app>.onrender.com`, o Django compara `Origin: https://...` com `http://...` e **recusa o POST de login com 403** |
+| Cookies seguros | **PRECISA AJUSTE** | `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` (W011/W016), condicionados a `not DEBUG` para não quebrar o `runserver` |
+| HTTPS / HSTS / SSL redirect | **INVESTIGAR** (baixa) | o Render já redireciona HTTP→HTTPS. `SECURE_SSL_REDIRECT` exige `SECURE_PROXY_SSL_HEADER`. HSTS é opcional |
+| Static files / `STATIC_ROOT` | **PRECISA AJUSTE** | sem `STATIC_ROOT` e sem WhiteNoise, CSS e JS dão 404 com `DEBUG=False`. `collectstatic` no build |
+| Servidor WSGI | **PRECISA AJUSTE** | `config/wsgi.py` está pronto; falta `gunicorn` no requirements e o comando de start |
+| ASGI | **NÃO SE APLICA** | fluxo síncrono; `asgi.py` pode ficar |
+| requirements | **PRECISA AJUSTE** | + `gunicorn`, + `whitenoise` |
+| Comando de start | **PRECISA AJUSTE** | ex.: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout <N>` |
+| Porta / host `0.0.0.0` | **PRECISA AJUSTE** | via `--bind 0.0.0.0:$PORT` no start (o Render injeta `PORT`) |
+| Timeout do processamento | **PRECISA AJUSTE** | ver seção seguinte: o timeout padrão do gunicorn (30 s) mata o processamento |
+| Versão do Python | **INVESTIGAR** | local 3.14.7; Django 6.1 exige ≥ 3.12. Fixar a versão no Render (`PYTHON_VERSION` ou `.python-version`) para não depender do padrão da plataforma |
+| Variáveis de ambiente | **PRECISA AJUSTE** (configuração) | `DJANGO_SECRET_KEY`, `DEMO_LOGIN`, `DEMO_PASSWORD`, `GEMINI_MODEL`, `GEMINI_TIMEOUT_SEGUNDOS`, `GEMINI_MAX_TENTATIVAS`, hosts/origens. **Nunca** `GEMINI_API_KEY` |
+| Logs | **JÁ PRONTO** (baixa) | sem `LOGGING`: WARNING/ERROR dos loggers do projeto vão para stderr (handler padrão do Python) e aparecem no painel do Render. Sem chave nem dados da nota (testado) |
+| Banco / migrations | **NÃO SE APLICA** | nenhum banco. Não rodar `migrate` no build |
+| Upload | **JÁ PRONTO** | limite de 10 MB; arquivos > 2,5 MB passam por arquivo temporário do Django (efêmero) |
+
+### Processamento síncrono
+
+- Cada chamada ao Gemini tem timeout de `GEMINI_TIMEOUT_SEGUNDOS` (60 s) por tentativa e até `GEMINI_MAX_TENTATIVAS` (3) tentativas com backoff do SDK. O fluxo faz **2 chamadas** (Extrator e Classificador). **Pior caso ≈ 2 × 3 × 60 s + backoff ≈ 6 min.** O caso normal não foi medido nesta auditoria, mas uma nota comum costuma levar dezenas de segundos (INFERIDO).
+- **gunicorn** (worker sync) tem `--timeout` padrão de **30 s**: um processamento mais lento teria o worker morto e o professor veria um erro 502. **Bloqueia** se não for ajustado.
+- **Render:** o limite de duração de requisição HTTP da plataforma é alto, mas deve ser conferido na documentação antes do deploy (INVESTIGAR). Na instância gratuita, o serviço "dorme" após inatividade e a primeira requisição leva cerca de 1 minuto (cold start).
+- **Opções (não implementar agora):**
+  1. `--timeout` do gunicorn acima do pior caso aceitável (ex.: 180–400 s), com 2 workers para não bloquear o login durante um processamento;
+  2. para a apresentação, reduzir `GEMINI_MAX_TENTATIVAS` (ex.: 2) e/ou `GEMINI_TIMEOUT_SEGUNDOS` **só pelas variáveis do Render**, sem mudar código, para limitar o pior caso;
+  3. acessar o sistema alguns minutos antes da apresentação para evitar o cold start;
+  4. fila/worker assíncrono: fora do escopo da Etapa 1 (reintroduziria estado).
+- A trava de duplo envio e o texto "O processamento pode levar alguns minutos." já existem.
+
+### `README.txt`
+
+- **Existe** localmente (71 linhas) e é **ignorado** pelo Git (`.gitignore:29`, confirmado com `git check-ignore`). **Nunca** esteve no histórico.
+- Estrutura: acesso (URL, login, senha), Gemini API Key (2 campos), instruções de uso, observações e fluxo. O conteúdo das instruções é coerente com o comportamento atual (chave a cada processamento, nada armazenado, resultado perdido ao recarregar).
+- Preenchimento (sem registrar valores): **Login PREENCHIDO**, **Senha PREENCHIDO**, **API Key - 1 PREENCHIDO**, **API Key - 2 VAZIO** (opcional). **URL ainda é placeholder** ("A SER PREENCHIDA APÓS A HOSPEDAGEM NO RENDER").
+- Login e senha do README coincidem com os do `.env` local (comparação booleana). No Render, `DEMO_LOGIN`/`DEMO_PASSWORD` precisam receber os mesmos valores do README.
+- A estratégia de mantê-lo fora do Git é **coerente**: ele contém segredos e deve ser entregue ao professor por outro canal.
+
+### `ContextoProjeto.md`
+
+Continua desatualizado (último commit `c862dcf`, 2026-09-23). Além das divergências já listadas na 34.2, a 34.3 trouxe novas:
+
+- **§7** lista `GEMINI_API_KEY` como variável de ambiente (hoje a chave vem da tela);
+- **§14** regra de teste "SDK patchado e `GEMINI_API_KEY=None`" e contagem de testes (hoje 272);
+- **§19** "README adiado" (hoje existe `README.txt` local, fora do Git);
+- **§20** comando `print(... settings.GEMINI_API_KEY)`, que hoje **falharia** com `AttributeError`, porque a setting não existe mais;
+- ainda não descreve login, arquitetura stateless, campo da chave nem deploy.
+
+Consolidar tudo ao final da preparação (Fase D), como já decidido.
+
+### Tabela principal de achados
+
+| # | Arquivo/Área | Achado | Ação | Prioridade | Risco | Motivo |
+|---|---|---|---|---|---|---|
+| 1 | `config/settings.py:31` | `ALLOWED_HOSTS = []` fixo | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | com `DEBUG=False` toda requisição recebe 400 (W020) |
+| 2 | settings / static | sem `STATIC_ROOT`, WhiteNoise e `collectstatic` | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | CSS/JS 404 em produção; a tela fica sem estilo e sem trava de envio |
+| 3 | `requirements.txt` / start | sem `gunicorn` nem comando de start com `0.0.0.0:$PORT` | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | `runserver` não é servidor de produção |
+| 4 | settings / CSRF | sem `SECURE_PROXY_SSL_HEADER`/`CSRF_TRUSTED_ORIGINS` | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | POST de login recusado (403) atrás do proxy HTTPS do Render |
+| 5 | start / gunicorn | timeout padrão de 30 s menor que o tempo do processamento | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | worker morto no meio do processamento → 502 |
+| 6 | ambiente Render | `DJANGO_SECRET_KEY` de produção inexistente; a local é fraca (W009) | AJUSTAR | BLOQUEIA DEPLOY | BAIXO | sem chave não há sessão; chave fraca permite forjar cookie de sessão |
+| 7 | settings | sem `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` | AJUSTAR | ALTA | BAIXO | cookies de sessão/CSRF trafegando fora de HTTPS (W011/W016) |
+| 8 | Render | versão do Python não fixada (local 3.14.7; Django 6.1 exige ≥ 3.12) | AJUSTAR | ALTA | BAIXO | build pode falhar ou divergir do ambiente testado |
+| 9 | fluxo síncrono | pior caso ≈ 6 min; cold start da instância gratuita | REVISAR | ALTA | BAIXO | risco na apresentação; mitigação por configuração e aquecimento |
+| 10 | `README.txt` (local) | URL ainda é placeholder | AJUSTAR | ALTA | BAIXO | o professor não conseguirá acessar |
+| 11 | `.env.example` | faltarão as variáveis de deploy (hosts/origens) | AJUSTAR | MÉDIA | BAIXO | documentar junto com a Fase C |
+| 12 | `media/`, `uploads/` (locais) | 8 arquivos de arquiteturas antigas, possivelmente com dados pessoais | REMOVER (local, manual) | MÉDIA | BAIXO | não são usados; ignorados pelo Git |
+| 13 | `ContextoProjeto.md` | desatualizado (34.1–34.3 + comando que hoje falha) | AJUSTAR | MÉDIA | BAIXO | documentação oficial divergente do código |
+| 14 | Render | limite de duração de requisição da plataforma não conferido | REVISAR | MÉDIA | BAIXO | confirmar que comporta o pior caso escolhido |
+| 15 | variáveis Render | `DEMO_*` precisam coincidir com o README | AJUSTAR | MÉDIA | BAIXO | login falharia na apresentação |
+| 16 | testes | sem teste das configurações de produção | AJUSTAR (adicionar) | MÉDIA | BAIXO | regressão em `ALLOWED_HOSTS`/cookies passaria despercebida |
+| 17 | `.venv` (local) | `djangorestframework`, `psycopg`, `psycopg-binary` instalados fora do requirements | REMOVER (local) | BAIXA | BAIXO | ambiente local diferente do Render; recriar o venv ou desinstalar |
+| 18 | settings | HSTS / `SECURE_SSL_REDIRECT` (W004/W008) | REVISAR | BAIXA | MÉDIO | o Render já força HTTPS; HSTS mal configurado é difícil de desfazer |
+| 19 | Agents | cliente padrão sob demanda inalcançável em produção | MANTER | BAIXA | MÉDIO | testado e inofensivo; mexer mudaria os Agents |
+| 20 | schemas / Agents | `VERSAO_SCHEMA` e `modelo` usados só em testes | MANTER | BAIXA | BAIXO | contrato estável; úteis se os metadados voltarem com o banco |
+| 21 | `.env.example` | `MAX_PDF_UPLOAD_SIZE_MB` não documentada | AJUSTAR | BAIXA | BAIXO | opcional com padrão 10 |
+| 22 | `usuarios/views.py` | logout por GET (sem CSRF) | MANTER | BAIXA | BAIXO | impacto limitado a deslogar; o link "Sair" depende de GET |
+| 23 | `.gitignore` | `media/`, `uploads/`, `db.sqlite3` obsoletos; falta `staticfiles/` | MANTER + AJUSTAR na Fase C | BAIXA | BAIXO | as entradas antigas são inofensivas e protegem os resíduos locais |
+| 24 | `.env.example` | o exemplo de `DEMO_LOGIN` coincide com o login real | REVISAR | BAIXA | BAIXO | login não é segredo (a senha sim), mas convém saber que ele é público |
+| 25 | testes | asserções de HTML literal / código-fonte | MANTER | BAIXA | BAIXO | protegem contratos; ajustar só se o template mudar |
+| 26 | `agents/extrator/schemas.py:33` | comentário cita `DecimalField` do app `financeiro` (removido) | AJUSTAR | COSMÉTICA | BAIXO | comentário enganoso; o limite em si continua válido |
+| 27 | `agents/extrator/agent.py:48` | docstring "segura para exibir ou gravar" | AJUSTAR | COSMÉTICA | BAIXO | nada é gravado |
+| 28 | Agents | `_campos_invalidos` duplicada | MANTER | COSMÉTICA | BAIXO | 6 linhas; extrair um módulo comum não compensa agora |
+| 29 | CSS | `.formulario__campo` ≈ `.login__campo` | MANTER | COSMÉTICA | BAIXO | unificar exigiria mexer em dois templates e em testes |
+| 30 | settings | context processor `request` sem uso nos templates | MANTER | COSMÉTICA | BAIXO | inofensivo |
+| 31 | `config/urls.py` | docstring padrão do `startproject` | IGNORAR | COSMÉTICA | BAIXO | sem impacto |
+| 32 | apps `documentos`/`usuarios` | nomes herdados da arquitetura anterior | IGNORAR | COSMÉTICA | ALTO | renomear agora não traz benefício e arrisca a entrega |
+
+**Totais:** 32 achados. **6** bloqueiam o deploy, **4** de prioridade alta, **6** média, **9** baixa e **7** cosméticos.
+
+### Candidatos a remoção
+
+- **Arquivos versionados:** nenhum.
+- **Código:** nenhum com benefício que justifique o risco. Só ajustar 2 comentários (26 e 27).
+- **Locais (fora do Git, manual):** conteúdo de `media/` e `uploads/`; pacotes `djangorestframework`, `psycopg` e `psycopg-binary` do `.venv`; `__pycache__/` (opcional, regenerável).
+- **Dependências do `requirements.txt`:** nenhuma.
+
+### Itens explicitamente recomendados para NÃO mexer
+
+Nomes dos apps (`documentos`, `usuarios`) e de templates/static; Agents, prompts, schemas, structured output e o caminho de cliente padrão; `VERSAO_SCHEMA` e `modelo`; `_campos_invalidos`; `load_dotenv()`; sessão em cookie assinado; `config/test_sem_banco.py` e os testes de sigilo; entradas antigas do `.gitignore`; `asgi.py`; o JS de trava de envio; o contrato JSON.
+
+### Plano de limpeza recomendado (não executado)
+
+**FASE A — Limpeza segura (sem efeito no comportamento)**
+- apagar manualmente `media/` e `uploads/` locais (achado 12), depois de separar uma nota de exemplo para a apresentação, se necessário;
+- recriar o `.venv` a partir do `requirements.txt`, ou desinstalar DRF/psycopg (achado 17), e rodar os testes de novo;
+- corrigir os 2 comentários desatualizados (achados 26 e 27).
+
+**FASE B — Ajustes leves**
+- `.env.example`: documentar `MAX_PDF_UPLOAD_SIZE_MB` (opcional) e preparar a seção de deploy (achados 11 e 21);
+- decidir sobre o exemplo de `DEMO_LOGIN` (achado 24).
+
+**FASE C — Preparação para o Render (bloqueadores)**
+- `requirements.txt`: + `gunicorn`, + `whitenoise`;
+- `settings.py`: `ALLOWED_HOSTS` do ambiente (+ `RENDER_EXTERNAL_HOSTNAME`), `CSRF_TRUSTED_ORIGINS`, `SECURE_PROXY_SSL_HEADER`, cookies seguros quando `not DEBUG`, `STATIC_ROOT` + middleware/storage do WhiteNoise; `.gitignore` + `staticfiles/`;
+- build: `pip install -r requirements.txt && python manage.py collectstatic --noinput` (sem `migrate`);
+- start: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout <N> --workers 2`;
+- fixar a versão do Python; configurar as variáveis de ambiente (nova `DJANGO_SECRET_KEY`, `DEMO_*` iguais ao README, `GEMINI_*`; nunca `GEMINI_API_KEY`);
+- testes das configurações de produção (achado 16); `check --deploy` com as variáveis de produção sem avisos relevantes;
+- decidir timeout e tentativas para a apresentação (achados 5, 9 e 14).
+
+**FASE D — Fechamento da entrega**
+- preencher a URL no `README.txt` e testar no Render com uma chave real (uma execução controlada);
+- consolidar o `ContextoProjeto.md` (achado 13).
+
+### Pendências para o Render
+
+Conferir o limite de duração de requisição e o comportamento de cold start do plano escolhido; escolher `--timeout` e o número de workers; fixar a versão do Python; gerar a `DJANGO_SECRET_KEY` de produção; cadastrar as variáveis de ambiente; fazer a validação ponta a ponta com uma chave real depois do deploy.
+
+### Estado final do Git
+
+Só `analisetemporaria.md` foi modificado. Nenhum código, configuração, teste, dependência ou arquivo local foi alterado ou removido. Não houve commit, push nem PR.
+
+## 34.5 - Limpeza Segura Pré-Deploy
+
+**Data:** 2026-09-29 · **Branch:** `chore/n2-etapa1-pre-deploy-cleanup` · **Base:** `841eacc` + seção 34.4 (sem commit) · **Estado:** executado, **sem commit**.
+
+### Objetivo
+
+Executar só a **Fase A** do plano da 34.4, com baixo risco e sem mudança de comportamento:
+
+1. tratar os resíduos locais `media/` e `uploads/` (achado 12);
+2. alinhar o `.venv` local ao `requirements.txt` (achado 17);
+3. corrigir dois comentários desatualizados (achados 26 e 27).
+
+Nenhuma configuração de produção ou do Render foi feita.
+
+### `media/` e `uploads/`
+
+O conteúdo dos PDFs **não foi aberto**. Foram usados só nome, tamanho, data e hash SHA-256.
+
+| Arquivo | Tamanho | Hash (prefixo) | Referenciado no projeto/README? | Cópia original fora do projeto? |
+| --- | --- | --- | --- | --- |
+| `media/documentos/danfe_ciclano_-_pecas.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/danfe_ciclano_-_pecas_o6sflRn.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/danfe_ciclano_-_pecas_YneEPD9.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/danfe_ciclano_-_pecas_G9aoHC5.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/danfe-teste.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/danfe-teste_WmFea9v.pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `uploads/teste-gr10/danfe (ciclano - pecas).pdf` | 7457 B | `13dc6ee85f2f` | não | sim |
+| `media/documentos/Att-19-09.pdf` | 50049 B | `8b01f3ff8451` | não | sim |
+
+- Os 7 arquivos `danfe*` são **cópias byte a byte idênticas** da nota fictícia de teste. O original continua em `Projeto-Final/Documentos/Atividade-21-09-Agent IA/Nota Fiscal - Teste/`, fora do repositório, e é essa pasta que deve ser usada como nota de demonstração.
+- `Att-19-09.pdf` é cópia idêntica de um arquivo de outra disciplina (pasta "Integracao de Aplicacoes"). Não tem relação com a demonstração.
+- **Resultado:** o conteúdo das duas pastas foi removido (8 PDFs e as subpastas `media/documentos/` e `uploads/teste-gr10/`). Restaram só as pastas `media/` e `uploads/` vazias, que continuam ignoradas pelo Git. **Nenhum PDF precisou de decisão manual**, porque todos têm original preservado fora do projeto. Nenhum PDF foi adicionado ao repositório.
+
+### Recriação do `.venv`
+
+1. `pip freeze` do ambiente antigo: 32 pacotes (os 29 do `requirements.txt` + 3 antigos);
+2. removido **somente** `.venv/`. `.env`, `README.txt`, `.git/` e o código não foram tocados (SHA-256 de `.env` e `README.txt` iguais antes e depois);
+3. `python3 -m venv .venv` (Python 3.14.7), `pip install --upgrade pip` (pip 26.2.1) e `pip install -r requirements.txt`, sem erros;
+4. `pip check`: `No broken requirements found.`
+
+**Pacotes antigos que desapareceram:** `djangorestframework==3.18.1`, `psycopg==3.3.6`, `psycopg-binary==3.3.6`.
+
+| Verificação | Resultado |
+| --- | --- |
+| `python -c "import psycopg"` | `ModuleNotFoundError: No module named 'psycopg'` |
+| `python -c "import rest_framework"` | `ModuleNotFoundError: No module named 'rest_framework'` |
+| `pip freeze` × `requirements.txt` | **idênticos** (29 pacotes, mesmas versões). Não há diferença transitiva, porque o `requirements.txt` já é um freeze completo das dependências diretas e transitivas |
+
+Observação: um `runserver` iniciado fora desta tarefa estava em execução durante a recriação. Ele não foi encerrado. O `.venv` novo está no mesmo caminho, então basta reiniciá-lo se ele parar ao recarregar.
+
+### Comentários corrigidos
+
+| Arquivo | Antes | Depois |
+| --- | --- | --- |
+| `agents/extrator/schemas.py:33` | "Compatível com DecimalField(max_digits=12, decimal_places=2) do financeiro." | "Teto de sanidade para valores extraídos: até 12 dígitos com 2 casas decimais (menor que 10 bilhões). Acima disso o valor é tratado como leitura inválida." |
+| `agents/extrator/agent.py:48` | "A mensagem é segura para exibir ou gravar." | "A mensagem é segura para exibir ao usuário." |
+
+Só comentário e docstring. `LIMITE_VALOR_MONETARIO`, validators, schema, prompts e comportamento **não mudaram**.
+
+### Arquivos versionados alterados
+
+- `agents/extrator/schemas.py` (1 comentário);
+- `agents/extrator/agent.py` (1 docstring);
+- `analisetemporaria.md` (34.4 + 34.5).
+
+`.env`, `README.txt`, `media/`, `uploads/` e `.venv/` não aparecem no `git status` (ignorados).
+
+### Validações executadas (no `.venv` novo)
+
+| Comando | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` |
+| `python manage.py test` | **`Ran 272 tests` — OK** (sem chamadas reais ao Gemini) |
+| `git diff --check` | sem problemas |
+
+**Nenhuma funcionalidade mudou.**
+
+### Pendências restantes
+
+- **Fase B:** `.env.example` (documentar `MAX_PDF_UPLOAD_SIZE_MB` e preparar as variáveis de deploy) e a decisão sobre o exemplo de `DEMO_LOGIN` (achados 11, 21 e 24).
+- **Fase C:** os 6 bloqueadores do Render e os itens de prioridade alta (achados 1 a 10 e 16).
+- **Fase D:** URL no `README.txt`, teste real no Render e consolidação do `ContextoProjeto.md`.
+- Commit/PR não realizados.
+
+## 34.6 - Ajustes Leves Pré-Deploy
+
+**Data:** 2026-09-29 · **Branch:** `chore/n2-etapa1-pre-deploy-cleanup` · **Base:** `bf94c9d` (Fase A commitada) · **Estado:** executado, **sem commit**.
+
+### Objetivo
+
+Executar a **Fase B** do plano da 34.4 (achados 21 e 24): deixar o `.env.example` só com exemplos, sem credenciais reais ou parecidas com reais, e documentar `MAX_PDF_UPLOAD_SIZE_MB`. Não é a configuração do Render.
+
+### Alteração do `.env.example`
+
+| Variável | Antes | Depois |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | placeholder textual `SUA_CHAVE_SECRETA_DJANGO` | **vazio**, com comentário: obrigatória, gerar valor longo e aleatório |
+| `DJANGO_DEBUG` | `True` | `True` (inalterado, uso local) |
+| `DEMO_LOGIN` | **valor igual ao login real da apresentação** | **vazio** |
+| `DEMO_PASSWORD` | placeholder textual `SUA_SENHA_DE_LOGIN` | **vazio** |
+| `GEMINI_MODEL` / `GEMINI_TIMEOUT_SEGUNDOS` / `GEMINI_MAX_TENTATIVAS` | `gemini-3.5-flash-lite` / `60` / `3` | inalterados |
+| `MAX_PDF_UPLOAD_SIZE_MB` | ausente | **`10`** (mesmo padrão do `settings.py`), com comentário "Tamanho máximo do PDF enviado, em MB." |
+| `GEMINI_API_KEY` | ausente | **continua ausente** |
+
+Comentários do arquivo:
+
+- cabeçalho: copiar para `.env`, preencher e nunca versionar valores reais;
+- `DJANGO_SECRET_KEY` vazia faz **toda requisição falhar** (`ImproperlyConfigured: The SECRET_KEY setting must not be empty`; verificado nesta fase, e o `check` sozinho não detecta). Por isso o comentário diz "requisição falha", e não "o Django não inicia";
+- `DEMO_*` vazias fazem o login recusar todo acesso (comportamento de `usuarios/demo.py`);
+- Gemini API Key: "NÃO é configurada aqui: ela é informada na interface a cada processamento e não é armazenada."
+
+**Valor real encontrado e removido:** somente o exemplo de `DEMO_LOGIN`, que coincidia com o login real (identificado na 34.4). Os outros eram placeholders textuais, trocados por vazio. O valor não é repetido aqui. Continua no histórico do Git (commits anteriores), mas é só o login; a senha e a chave nunca foram versionadas.
+
+Nenhum valor do `.env` real foi lido ou copiado, e o `.env` e o `README.txt` não foram alterados.
+
+### Não feito nesta fase (Fase C)
+
+Nenhuma variável ou configuração do Render foi adicionada: `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `RENDER_EXTERNAL_HOSTNAME`, `PORT` e `PYTHON_VERSION` continuam fora. Nenhum código, setting, dependência ou `.gitignore` mudou.
+
+### Validações executadas
+
+| Comando | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` |
+| `python manage.py test` | **`Ran 272 tests` — OK** |
+| `git diff --check` | sem problemas |
+
+Arquivos versionados alterados: `.env.example` e `analisetemporaria.md`.
+
+### Pendências para a Fase C
+
+- `requirements.txt`: + `gunicorn`, + `whitenoise`;
+- `settings.py`: `ALLOWED_HOSTS` do ambiente (+ `RENDER_EXTERNAL_HOSTNAME`), `CSRF_TRUSTED_ORIGINS`, `SECURE_PROXY_SSL_HEADER`, cookies seguros quando `not DEBUG`, `STATIC_ROOT` + WhiteNoise; `.gitignore` + `staticfiles/`;
+- `.env.example`: documentar as novas variáveis de deploy;
+- build (`pip install` + `collectstatic`, sem `migrate`) e start (`gunicorn ... --bind 0.0.0.0:$PORT --timeout <N>`);
+- fixar a versão do Python; nova `DJANGO_SECRET_KEY` de produção; `DEMO_*` iguais ao `README.txt`; decidir timeout e tentativas do Gemini para a apresentação;
+- testes das configurações de produção; `check --deploy` sem avisos relevantes.
+- Commit/PR desta fase não realizados.

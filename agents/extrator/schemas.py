@@ -30,7 +30,8 @@ from pydantic import (
 VERSAO_SCHEMA = 1
 
 CENTAVO = Decimal("0.01")
-# Compatível com DecimalField(max_digits=12, decimal_places=2) do financeiro.
+# Teto de sanidade para valores extraídos: até 12 dígitos com 2 casas decimais
+# (menor que 10 bilhões). Acima disso o valor é tratado como leitura inválida.
 LIMITE_VALOR_MONETARIO = Decimal("10000000000")
 
 _SEPARADORES_DOCUMENTO = re.compile(r"[.\-/\s]")
