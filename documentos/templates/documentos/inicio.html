@@ -10,7 +10,17 @@
     <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
       {% csrf_token %}
 
-      <label for="id_arquivo" class="formulario__rotulo">Arquivo PDF</label>
+      <label for="{{ form.gemini_api_key.id_for_label }}" class="formulario__rotulo">{{ form.gemini_api_key.label }}</label>
+      {{ form.gemini_api_key }}
+      <p class="texto-apoio texto-apoio--campo" id="{{ form.gemini_api_key.auto_id }}_helptext">{{ form.gemini_api_key.help_text }}</p>
+
+      {% if form.gemini_api_key.errors %}
+        <ul class="erros-campo" id="{{ form.gemini_api_key.auto_id }}_error">
+          {% for erro in form.gemini_api_key.errors %}<li>{{ erro }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      <label for="id_arquivo" class="formulario__rotulo">Nota Fiscal PDF</label>
       <input type="file" name="arquivo" id="id_arquivo" accept="application/pdf,.pdf" required
              {% if form.arquivo.errors %}aria-invalid="true" aria-describedby="erros_arquivo"{% endif %}>
 

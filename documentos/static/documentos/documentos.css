@@ -122,6 +122,31 @@ h2 {
   max-width: 100%;
 }
 
+.formulario__campo {
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+  color: inherit;
+  font: inherit;
+}
+
+.formulario__campo:focus-visible {
+  outline: 2px solid var(--cor-marca);
+  outline-offset: 1px;
+}
+
+.formulario__campo[aria-invalid="true"] {
+  border-color: var(--cor-erro-texto);
+}
+
+.texto-apoio--campo {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
 .erro-geral,
 .erros-campo {
   width: 100%;

@@ -1654,3 +1654,189 @@ Não foi alterado (por decisão). Ficaram **desatualizadas**, entre outras, as s
 ### Seções da auditoria (1 a 33) superadas
 
 Toda descrição de `Documento`, estados, PostgreSQL, `media/`, Admin, `financeiro`, `Titular`, rotas por ID e concorrência nas seções 1, 3, 5 a 10, 14 a 21 e 24 a 31 descreve a arquitetura **anterior**. Os riscos A1 (documento preso em `PROCESSANDO`) e B1 (mensagem de arquivo vazio) deixaram de existir. A2 (processamento síncrono) continua valendo. Os riscos de integração financeira (§27) passam a ser escopo do novo DER.
+
+## 34.3 - Gemini API Key Temporária
+
+**Data:** 2026-09-29 · **Branch:** `feature/n2-etapa1-gemini-key` · **Base:** `main` @ `33d1be3` (34.1 e 34.2 já mescladas) · **Estado:** implementado e validado, **sem commit**.
+
+### Objetivo
+
+Permitir que o professor informe a própria Gemini API Key na tela, junto com o PDF, sem que a aplicação dependa de `GEMINI_API_KEY` no ambiente e sem que a chave seja guardada em lugar algum.
+
+### Requisito do professor
+
+Na apresentação o professor recebe um `README.txt` (próxima tarefa) com uma Gemini API Key e deve: acessar o sistema → fazer login → colar a chave → selecionar a nota fiscal PDF → clicar em Processar → ver o JSON. A chave só pode existir **em memória, durante aquele POST**.
+
+### Arquitetura anterior x nova
+
+**ANTES**
+
+```
+.env
+ ↓
+settings.GEMINI_API_KEY
+ ↓
+GeminiClient()            (fallback para settings; um cliente por Agent, criado sob demanda)
+ ↓
+AgentExtrator / AgentClassificador
+```
+
+**DEPOIS**
+
+```
+Professor
+ ↓
+campo "Gemini API Key" (type="password")
+ ↓
+POST /documentos/ (chave + PDF no mesmo formulário)
+ ↓
+processar_pdf(pdf_bytes, gemini_api_key)
+ ↓
+GeminiClient(api_key=key)          (uma única instância)
+ ├── AgentExtrator(cliente=...)
+ └── AgentClassificador(cliente=...)
+ ↓
+JSON
+ ↓
+resposta (formulário novo e vazio)
+ ↓
+Key descartada ao fim da requisição
+```
+
+### Arquivos alterados
+
+| Arquivo | Alteração |
+| --- | --- |
+| `documentos/forms.py` | campo `gemini_api_key` |
+| `documentos/views.py` | lê a chave, repassa a `processar_pdf`, formulário novo após processar, `@sensitive_post_parameters`/`@sensitive_variables`, sugestão de erro |
+| `documentos/processamento.py` | `processar_pdf(pdf_bytes, gemini_api_key, ...)`, cliente único compartilhado |
+| `agents/gemini_client.py` | chave obrigatória e explícita; sem fallback para `settings` |
+| `config/settings.py` | removido `GEMINI_API_KEY` |
+| `.env.example` | removido `GEMINI_API_KEY`, com comentário explicando que não é necessária |
+| `documentos/templates/documentos/inicio.html` | campo, texto de apoio e erros do campo; rótulo do arquivo virou "Nota Fiscal PDF" |
+| `documentos/static/documentos/documentos.css` | estilo do campo de texto (`.formulario__campo`, `.texto-apoio--campo`) |
+| testes | `agents/test_gemini_client.py`, `agents/extrator/test_agent.py`, `agents/classificador/test_agent.py`, `documentos/test_processamento.py`, `documentos/test_interface.py` |
+
+Não alterados: `documentos.js` (a trava de duplo envio continua igual e não referencia a chave), Agents (prompts, schemas, structured output, validações, erros, timeout, retry), `montar_resultado` e o contrato JSON, login/logout, sessão.
+
+### Formulário (`DocumentoUploadForm`)
+
+- `gemini_api_key = forms.CharField(label="Gemini API Key", max_length=256, strip=True, widget=forms.PasswordInput(...))`;
+- obrigatório; vazio ou só com espaços → **"Informe a Gemini API Key."** (o `strip=True` transforma espaços em vazio);
+- `PasswordInput` **sem** `render_value=True`: o valor enviado nunca volta no HTML;
+- atributos `autocomplete="off"`, `autocapitalize="off"`, `spellcheck="false"`; `maxlength="256"` e `required` gerados pelo Django;
+- texto de apoio (`help_text`): "A chave é utilizada somente durante este processamento e não é armazenada." (o Django liga o campo ao texto e aos erros por `aria-describedby`);
+- **o formato da chave não é validado** (nada de prefixo): quem valida é a API do Gemini na chamada;
+- chave e PDF ficam no **mesmo formulário**, um único POST. O campo vem antes do PDF.
+
+### View (`documento_inicio`)
+
+1. `@sensitive_post_parameters("gemini_api_key")` (decorator mais externo) + `@demo_login_required` + `@require_http_methods` + `@sensitive_variables("gemini_api_key")`;
+2. valida o formulário; se inválido (chave ausente ou PDF inválido), mostra os erros e **não** chama o processamento;
+3. se válido: `arquivo` e `gemini_api_key` do `cleaned_data` → `_processar(arquivo, gemini_api_key)` → `processar_pdf(arquivo.read(), gemini_api_key)`;
+4. depois do processamento (sucesso ou erro) renderiza um **`DocumentoUploadForm()` novo e vazio**: a chave e o arquivo não reaparecem e a próxima execução exige a chave de novo;
+5. a chave não entra no contexto do template, na sessão nem em mensagens.
+
+### `processar_pdf`
+
+```python
+processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None) -> ResultadoProcessamento
+```
+
+- cria **um** `GeminiClient(api_key=gemini_api_key)` e o passa aos dois Agents: `AgentExtrator(cliente=cliente)` e `AgentClassificador(cliente=cliente)`. Os dois construtores já aceitavam `cliente=`; não houve motivo técnico para duas instâncias;
+- `extrator`/`classificador` injetados continuam existindo só para testes (nesse caso o cliente não é criado);
+- `GeminiConfiguracaoError` na criação do cliente (chave vazia, `GEMINI_MODEL` ausente etc.) → `ProcessamentoError("configuracao", "servico_indisponivel", "Serviço de IA indisponível no momento.")`, sem causa encadeada;
+- `@sensitive_variables("gemini_api_key")` em `processar_pdf`, `_executar` e `_criar_cliente`;
+- restante igual: Extrator → Classificador → `montar_resultado`.
+
+### `GeminiClient`
+
+- `api_key` continua keyword-only com padrão `None`, mas **não há mais fallback** para `settings.GEMINI_API_KEY`: sem chave (ou vazia/só espaços) → `GeminiConfiguracaoError("Gemini API Key não informada.")`, antes de criar o SDK;
+- continua `genai.Client(api_key=chave, vertexai=False, ...)`: com a chave explícita, o SDK **não** usa `GOOGLE_API_KEY` nem `GEMINI_API_KEY` do ambiente (testado com o SDK real, sem rede);
+- a classe não guarda cópia da chave (só o SDK interno a tem); `__repr__` continua sem a chave;
+- modelo, timeout e tentativas continuam vindo de `settings` (`GEMINI_MODEL`, `GEMINI_TIMEOUT_SEGUNDOS`, `GEMINI_MAX_TENTATIVAS`), com os mesmos padrões.
+
+Os Agents mantêm o `GeminiClient()` "sob demanda" de quando não recebem cliente. Esse caminho não é usado pela aplicação e agora sempre resulta em `GeminiConfiguracaoError` → erro seguro de indisponibilidade (comportamento já testado). Foi mantido para não mexer nos Agents.
+
+### Comportamento da Key e não persistência
+
+A chave vive só em variáveis locais da requisição: `request.POST` → `form.cleaned_data` → `processar_pdf` → `GeminiClient` → SDK. Ao fim do POST todos esses objetos saem de escopo. Ela **não** vai para: banco (não existe), sessão, cookie, `.env`, arquivo, cache, variável global, `settings`, model, `localStorage`/`sessionStorage` (o JS não a toca), URL, logs, mensagens de erro, HTML, JSON, resumo, justificativa ou contexto do template. Tudo isso é testado (ver "Testes").
+
+**Sessão:** continua em cookie assinado com **somente** `{"demo_autenticado": true}`; testado depois de um processamento completo.
+
+**`.env`:** a aplicação não lê mais `GEMINI_API_KEY`. O `.env` local **não foi alterado**; se ainda tiver a linha `GEMINI_API_KEY`, ela é ignorada (o SDK também a ignora, porque a chave é explícita). `GEMINI_API_KEY` foi removida do `.env.example`, que agora diz que a chave é informada na tela.
+
+### Tratamento de erros
+
+| Situação | Resultado |
+| --- | --- |
+| chave ausente/vazia/só espaços | erro no campo "Informe a Gemini API Key."; processamento não chamado |
+| chave com mais de 256 caracteres | "A Gemini API Key deve ter no máximo 256 caracteres."; sem ecoar o valor |
+| PDF inválido | erro do PDF; Gemini não é chamado; chave não reaparece |
+| chave inválida/expirada/sem permissão (400/401/403 da API) | tratamento seguro existente: "Serviço de extração indisponível no momento." |
+| timeout, rede, 5xx | idem |
+
+A sugestão exibida para `servico_indisponivel` passou a ser "Confira se a Gemini API Key informada é válida. Tente novamente mais tarde.", sem distinguir a causa (não se expõe status nem resposta da API). Nunca aparecem a chave, parte dela, request/resposta da API, headers ou traceback.
+
+### Proteções de sigilo
+
+- `PasswordInput` sem `render_value`; formulário novo após processar;
+- `@sensitive_post_parameters("gemini_api_key")` na view: relatórios de erro do Django mostram `********` no lugar do campo;
+- `@sensitive_variables` na view, em `_processar`, `processar_pdf`, `_executar`, `_criar_cliente` e (já existente) em `GeminiClient.__init__`;
+- nenhum log recebe a chave nem `request.POST`; os logs do `GeminiClient` e dos Agents registram só tipo de erro, modelo e status;
+- JS sem referência a Gemini/chave (teste já existente).
+
+### Testes
+
+**Criados:**
+
+- `agents/test_gemini_client.py`: chave ausente/vazia/só espaços; espaços externos removidos; chave **não** vem de `settings` (mesmo com `GEMINI_API_KEY` sobrescrito); `settings` do projeto sem `GEMINI_API_KEY`; `GOOGLE_API_KEY`/`GEMINI_API_KEY` do ambiente nunca substituem a chave informada; cliente não guarda cópia da chave;
+- `documentos/test_processamento.py`: `processar_pdf` cria **um** `GeminiClient(api_key=chave)` e o passa aos dois Agents; `GeminiApiKeyDaRequisicaoTests` (Agents e `GeminiClient` reais, só o SDK falso): um único SDK criado com a chave atende as duas chamadas, PDF em bytes, resultado correto; `GOOGLE_API_KEY` no ambiente e `GEMINI_API_KEY` ausente não mudam a chave; chave fora do resultado, da justificativa e dos logs; chave recusada pela API (400/401/403) vira erro seguro sem vazar a chave; chave ausente → `servico_indisponivel`; configuração inválida sem expor a chave;
+- `documentos/test_interface.py`:
+  - `GeminiApiKeyFormularioTests`: campo aparece, `type="password"`, `required`, `autocomplete="off"`, `maxlength`, sem `value=`; chave e PDF no mesmo e único formulário; sem `render_value`; ausente/vazia/só espaços recusadas; longa demais recusada sem eco; formato não validado localmente; chave não reaparece após sucesso, erro do PDF e erro de processamento; chave fora do contexto do template e das mensagens; nova visita GET sem a chave e nova execução exige chave; `sensitive_post_parameters` aplicado;
+  - `IntegracaoTests` (reescrito para o `GeminiClient` real com SDK falso): ponta a ponta; Extrator e Classificador com o mesmo cliente e a chave do formulário; espaços removidos; funciona sem `GEMINI_API_KEY` e com `GOOGLE_API_KEY=CHAVE_ERRADA_DO_AMBIENTE`; chave recusada pela API mostra erro seguro;
+  - `NaoPersistenciaDaChaveTests`: depois de um processamento completo, chave fora da sessão e dos cookies, da resposta, dos headers e do JSON, dos logs (captura no logger raiz em DEBUG), nenhum arquivo novo no projeto, nenhuma variável global (views, forms, processamento, gemini_client), `settings` inalterado, `os.environ` sem a chave, backend de banco `dummy`.
+
+**Ajustados:** chamadas `GeminiClient()` dos testes passaram a usar `api_key=` explícita; removidos os `override_settings(GEMINI_API_KEY=...)`, que não têm mais efeito; POSTs dos testes de interface enviam a chave; `test_agents_padrao...` agora confere o cliente compartilhado; teste de configuração com chave ausente agora passa por `processar_pdf(PDF, chave)`; sugestão de `servico_indisponivel` referenciada pela constante.
+
+**Total final: 272 testes** (antes: 243).
+
+| Arquivo | Testes |
+| --- | --- |
+| `agents/test_gemini_client.py` | 29 (antes 27) |
+| `agents/extrator/test_schemas.py` | 52 |
+| `agents/extrator/test_agent.py` | 29 |
+| `agents/classificador/test_schemas.py` | 11 |
+| `agents/classificador/test_agent.py` | 15 |
+| `documentos/test_processamento.py` | 26 (antes 21) |
+| `documentos/test_interface.py` | 64 (antes 42) |
+| `usuarios/tests.py` | 37 |
+| `config/test_sem_banco.py` | 9 |
+
+Nenhum teste faz chamada real ao Gemini: o SDK é sempre falso, ou real com o envio HTTP interceptado.
+
+### Validações executadas
+
+| Comando / verificação | Resultado |
+| --- | --- |
+| `python manage.py check` | `System check identified no issues (0 silenced).` |
+| `python manage.py test` | **`Ran 272 tests` — OK** |
+| `git diff --check` | sem problemas |
+| Busca por `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `gemini_api_key` | só comentários, testes (valores fictícios) e o fluxo da requisição (form → view → `processar_pdf` → `GeminiClient`); nenhuma persistência |
+
+**Teste manual (`runserver` em porta separada, credenciais fictícias passadas pelo ambiente, sem chamada ao Gemini):** `/login/` → login → `/documentos/` 200; o campo aparece como `<input type="password" name="gemini_api_key" ... required>` com o texto de apoio, e o campo do PDF aparece; POST sem chave → "Informe a Gemini API Key."; POST com chave fictícia e arquivo que não é PDF → "O arquivo enviado não é um PDF válido." e a chave **não** aparece no HTML nem no log do servidor; `/logout/` → `/login/`; depois, `/documentos/` → `/login/`. A integração com o Gemini foi validada só pelos testes automatizados com SDK falso.
+
+### Limitações
+
+- O professor precisa colar a chave a cada processamento (é o comportamento pedido).
+- Chave inválida e indisponibilidade do serviço mostram a mesma mensagem (a sugestão pede para conferir a chave).
+- Com upload acima de 2,5 MB, o Django usa arquivo temporário para o **PDF** (comportamento do framework, já descrito na 34.2); a chave é um campo de texto e fica só em memória.
+- O navegador pode oferecer para salvar o campo de senha, dependendo das configurações do professor; `autocomplete="off"` reduz isso, mas não é garantido por todos os navegadores.
+
+### Próximas pendências
+
+- `README.txt` com a chave para o professor (próxima tarefa; nunca versionar a chave).
+- Hospedagem (Render) e servidor de produção.
+- Consolidar o `ContextoProjeto.md` ao final da preparação da entrega.
+- Opcional: remover a linha `GEMINI_API_KEY` do `.env` local (ignorada pela aplicação).
+- Commit/PR não realizados.

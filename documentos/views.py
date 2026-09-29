@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.shortcuts import render
+from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from django.views.decorators.http import require_http_methods
 
 from usuarios.demo import demo_login_required
@@ -24,7 +25,9 @@ AVISOS_VALIDACAO = (
 SUGESTAO_ERRO_PADRAO = "Tente novamente. Se o problema persistir, avise a equipe."
 SUGESTOES_ERRO = {
     "documento_ilegivel": "Envie o arquivo PDF novamente.",
-    "servico_indisponivel": "Tente novamente mais tarde.",
+    "servico_indisponivel": (
+        "Confira se a Gemini API Key informada é válida. Tente novamente mais tarde."
+    ),
     "resposta_invalida": "Confira se o arquivo enviado é uma nota fiscal válida.",
     "classificacao_invalida": "Tente novamente.",
     "classificacao_inconclusiva": (
@@ -73,10 +76,14 @@ def _avisos_validacao(resultado):
     ]
 
 
-def _processar(arquivo):
-    """Processa o PDF validado e devolve o contexto do resultado ou do erro."""
+@sensitive_variables("gemini_api_key")
+def _processar(arquivo, gemini_api_key):
+    """Processa o PDF validado e devolve o contexto do resultado ou do erro.
+
+    A chave só é repassada; não entra no contexto do template.
+    """
     try:
-        processamento = processar_pdf(arquivo.read())
+        processamento = processar_pdf(arquivo.read(), gemini_api_key)
     except ProcessamentoError as exc:
         return {
             "erro": {
@@ -95,12 +102,15 @@ def _processar(arquivo):
     }
 
 
+@sensitive_post_parameters("gemini_api_key")
 @demo_login_required
 @require_http_methods(["GET", "POST"])
+@sensitive_variables("gemini_api_key")
 def documento_inicio(request):
-    """Tela única: envio do PDF, processamento e resultado na mesma resposta.
+    """Tela única: envio da chave e do PDF, processamento e resultado na mesma resposta.
 
-    Nada é gravado: o PDF é lido em memória e o resultado só é renderizado.
+    Nada é gravado: o PDF é lido em memória, a Gemini API Key só é repassada
+    ao processamento e o resultado só é renderizado.
     """
     contexto = {"limite_upload_mb": settings.MAX_PDF_UPLOAD_SIZE_MB}
 
@@ -108,8 +118,11 @@ def documento_inicio(request):
         form = DocumentoUploadForm(request.POST, request.FILES)
         if form.is_valid():
             arquivo = form.cleaned_data["arquivo"]
+            gemini_api_key = form.cleaned_data["gemini_api_key"]
             contexto["nome_arquivo"] = arquivo.name
-            contexto.update(_processar(arquivo))
+            contexto.update(_processar(arquivo, gemini_api_key))
+            # Formulário novo e vazio: a próxima execução exige a chave de novo.
+            form = DocumentoUploadForm()
     else:
         form = DocumentoUploadForm()
 

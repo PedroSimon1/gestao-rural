@@ -1,3 +1,4 @@
+import logging
 import os
 from unittest import mock
 
@@ -17,7 +18,6 @@ from .gemini_client import (
 CHAVE_TESTE = "chave-secreta-teste-gr9"
 
 CONFIGURACAO_PADRAO = {
-    "GEMINI_API_KEY": CHAVE_TESTE,
     "GEMINI_MODEL": "modelo-teste",
     "GEMINI_TIMEOUT_SEGUNDOS": "60",
     "GEMINI_MAX_TENTATIVAS": "3",
@@ -54,49 +54,66 @@ class GeminiClientTestBase(SimpleTestCase):
 
 
 class GeminiClientConfiguracaoTests(GeminiClientTestBase):
-    @override_settings(GEMINI_API_KEY=None)
     def test_chave_ausente_gera_erro_de_configuracao(self):
         with self.assertRaises(GeminiConfiguracaoError):
             GeminiClient()
 
         self.sdk_client_classe.assert_not_called()
 
-    @override_settings(GEMINI_API_KEY="")
-    def test_chave_vazia_gera_erro_de_configuracao(self):
-        with self.assertRaises(GeminiConfiguracaoError):
-            GeminiClient()
+    def test_chave_vazia_ou_so_com_espacos_gera_erro_de_configuracao(self):
+        for chave in (None, "", "   ", "\t\n"):
+            with self.subTest(chave=chave):
+                with self.assertRaises(GeminiConfiguracaoError):
+                    GeminiClient(api_key=chave)
 
-    @override_settings(GEMINI_API_KEY="   ")
-    def test_chave_so_com_espacos_gera_erro_de_configuracao(self):
-        with self.assertRaises(GeminiConfiguracaoError):
-            GeminiClient()
+        self.sdk_client_classe.assert_not_called()
+
+    def test_espacos_externos_da_chave_sao_removidos(self):
+        GeminiClient(api_key=f"  {CHAVE_TESTE}\n")
+
+        self.assertEqual(self.argumentos_do_sdk()["api_key"], CHAVE_TESTE)
+
+    def test_chave_nao_vem_de_settings(self):
+        with override_settings(GEMINI_API_KEY="chave-dos-settings"):
+            with self.assertRaises(GeminiConfiguracaoError):
+                GeminiClient()
+            GeminiClient(api_key=CHAVE_TESTE)
+
+        self.assertEqual(self.argumentos_do_sdk()["api_key"], CHAVE_TESTE)
+
+    def test_settings_do_projeto_nao_definem_gemini_api_key(self):
+        from django.conf import settings
+
+        self.assertFalse(hasattr(settings, "GEMINI_API_KEY"))
+
+    def test_chave_do_ambiente_nunca_substitui_a_chave_informada(self):
+        ambiente = {"GOOGLE_API_KEY": "chave-errada-google", "GEMINI_API_KEY": "chave-errada-gemini"}
+        with mock.patch.dict(os.environ, ambiente):
+            with self.assertRaises(GeminiConfiguracaoError):
+                GeminiClient()
+            self.sdk_client_classe.assert_not_called()
+
+            GeminiClient(api_key=CHAVE_TESTE)
+
+        self.assertEqual(self.argumentos_do_sdk()["api_key"], CHAVE_TESTE)
 
     @override_settings(GEMINI_MODEL=None)
     def test_modelo_ausente_gera_erro_de_configuracao(self):
         with self.assertRaises(GeminiConfiguracaoError):
-            GeminiClient()
+            GeminiClient(api_key=CHAVE_TESTE)
 
     def test_chave_valida_e_passada_explicitamente_ao_sdk(self):
-        cliente = GeminiClient()
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         argumentos = self.argumentos_do_sdk()
         self.assertEqual(argumentos["api_key"], CHAVE_TESTE)
         self.assertIs(argumentos["vertexai"], False)
         self.assertEqual(cliente.modelo, "modelo-teste")
 
-    @override_settings(GEMINI_API_KEY=None)
-    def test_google_api_key_nao_substitui_gemini_api_key_ausente(self):
-        with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "outra-chave"}):
-            with self.assertRaises(GeminiConfiguracaoError):
-                GeminiClient()
+    def test_cliente_nao_guarda_copia_da_chave(self):
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
-        self.sdk_client_classe.assert_not_called()
-
-    def test_google_api_key_nao_substitui_gemini_api_key_configurada(self):
-        with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "outra-chave"}):
-            GeminiClient()
-
-        self.assertEqual(self.argumentos_do_sdk()["api_key"], CHAVE_TESTE)
+        self.assertNotIn(CHAVE_TESTE, [str(valor) for valor in vars(cliente).values()])
 
     def test_parametros_explicitos_sobrescrevem_settings(self):
         cliente = GeminiClient(
@@ -115,14 +132,14 @@ class GeminiClientConfiguracaoTests(GeminiClientTestBase):
         )
 
     def test_timeout_e_configurado_em_milissegundos(self):
-        cliente = GeminiClient()
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         self.assertEqual(cliente.timeout_segundos, 60)
         self.assertEqual(self.argumentos_do_sdk()["http_options"].timeout, 60_000)
 
     @override_settings(GEMINI_TIMEOUT_SEGUNDOS=None, GEMINI_MAX_TENTATIVAS=None)
     def test_timeout_e_tentativas_usam_padrao_quando_ausentes(self):
-        cliente = GeminiClient()
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         self.assertEqual(cliente.timeout_segundos, 60)
         self.assertEqual(cliente.max_tentativas, 3)
@@ -130,10 +147,10 @@ class GeminiClientConfiguracaoTests(GeminiClientTestBase):
     @override_settings(GEMINI_TIMEOUT_SEGUNDOS="abc")
     def test_timeout_invalido_gera_erro_de_configuracao(self):
         with self.assertRaises(GeminiConfiguracaoError):
-            GeminiClient()
+            GeminiClient(api_key=CHAVE_TESTE)
 
     def test_tentativas_usam_retry_nativo_do_sdk(self):
-        cliente = GeminiClient()
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         retry = self.argumentos_do_sdk()["http_options"].retry_options
         self.assertEqual(cliente.max_tentativas, 3)
@@ -142,10 +159,10 @@ class GeminiClientConfiguracaoTests(GeminiClientTestBase):
     @override_settings(GEMINI_MAX_TENTATIVAS="0")
     def test_tentativas_menor_que_um_gera_erro_de_configuracao(self):
         with self.assertRaises(GeminiConfiguracaoError):
-            GeminiClient()
+            GeminiClient(api_key=CHAVE_TESTE)
 
     def test_repr_nao_expoe_chave(self):
-        cliente = GeminiClient()
+        cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         self.assertNotIn(CHAVE_TESTE, repr(cliente))
         self.assertNotIn(CHAVE_TESTE, str(cliente))
@@ -155,7 +172,7 @@ class GeminiClientChamadaTests(GeminiClientTestBase):
     def test_chamada_com_sucesso_retorna_texto(self):
         self.definir_resposta("resposta do modelo")
 
-        texto = GeminiClient().gerar_conteudo(
+        texto = GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo(
             "Classifique este lançamento",
             instrucao_sistema="Você é um classificador.",
             temperatura=0.1,
@@ -172,7 +189,7 @@ class GeminiClientChamadaTests(GeminiClientTestBase):
         self.definir_resposta("ok")
         conteudo = ["Extraia os dados", mock.sentinel.parte_pdf]
 
-        GeminiClient().gerar_conteudo(conteudo)
+        GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo(conteudo)
 
         self.assertEqual(
             self.generate_content.call_args.kwargs["contents"], conteudo
@@ -185,7 +202,7 @@ class GeminiClientChamadaTests(GeminiClientTestBase):
             "properties": {"categoria": {"type": "STRING"}},
         }
 
-        resultado = GeminiClient().gerar_json(
+        resultado = GeminiClient(api_key=CHAVE_TESTE).gerar_json(
             "Classifique", schema_resposta=schema
         )
 
@@ -198,7 +215,7 @@ class GeminiClientChamadaTests(GeminiClientTestBase):
         self.definir_resposta("isto não é json")
 
         with self.assertRaises(GeminiRespostaInvalidaError):
-            GeminiClient().gerar_json("Classifique")
+            GeminiClient(api_key=CHAVE_TESTE).gerar_json("Classifique")
 
     def test_resposta_vazia_gera_resposta_invalida(self):
         for texto in (None, "", "   "):
@@ -206,7 +223,7 @@ class GeminiClientChamadaTests(GeminiClientTestBase):
                 self.definir_resposta(texto)
 
                 with self.assertRaises(GeminiRespostaInvalidaError):
-                    GeminiClient().gerar_conteudo("Olá")
+                    GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo("Olá")
 
 
 class GeminiClientFalhasTests(GeminiClientTestBase):
@@ -215,7 +232,7 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
 
         with self.assertLogs("agents.gemini_client", "WARNING"):
             with self.assertRaises(GeminiTimeoutError) as contexto:
-                GeminiClient().gerar_conteudo("Olá")
+                GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo("Olá")
 
         self.assertIsInstance(contexto.exception.__cause__, httpx.ReadTimeout)
 
@@ -224,7 +241,7 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
 
         with self.assertLogs("agents.gemini_client", "WARNING"):
             with self.assertRaises(GeminiAPIError) as contexto:
-                GeminiClient().gerar_conteudo("Olá")
+                GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo("Olá")
 
         self.assertIsNone(contexto.exception.status_code)
 
@@ -241,7 +258,7 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
 
                 with self.assertLogs("agents.gemini_client", "WARNING"):
                     with self.assertRaises(GeminiAPIError) as contexto:
-                        GeminiClient().gerar_conteudo("Olá")
+                        GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo("Olá")
 
                 self.assertEqual(contexto.exception.status_code, codigo)
                 self.assertIs(contexto.exception.__cause__, erro)
@@ -269,7 +286,7 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
 
                 with self.assertLogs("agents.gemini_client") as logs:
                     with self.assertRaises(GeminiError) as contexto:
-                        GeminiClient().gerar_conteudo("Olá")
+                        GeminiClient(api_key=CHAVE_TESTE).gerar_conteudo("Olá")
 
                 self.assertNotIn(CHAVE_TESTE, str(contexto.exception))
                 self.assertNotIn(CHAVE_TESTE, repr(contexto.exception))
@@ -282,14 +299,14 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
                 self.definir_resposta(texto)
 
                 with self.assertRaises(GeminiRespostaInvalidaError) as contexto:
-                    GeminiClient().gerar_json("Olá")
+                    GeminiClient(api_key=CHAVE_TESTE).gerar_json("Olá")
 
                 self.assertNotIn(CHAVE_TESTE, str(contexto.exception))
 
     @override_settings(GEMINI_MODEL=None)
     def test_chave_nao_aparece_em_erro_de_configuracao(self):
         with self.assertRaises(GeminiConfiguracaoError) as contexto:
-            GeminiClient()
+            GeminiClient(api_key=CHAVE_TESTE)
 
         self.assertNotIn(CHAVE_TESTE, str(contexto.exception))
 
@@ -298,9 +315,14 @@ class GeminiClientFalhasTests(GeminiClientTestBase):
 class GeminiClientSdkRealTests(SimpleTestCase):
     """Usa o genai.Client real, sem chamadas de rede."""
 
-    def test_sdk_real_usa_gemini_api_key_mesmo_com_google_api_key(self):
-        with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "outra-chave"}):
-            cliente = GeminiClient()
+    def test_sdk_real_usa_a_chave_informada_mesmo_com_chaves_no_ambiente(self):
+        ambiente = {"GOOGLE_API_KEY": "outra-chave", "GEMINI_API_KEY": "mais-uma-chave"}
+        with (
+            mock.patch.dict(os.environ, ambiente),
+            # O SDK avisa que leu as duas variáveis; a chave usada é a explícita.
+            mock.patch.object(logging.getLogger("google_genai._api_client"), "disabled", True),
+        ):
+            cliente = GeminiClient(api_key=CHAVE_TESTE)
 
         self.assertEqual(cliente._client._api_client.api_key, CHAVE_TESTE)
         self.assertNotIn(CHAVE_TESTE, repr(cliente))

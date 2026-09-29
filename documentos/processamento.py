@@ -1,18 +1,23 @@
 """Orquestração stateless do processamento de uma nota fiscal em PDF.
 
-Fluxo: bytes do PDF → AgentExtrator → AgentClassificador → JSON final.
-Nada é gravado: o PDF e o resultado existem só durante a requisição.
+Fluxo: bytes do PDF + Gemini API Key → GeminiClient → AgentExtrator →
+AgentClassificador → JSON final.
+Nada é gravado: o PDF, a chave e o resultado existem só durante a requisição.
 """
 
 import logging
 from dataclasses import dataclass
 
+from django.views.decorators.debug import sensitive_variables
+
 from agents.classificador.agent import AgentClassificador, ClassificadorError
 from agents.extrator.agent import AgentExtrator, ExtratorError
+from agents.gemini_client import GeminiClient, GeminiConfiguracaoError
 
 logger = logging.getLogger(__name__)
 
 MENSAGEM_ERRO_INTERNO = "Erro inesperado ao processar o documento."
+MENSAGEM_GEMINI_NAO_CONFIGURADO = "Serviço de IA indisponível no momento."
 
 
 class ProcessamentoError(Exception):
@@ -62,11 +67,27 @@ def _erro(etapa, exc):
     return ProcessamentoError(etapa, exc.codigo, str(exc))
 
 
-def _executar(pdf_bytes, extrator, classificador):
-    if extrator is None:
-        extrator = AgentExtrator()
-    if classificador is None:
-        classificador = AgentClassificador()
+@sensitive_variables("gemini_api_key")
+def _criar_cliente(gemini_api_key):
+    """Um único GeminiClient com a chave da requisição, compartilhado pelos Agents."""
+    try:
+        return GeminiClient(api_key=gemini_api_key)
+    except GeminiConfiguracaoError:
+        # A mensagem da exceção nunca contém a chave, mas não é repassada.
+        logger.warning("Processamento falhou (configuracao/servico_indisponivel).")
+        raise ProcessamentoError(
+            "configuracao", "servico_indisponivel", MENSAGEM_GEMINI_NAO_CONFIGURADO
+        ) from None
+
+
+@sensitive_variables("gemini_api_key")
+def _executar(pdf_bytes, gemini_api_key, extrator, classificador):
+    if extrator is None or classificador is None:
+        cliente = _criar_cliente(gemini_api_key)
+        if extrator is None:
+            extrator = AgentExtrator(cliente=cliente)
+        if classificador is None:
+            classificador = AgentClassificador(cliente=cliente)
 
     try:
         nota = extrator.extrair(pdf_bytes)
@@ -84,14 +105,20 @@ def _executar(pdf_bytes, extrator, classificador):
     )
 
 
-def processar_pdf(pdf_bytes, *, extrator=None, classificador=None):
+@sensitive_variables("gemini_api_key")
+def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None):
     """Processa os bytes de um PDF e devolve o JSON final e a justificativa.
 
-    Toda falha (extração, classificação ou inesperada) vira
+    `gemini_api_key` é a chave informada na tela: vai direto para um único
+    GeminiClient usado pelo Extrator e pelo Classificador e é descartada ao
+    fim da chamada. Nunca é gravada, logada nem devolvida.
+    `extrator` e `classificador` só são injetados em testes.
+
+    Toda falha (configuração, extração, classificação ou inesperada) vira
     ProcessamentoError com etapa, código e mensagem seguros.
     """
     try:
-        return _executar(pdf_bytes, extrator, classificador)
+        return _executar(pdf_bytes, gemini_api_key, extrator, classificador)
     except ProcessamentoError:
         raise
     except Exception:

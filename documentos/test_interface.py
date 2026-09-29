@@ -1,23 +1,33 @@
 import inspect
+import json
+import logging
+import os
 import re
 from pathlib import Path
 from unittest import mock
 
+import httpx
+from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connections
+from django.http import HttpResponse
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
+from google.genai import errors
 
+from agents import gemini_client
 from agents.extrator.agent import ExtracaoIndisponivelError
-from agents.gemini_client import GeminiTimeoutError
 from usuarios.demo import SESSAO_DEMO
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 
-from . import views
+from . import forms, processamento as modulo_processamento, views
 from .processamento import ProcessamentoError, ResultadoProcessamento
 from .test_processamento import dados_nota
 
 PDF = b"%PDF-1.4\n%%EOF\n"
+# Chave fictícia; nenhuma chamada real ao Gemini é feita.
+CHAVE_FORMULARIO = "CHAVE_CORRETA_DO_TESTE-n2-9f3a"
 DETALHE_INTERNO = "detalhe-interno-xyz"
 PASTA_APP = Path(__file__).resolve().parent
 PASTA_TEMPLATES = PASTA_APP / "templates" / "documentos"
@@ -78,9 +88,15 @@ class InterfaceTestBase(SimpleTestCase):
         autenticar_demo(self.client)
         self.url = reverse("documento_inicio")
 
-    def enviar(self, arquivo=None, retorno=None, **kwargs):
-        """POST do PDF com processar_pdf simulado; devolve (resposta, mock)."""
+    def dados(self, arquivo=None, chave=CHAVE_FORMULARIO):
         dados = {} if arquivo is False else {"arquivo": arquivo or pdf()}
+        if chave is not False:
+            dados["gemini_api_key"] = chave
+        return dados
+
+    def enviar(self, arquivo=None, retorno=None, chave=CHAVE_FORMULARIO, **kwargs):
+        """POST da chave e do PDF com processar_pdf simulado; devolve (resposta, mock)."""
+        dados = self.dados(arquivo, chave)
         with mock.patch("documentos.views.processar_pdf", **kwargs) as processar:
             if retorno is not None:
                 processar.return_value = retorno
@@ -112,7 +128,7 @@ class AcessoTests(InterfaceTestBase):
         for metodo in ("get", "post"):
             with self.subTest(metodo=metodo):
                 with mock.patch("documentos.views.processar_pdf") as processar:
-                    resposta = getattr(self.client, metodo)(self.url, {"arquivo": pdf()})
+                    resposta = getattr(self.client, metodo)(self.url, self.dados())
 
                 self.assertRedirects(resposta, "/login/", fetch_redirect_response=False)
                 processar.assert_not_called()
@@ -204,7 +220,7 @@ class ProcessamentoTests(InterfaceTestBase):
     def test_processa_os_bytes_exatos_do_pdf(self):
         _, processar = self.enviar(pdf(conteudo=PDF + b"conteudo"), retorno=processamento())
 
-        processar.assert_called_once_with(PDF + b"conteudo")
+        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO)
 
     def test_resumo_justificativa_e_json(self):
         resposta, _ = self.enviar(retorno=processamento())
@@ -265,7 +281,7 @@ class ProcessamentoTests(InterfaceTestBase):
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, "O processamento de “nota.pdf” não foi concluído.")
         self.assertContains(resposta, "Serviço de extração indisponível no momento.")
-        self.assertContains(resposta, "Tente novamente mais tarde.")
+        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"])
         self.assertNotContains(resposta, "JSON final")
         for interno in ("servico_indisponivel", "extracao"):
             self.assertNotContains(resposta, interno)
@@ -324,7 +340,7 @@ class SegurancaTests(InterfaceTestBase):
         autenticar_demo(cliente)
 
         with mock.patch("documentos.views.processar_pdf") as processar:
-            resposta = cliente.post(self.url, {"arquivo": pdf()})
+            resposta = cliente.post(self.url, self.dados())
 
         self.assertEqual(resposta.status_code, 403)
         processar.assert_not_called()
@@ -336,7 +352,7 @@ class SegurancaTests(InterfaceTestBase):
         token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', pagina).group(1)
 
         with mock.patch("documentos.views.processar_pdf", return_value=processamento()) as processar:
-            resposta = cliente.post(self.url, {"arquivo": pdf(), "csrfmiddlewaretoken": token})
+            resposta = cliente.post(self.url, {**self.dados(), "csrfmiddlewaretoken": token})
 
         self.assertEqual(resposta.status_code, 200)
         processar.assert_called_once()
@@ -355,38 +371,36 @@ class SegurancaTests(InterfaceTestBase):
         self.assertNotContains(resposta, "Pecas Exemplo Ltda")
 
 
-# Rede de segurança adicional para a integração: sem chave, nada autentica.
-@override_settings(GEMINI_API_KEY=None)
-class IntegracaoTests(InterfaceTestBase):
-    """View + processar_pdf + Agents e schemas REAIS; só o GeminiClient é falso."""
+class IntegracaoTestBase(InterfaceTestBase):
+    """View + processar_pdf + Agents + GeminiClient REAIS; só o SDK do Gemini é falso."""
 
     def setUp(self):
         super().setUp()
-        self.cliente_extrator = mock.Mock()
-        self.cliente_extrator.gerar_json.return_value = dados_nota(
-            parcelas=[{"data_vencimento": "2026-10-20", "valor": 1500}]
+        patcher = mock.patch("agents.gemini_client.genai.Client")
+        self.sdk_classe = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.generate_content = self.sdk_classe.return_value.models.generate_content
+        self.respostas(
+            {"tipo_despesa": "MANUTENCAO_E_OPERACAO", "justificativa": "Peças de manutenção."}
         )
-        self.cliente_classificador = mock.Mock()
-        self.cliente_classificador.gerar_json.return_value = {
-            "tipo_despesa": "MANUTENCAO_E_OPERACAO",
-            "justificativa": "Peças de manutenção.",
-        }
-        for alvo, cliente in (
-            ("agents.extrator.agent.GeminiClient", self.cliente_extrator),
-            ("agents.classificador.agent.GeminiClient", self.cliente_classificador),
-        ):
-            patcher = mock.patch(alvo, return_value=cliente)
-            patcher.start()
-            self.addCleanup(patcher.stop)
 
-    def enviar_real(self):
-        return self.client.post(self.url, {"arquivo": pdf()})
+    def respostas(self, classificacao):
+        nota = dados_nota(parcelas=[{"data_vencimento": "2026-10-20", "valor": 1500}])
+        self.generate_content.side_effect = [
+            mock.Mock(text=json.dumps(nota)),
+            mock.Mock(text=json.dumps(classificacao)),
+        ]
 
+    def enviar_real(self, chave=CHAVE_FORMULARIO):
+        return self.client.post(self.url, self.dados(chave=chave))
+
+
+class IntegracaoTests(IntegracaoTestBase):
     def test_sucesso_ponta_a_ponta(self):
         resposta = self.enviar_real()
 
         self.assertEqual(resposta.status_code, 200)
-        parte_pdf = self.cliente_extrator.gerar_json.call_args.args[0][1]
+        parte_pdf = self.generate_content.call_args_list[0].kwargs["contents"][1]
         self.assertEqual(parte_pdf.inline_data.data, PDF)
         for esperado in (
             "Manutenção e operação",
@@ -401,8 +415,29 @@ class IntegracaoTests(InterfaceTestBase):
             with self.subTest(esperado=esperado):
                 self.assertContains(resposta, esperado)
 
+    def test_extrator_e_classificador_usam_um_cliente_com_a_chave_do_formulario(self):
+        self.enviar_real()
+
+        # Um único SDK, criado com a chave da tela, atendeu as duas chamadas.
+        self.sdk_classe.assert_called_once()
+        self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
+        self.assertEqual(self.generate_content.call_count, 2)
+
+    def test_espacos_externos_da_chave_sao_removidos(self):
+        self.enviar_real(chave=f"  {CHAVE_FORMULARIO}  ")
+
+        self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
+
+    def test_funciona_sem_gemini_api_key_e_com_google_api_key_no_ambiente(self):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "CHAVE_ERRADA_DO_AMBIENTE"}):
+            os.environ.pop("GEMINI_API_KEY", None)
+            resposta = self.enviar_real()
+
+        self.assertContains(resposta, "JSON final")
+        self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
+
     def test_gemini_indisponivel_na_extracao(self):
-        self.cliente_extrator.gerar_json.side_effect = GeminiTimeoutError(DETALHE_INTERNO)
+        self.generate_content.side_effect = httpx.ReadTimeout(DETALHE_INTERNO)
 
         with self.assertLogs("documentos.processamento", "WARNING"), self.assertLogs(
             "agents.extrator.agent", "WARNING"
@@ -410,12 +445,29 @@ class IntegracaoTests(InterfaceTestBase):
             resposta = self.enviar_real()
 
         self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao)
-        self.assertContains(resposta, "Tente novamente mais tarde.")
+        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"])
         self.assertNotContains(resposta, DETALHE_INTERNO)
-        self.cliente_classificador.gerar_json.assert_not_called()
+        self.assertEqual(self.generate_content.call_count, 1)
+
+    def test_chave_recusada_pela_api_mostra_erro_seguro(self):
+        self.generate_content.side_effect = errors.ClientError(
+            400,
+            {"error": {"code": 400, "status": "INVALID_ARGUMENT",
+                       "message": f"API key not valid: {CHAVE_FORMULARIO}"}},
+        )
+
+        with self.assertLogs(level="WARNING") as logs:
+            resposta = self.enviar_real()
+
+        self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao)
+        self.assertContains(resposta, "Confira se a Gemini API Key informada é válida.")
+        for vazamento in (CHAVE_FORMULARIO, "INVALID_ARGUMENT", "API key not valid", "Traceback"):
+            with self.subTest(vazamento=vazamento):
+                self.assertNotContains(resposta, vazamento)
+        self.assertNotIn(CHAVE_FORMULARIO, "\n".join(logs.output))
 
     def test_erro_inesperado(self):
-        self.cliente_extrator.gerar_json.side_effect = RuntimeError(DETALHE_INTERNO)
+        self.generate_content.side_effect = RuntimeError(DETALHE_INTERNO)
 
         with self.assertLogs("documentos.processamento", "ERROR"):
             resposta = self.enviar_real()
@@ -423,13 +475,10 @@ class IntegracaoTests(InterfaceTestBase):
         self.assertContains(resposta, "Erro inesperado ao processar o documento.")
         self.assertNotContains(resposta, DETALHE_INTERNO)
         self.assertNotContains(resposta, "Traceback")
-        self.cliente_classificador.gerar_json.assert_not_called()
+        self.assertEqual(self.generate_content.call_count, 1)
 
     def test_classificacao_inconclusiva(self):
-        self.cliente_classificador.gerar_json.return_value = {
-            "tipo_despesa": None,
-            "justificativa": "Itens fora das categorias.",
-        }
+        self.respostas({"tipo_despesa": None, "justificativa": "Itens fora das categorias."})
 
         with self.assertLogs("documentos.processamento", "WARNING"):
             resposta = self.enviar_real()
@@ -437,6 +486,184 @@ class IntegracaoTests(InterfaceTestBase):
         self.assertContains(resposta, "A despesa não se encaixa nas categorias disponíveis no MVP.")
         self.assertContains(resposta, views.SUGESTOES_ERRO["classificacao_inconclusiva"])
         self.assertNotContains(resposta, "JSON final")
+
+
+class GeminiApiKeyFormularioTests(InterfaceTestBase):
+    """Campo da Gemini API Key: obrigatório, password e nunca devolvido no HTML."""
+
+    def campo(self, resposta):
+        return re.search(r'<input[^>]*name="gemini_api_key"[^>]*>', resposta.content.decode()).group(0)
+
+    def test_campo_aparece_como_password_obrigatorio(self):
+        resposta = self.client.get(self.url)
+
+        self.assertContains(resposta, '<label for="id_gemini_api_key" class="formulario__rotulo">Gemini API Key</label>', html=True)
+        campo = self.campo(resposta)
+        self.assertIn('type="password"', campo)
+        self.assertIn("required", campo)
+        self.assertIn('autocomplete="off"', campo)
+        self.assertIn('maxlength="256"', campo)
+        self.assertNotIn("value=", campo)
+        self.assertContains(
+            resposta, "A chave é utilizada somente durante este processamento e não é armazenada."
+        )
+
+    def test_chave_e_pdf_no_mesmo_formulario(self):
+        html = self.client.get(self.url).content.decode()
+        formulario = re.search(r"<form.*?</form>", html, re.S).group(0)
+
+        self.assertEqual(html.count("<form"), 1)  # um único formulário e um único POST
+        self.assertIn('name="gemini_api_key"', formulario)
+        self.assertIn('name="arquivo"', formulario)
+        self.assertLess(formulario.index("gemini_api_key"), formulario.index('name="arquivo"'))
+
+    def test_campo_nao_usa_render_value(self):
+        self.assertFalse(forms.DocumentoUploadForm.base_fields["gemini_api_key"].widget.render_value)
+
+    def test_chave_ausente_vazia_ou_so_com_espacos_e_recusada(self):
+        for chave in (False, "", "   ", "\t \n"):
+            with self.subTest(chave=chave):
+                resposta, processar = self.enviar(chave=chave)
+
+                self.assertEqual(resposta.status_code, 200)
+                self.assertContains(resposta, "Informe a Gemini API Key.")
+                self.assertIn('aria-invalid="true"', self.campo(resposta))
+                processar.assert_not_called()
+
+    def test_chave_longa_demais_e_recusada_sem_ser_exibida(self):
+        chave = "k" * 300
+        resposta, processar = self.enviar(chave=chave)
+
+        self.assertContains(resposta, "A Gemini API Key deve ter no máximo 256 caracteres.")
+        self.assertNotContains(resposta, chave[:40])
+        processar.assert_not_called()
+
+    def test_formato_da_chave_nao_e_validado_localmente(self):
+        for chave in ("qualquer-formato", "AIza-sem-garantia", "abc 123"):
+            with self.subTest(chave=chave):
+                _, processar = self.enviar(chave=chave, retorno=processamento())
+
+                processar.assert_called_once_with(PDF, chave)
+
+    def test_chave_nao_reaparece_apos_sucesso(self):
+        resposta, _ = self.enviar(retorno=processamento())
+
+        self.assertContains(resposta, "JSON final")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertNotIn("value=", self.campo(resposta))
+
+    def test_chave_nao_reaparece_apos_erro_do_pdf(self):
+        resposta, processar = self.enviar(pdf(conteudo=b"texto qualquer"))
+
+        self.assertContains(resposta, "O arquivo enviado não é um PDF válido.")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertNotIn("value=", self.campo(resposta))
+        processar.assert_not_called()
+
+    def test_chave_nao_reaparece_apos_erro_de_processamento(self):
+        erro = ProcessamentoError("extracao", "servico_indisponivel", "Serviço de extração indisponível no momento.")
+        resposta, _ = self.enviar(side_effect=erro)
+
+        self.assertContains(resposta, "não foi concluído")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertNotIn("value=", self.campo(resposta))
+
+    def test_chave_fora_das_mensagens_e_do_contexto(self):
+        for kwargs in ({"retorno": processamento()},
+                       {"side_effect": ProcessamentoError("x", "servico_indisponivel", "Falhou.")}):
+            with self.subTest(kwargs=list(kwargs)):
+                resposta, _ = self.enviar(**kwargs)
+
+                self.assertEqual(resposta.context["form"].data, {})  # formulário novo
+                for nome in resposta.context.keys() - {"request"}:
+                    self.assertNotIn(CHAVE_FORMULARIO, repr(resposta.context[nome]), nome)
+
+    def test_nova_visita_e_nova_execucao_exigem_nova_chave(self):
+        self.enviar(retorno=processamento())
+
+        visita = self.client.get(self.url)
+        self.assertNotContains(visita, CHAVE_FORMULARIO)
+        self.assertNotIn("value=", self.campo(visita))
+
+        resposta, processar = self.enviar(chave=False)
+        self.assertContains(resposta, "Informe a Gemini API Key.")
+        processar.assert_not_called()
+
+    def test_view_oculta_a_chave_nos_relatorios_de_erro(self):
+        # sensitive_post_parameters marca a requisição; o relatório de erro do
+        # Django troca o valor do campo por asteriscos.
+        with mock.patch("documentos.views.render", return_value=HttpResponse()) as render, mock.patch(
+            "documentos.views.processar_pdf", return_value=processamento()
+        ):
+            self.client.post(self.url, self.dados())
+
+        requisicao = render.call_args.args[0]
+        self.assertEqual(tuple(requisicao.sensitive_post_parameters), ("gemini_api_key",))
+
+
+class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
+    """Depois de um processamento completo, a chave não fica em lugar nenhum."""
+
+    def arquivos_do_projeto(self):
+        raiz = Path(settings.BASE_DIR)
+        return {
+            arquivo for arquivo in raiz.rglob("*")
+            if not {".git", ".venv", "__pycache__"} & set(arquivo.relative_to(raiz).parts)
+        }
+
+    def processar_com_logs(self):
+        raiz = logging.getLogger()
+        with self.assertLogs(raiz, "DEBUG") as logs:
+            raiz.debug("marcador")  # assertLogs exige ao menos um registro
+            resposta = self.enviar_real()
+        self.assertContains(resposta, "JSON final")
+        return resposta, "\n".join(logs.output)
+
+    def test_chave_fora_da_sessao_e_do_cookie(self):
+        resposta, _ = self.processar_com_logs()
+
+        self.assertEqual(dict(self.client.session.items()), {SESSAO_DEMO: True})
+        for cookie in (*resposta.cookies.values(), *self.client.cookies.values()):
+            self.assertNotIn(CHAVE_FORMULARIO, cookie.value)
+
+    def test_chave_fora_da_resposta_e_do_json(self):
+        resposta, _ = self.processar_com_logs()
+
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertNotIn(CHAVE_FORMULARIO, resposta.context["json_resultado"])
+        self.assertNotIn(CHAVE_FORMULARIO, str(dict(resposta.headers)))
+
+    def test_chave_fora_dos_logs(self):
+        _, logs = self.processar_com_logs()
+
+        self.assertNotIn(CHAVE_FORMULARIO, logs)
+
+    def test_nenhum_arquivo_criado(self):
+        antes = self.arquivos_do_projeto()
+
+        self.processar_com_logs()
+
+        self.assertEqual(self.arquivos_do_projeto() - antes, set())
+
+    def test_chave_fora_de_variaveis_globais_settings_e_ambiente(self):
+        modulos = (views, forms, modulo_processamento, gemini_client)
+        settings_antes = dict(vars(settings._wrapped))
+
+        self.processar_com_logs()
+
+        for modulo in modulos:
+            with self.subTest(modulo=modulo.__name__):
+                for nome, valor in vars(modulo).items():
+                    self.assertNotIn(CHAVE_FORMULARIO, repr(valor), nome)
+        self.assertEqual(dict(vars(settings._wrapped)), settings_antes)
+        self.assertFalse(hasattr(settings, "GEMINI_API_KEY"))
+        self.assertNotIn(CHAVE_FORMULARIO, repr(dict(os.environ)))
+
+    def test_sem_banco(self):
+        # SimpleTestCase já falha em qualquer consulta; aqui só se confirma o backend.
+        self.processar_com_logs()
+
+        self.assertEqual(connections["default"].settings_dict["ENGINE"], "django.db.backends.dummy")
 
 
 class JavaScriptTests(InterfaceTestBase):
