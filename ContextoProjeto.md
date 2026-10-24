@@ -1,170 +1,390 @@
 # Gestão Rural - Contexto do Projeto
 
-> **Contexto oficial e estável do projeto.** Representa o estado **real e atual** da aplicação: arquitetura, contratos, regras, fluxo, operação e comandos.
-> Histórico técnico, auditorias e o registro de cada mudança ficam em `analisetemporaria.md`.
+> **Fonte central de verdade do projeto.** Descreve o estado **real e verificado** do Gestão Rural: o que o produto pretende ser, o que a disciplina exige em cada entrega, o que o código faz hoje e o que ainda falta.
 >
-> Nunca registrar aqui: segredos, valores do `.env`, conteúdo do `README.txt`, chaves de API ou dados pessoais reais.
+> Nunca registrar aqui: segredos, valores do `.env`, conteúdo do `README.txt`, chaves de API, URL privada, credenciais ou dados pessoais reais.
+>
+> **Documentação complementar** (detalhes que este arquivo não repete):
+>
+> - [`docs/INDICE.md`](docs/INDICE.md) — índice de todos os documentos e da autoridade de cada um;
+> - [`docs/requisitos/matriz-n2-etapa2.md`](docs/requisitos/matriz-n2-etapa2.md) — matriz rastreável dos requisitos da Etapa 2;
+> - [`docs/arquitetura/ADR-001-supabase.md`](docs/arquitetura/ADR-001-supabase.md) — decisão Supabase PostgreSQL;
+> - [`docs/organizacao/`](docs/organizacao/LEIA-ME-integracao.md) — regras de organização e de integração;
+> - [`ContextoFluxoGit.md`](ContextoFluxoGit.md) — fluxo Git oficial (`develop` → `main`).
+
+## Legenda de classificação
+
+Toda afirmação relevante usa uma destas marcas:
+
+| Marca                       | Significado                                                                |
+| --------------------------- | -------------------------------------------------------------------------- |
+| **IMPLEMENTADO**            | Comprovado no código da referência indicada em 1.2                         |
+| **VALIDADO**                | Implementado e com evidência de teste automatizado ou execução observada   |
+| **REQUISITO**               | Comportamento exigido oficialmente (professor/cliente)                     |
+| **PLANEJADO**               | Decisão ou previsão da equipe, ainda não implementada                      |
+| **EM DESENVOLVIMENTO**      | Trabalho confirmado como iniciado e não concluído                          |
+| **PENDENTE DE CONFIRMAÇÃO** | Sem evidência suficiente; não tratar como fato                             |
+| **HISTÓRICO**               | Já existiu ou já foi decidido, mas não representa mais o estado atual      |
 
 ---
 
-## 1 - Visão Geral
+# 1 - Identificação do Projeto e Metadados da Auditoria
 
-- **Disciplina:** ESW424 – Prática de Engenharia de Software. Avaliação **N2**, **Etapa 1**: atividade "Agentes Inteligentes", no contexto do **Projeto Administrativo-Financeiro** (gestão rural).
-- **Objetivo:** receber o **PDF de uma nota fiscal de contas a pagar** e, com **Agents de IA baseados no Google Gemini**:
-  1. **extrair** os dados da nota (fornecedor, faturado, número, data, itens, parcelas, valor total);
-  2. **classificar** o tipo de despesa a partir dos itens;
-  3. devolver um **JSON** estruturado.
-- **Como o usuário usa:** uma **aplicação Web** (Django) em que ele entra com o login da demonstração, informa uma **Gemini API Key**, seleciona o PDF, clica em **Processar** e vê o resumo, a justificativa da classificação e o **JSON final** na mesma página.
-- **Agents:**
-  - `AgentExtrator`: lê o PDF (Gemini multimodal) e devolve os dados estruturados;
-  - `AgentClassificador`: recebe os dados extraídos e classifica a despesa (Gemini).
-  - Uma função de orquestração (`processar_pdf`) coordena os dois em sequência.
+## 1.1 - Identificação
 
----
+| Item         | Valor                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Projeto      | Gestão Rural (Projeto Administrativo-Financeiro)                                       |
+| Disciplina   | ESW424 – Prática de Engenharia de Software (UniRV – Universidade de Rio Verde)         |
+| Avaliação    | N2, dividida em Etapa 1 (35%) e Etapa 2 (45%)                                          |
+| Equipe       | Pedro Simon (GitHub `PedroSimon1`), Gustavo Lopes (GitHub `devlopes-lq`)               |
+| Repositório  | `https://github.com/PedroSimon1/gestao-rural` (**público**, branch padrão `main`)       |
+| Gestão       | Jira, projeto `GR` (workspace registrado em `ContextoTasksJira.md`)                    |
+| Versão atual | tag anotada `n2-etapa1-final` em `f7786e8` (29/09/2026)                                |
 
-## 2 - Requisitos da Etapa 1
+## 1.2 - Referência desta auditoria
 
-Requisitos da atividade (slides 18 a 21 da disciplina), separados da implementação.
+| Item                   | Valor                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| Data                   | 24/10/2026                                                                                    |
+| Branch analisada       | `feature/Auditoria-Correcao` (local, criada em 24/10/2026 a partir da `main`)                 |
+| Commit de referência   | `f7786e8e03326d7f3bde8f13060c7051709421ba` (= `main` = `qa` = `origin/main` = `origin/qa`)    |
+| Remoto                 | conferido com `git ls-remote` e `gh`: nenhum commit, branch ou PR posterior a `f7786e8`       |
+| Working tree           | apenas `ContextoProjeto.md` modificado (não commitado)                                        |
+| Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
+| Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
 
-**Funcionais (requisito):**
+## 1.3 - Fontes consultadas e limitações
 
-- Receber o PDF de uma nota fiscal de **contas a pagar**.
-- Utilizar **Agents** (Gemini recomendado).
-- Devolver os dados em **JSON**.
-- **Interface Web:** carregar o PDF → **botão** para processar → **JSON exibido na tela**.
+| Fonte                                                                    | Situação                                                         |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Código, testes, scripts e configurações do repositório                   | lidos integralmente                                              |
+| Git local, GitHub (`gh`: PRs, branches, proteções, workflows, deployments) | consultados                                                    |
+| `PROJETO ADMINISTRATIVO - N2 - Etapa 2.docx` (inclui imagens de layout)  | lido                                                             |
+| `Instruções Parte 2.pdf` (captura do Classroom)                          | lido (imagem)                                                    |
+| `tecnologias.pdf` (stack da Etapa 2, out/2026)                           | lido                                                             |
+| `03 - Aula - Pratica de Engenharia (Agents).pptx` (slides 18–21)         | lido                                                             |
+| `Mini_Documentacao_Tecnologias_Gestao_Rural.pdf`                         | lido                                                             |
+| `Documento de Requisitos Cliente (1).docx`                               | lido                                                             |
+| `Documento-SistemaFinanceiro-V0.91.docx` / PDF de requisitos V0.91       | lidos (texto; diagramas não interpretados)                       |
+| `ContextoTasksJira.md` (retrato de 23/09/2026)                           | lido; fora do repositório                                        |
+| **Jira online**                                                          | **não consultado** — nenhum conector disponível nesta sessão     |
+| **`ContextoFluxoGit.md`**                                                | **não encontrado** no repositório nem na pasta do projeto; **criado depois da auditoria**, em 24/10/2026 (v1.0, fluxo `develop`/`main`) |
+| **`analisetemporaria.md`**                                               | não existe localmente; removido do Git em `d37caa9` (histórico)  |
+| Painel do Render, URL pública, Neon, Supabase                            | não acessados (nenhum projeto Supabase confirmado)               |
+| `README.txt`, valores do `.env`                                          | deliberadamente não lidos (somente nomes de variáveis do `.env`) |
+| API Gemini real                                                          | não chamada                                                      |
 
-**Campos exigidos no JSON (requisito → implementação):**
-
-| Grupo         | Requisito                                                       | Campo no JSON                                                       |
-| ------------- | --------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Fornecedor    | razão social, nome fantasia, CNPJ                               | `fornecedor{razao_social, nome_fantasia, cnpj}`                     |
-| Faturado      | nome completo, CPF                                              | `faturado{nome, cpf}`                                               |
-| Nota          | número, data de emissão                                         | `numero_nota`, `data_emissao`                                       |
-| Itens         | descrição dos produtos                                          | `itens[]{descricao, quantidade, valor_unitario, valor_total}`       |
-| Parcelas      | quantidade, vencimento, estrutura para múltiplas parcelas       | `quantidade_parcelas`, `parcelas[]{numero, data_vencimento, valor}` |
-| Financeiro    | valor total                                                     | `valor_total`                                                       |
-| Classificação | **TipoDespesa**, interpretado pelo Gemini com base nos produtos | `tipo_despesa`                                                      |
-
-**Regras da atividade:**
-
-- **Não é necessário** criar uma entidade Produto (os itens existem só no JSON).
-- A classificação **não** é copiada do PDF: é interpretada pelo Gemini a partir dos produtos.
-- Exemplos da atividade: Óleo Diesel → MANUTENÇÃO E OPERAÇÃO; Material Hidráulico → INFRAESTRUTURA E UTILIDADES.
-- "Uma classificação de DESPESA por registro, porém com estrutura para receber mais de uma" (ver **DECISÃO DO MVP** na seção 15).
-
-**Avaliação:**
-
-| Peso | Critério                                  |
-| ---- | ----------------------------------------- |
-| 40%  | uso do Agent conforme estrutura           |
-| 30%  | conteúdo do JSON                          |
-| 30%  | assertividade da classificação da despesa |
+Os documentos acadêmicos ficam fora do repositório, em `../Documentos/` (pastas `Att-01--21-09-Agent IA`, `Att-02--27-10--N2 - Avaliação (Parte 2)`, `Documentação/V0.91`, `Material-Suporte`, `Entregas`).
 
 ---
 
-## 3 - Estado Atual
+# 2 - Visão Geral e Propósito do Sistema
 
-| Item             | Situação                                                                  |
-| ---------------- | ------------------------------------------------------------------------- |
-| Aplicação        | **funcional** de ponta a ponta                                            |
-| Hospedagem       | **Render** (Web Service, plano Free), deploy a partir da `main`           |
-| Banco de dados   | **nenhum**                                                                |
-| Arquitetura      | **stateless**: cada requisição é independente                             |
-| Acesso           | **login da demonstração** (`DEMO_LOGIN`/`DEMO_PASSWORD` do ambiente)      |
-| Gemini API Key   | **informada na tela** a cada processamento; não é configurada no ambiente |
-| PDF              | lido em memória na requisição; **não é persistido**                       |
-| Resultado (JSON) | exibido na resposta; **não é persistido**                                 |
-| Deploy           | **validado em produção** com PDF e Gemini API Key reais (seção 23)        |
-| Testes           | **291** testes automatizados passando                                     |
+## 2.1 - Problema
 
-A URL pública e as credenciais da apresentação ficam **somente** no `README.txt` local (ignorado pelo Git), entregue ao professor fora do repositório.
+Um produtor rural (Beltrano, pai) e dois filhos (Fulano e Ciclano) precisam controlar **contas a pagar e a receber** da propriedade. Despesas e receitas podem ser faturadas no nome de qualquer um dos três. Toda a documentação chega **por e-mail, em PDF** (notas fiscais de despesa, contratos de venda da produção, comprovantes). Compras, vendas e pagamentos são **parcelados**, e uma parcela pode ser quitada por vários depósitos parciais. Por terem pouca escolaridade, os usuários **exigem a menor intervenção humana possível** (fonte: `Documento de Requisitos Cliente`, DR 0001/2026, 19/08/2026).
 
----
+## 2.2 - Propósito do produto completo
 
-## 4 - Tecnologias
+Sistema de gestão financeira rural que processa documentos PDF com IA, identifica pessoas e classificações, registra movimentos financeiros e suas parcelas e permite manter os cadastros com inativação lógica.
 
-| Camada             | Tecnologia                                                                               | Versão |
-| ------------------ | ---------------------------------------------------------------------------------------- | ------ |
-| Linguagem          | Python (fixado em `.python-version`)                                                     | 3.14.7 |
-| Framework Web      | Django                                                                                   | 6.1.1  |
-| IA                 | Google Gemini via SDK `google-genai` (structured output)                                 | 2.24.0 |
-| Schemas            | Pydantic v2                                                                              | 2.13.5 |
-| Configuração       | `python-dotenv` (carrega `.env` em desenvolvimento)                                      | 1.2.3  |
-| Servidor WSGI      | Gunicorn (worker `sync`)                                                                 | 26.2.0 |
-| Arquivos estáticos | WhiteNoise                                                                               | 6.12.0 |
-| Interface          | Django Templates + HTML + CSS + JavaScript simples (sem frontend separado, CDN ou build) | —      |
-| Hospedagem         | Render (Web Service, runtime Python)                                                     | —      |
+## 2.3 - O que existe hoje (resumo)
 
-`requirements.txt` é um freeze completo (dependências diretas e transitivas com versões exatas). `httpx` é usado diretamente no `GeminiClient` para tratar timeout e falhas de rede do SDK.
+**IMPLEMENTADO / VALIDADO** — aplicação Web Django que:
 
-**Compatibilidade:** os metadados do WhiteNoise 6.12.0 declaram Django até 6.0, e os do Gunicorn 26.2.0 declaram Python até 3.13. Os dois foram **validados funcionalmente** neste projeto (testes, simulação de produção e deploy real). Antes de atualizar versões, conferir o suporte oficial.
+1. exige um **login de demonstração** (credenciais do ambiente);
+2. recebe o **PDF de uma nota fiscal** e uma **Gemini API Key** informada na tela a cada processamento;
+3. **extrai** os dados da nota com o Agent Extrator (Gemini);
+4. **classifica** o tipo de despesa com o Agent Classificador (Gemini);
+5. exibe **resumo**, **justificativa** e **JSON final**.
+
+Nada é persistido: **não há banco de dados**. É a entrega da **N2 Etapa 1**. Nenhuma funcionalidade da Etapa 2 (banco, consultas, cadastros, movimentos) existe no código.
 
 ---
 
-## 5 - Estrutura Atual
+# 3 - Contexto Acadêmico e Histórico das Entregas
 
-```
-gestao-rural/
-├── manage.py
-├── requirements.txt              # freeze completo, versões exatas
-├── build.sh                      # build de produção (pip install + collectstatic)
-├── start.sh                      # servidor de produção (Gunicorn)
-├── .python-version               # 3.14.7
-├── .env.example                  # nomes das variáveis, sem valores reais
-├── .gitignore                    # .env, README.txt, .venv/, staticfiles/, media/, uploads/...
-├── ContextoProjeto.md            # este arquivo: verdade atual do projeto
-├── analisetemporaria.md          # histórico técnico e auditorias
-├── config/
-│   ├── settings.py               # configuração por ambiente (hosts, CSRF, HTTPS, cookies, static, Gemini, DEMO_*)
-│   ├── urls.py                   # "/", include(usuarios.urls), "documentos/"
-│   ├── wsgi.py                   # config.wsgi:application (usado pelo Gunicorn)
-│   ├── asgi.py                   # padrão do Django (não usado em produção)
-│   ├── test_sem_banco.py         # garantias de ausência de banco
-│   └── test_producao.py          # configuração de produção (subprocessos)
-├── usuarios/                     # login da demonstração
-│   ├── demo.py                   # credenciais, sessão, decorator demo_login_required
-│   ├── forms.py                  # LoginDemoForm
-│   ├── views.py, urls.py         # /login/ e /logout/
-│   ├── templates/usuarios/login.html
-│   ├── static/usuarios/login.css
-│   ├── testing.py                # apoio aos testes (credenciais fictícias, sessão autenticada)
-│   └── tests.py
-├── documentos/                   # tela única de processamento
-│   ├── forms.py                  # DocumentoUploadForm (Gemini API Key + PDF)
-│   ├── validators.py             # validar_pdf
-│   ├── processamento.py          # processar_pdf, montar_resultado
-│   ├── views.py, urls.py         # /documentos/
-│   ├── templates/documentos/     # base.html, inicio.html
-│   ├── static/documentos/        # documentos.css, documentos.js
-│   └── test_processamento.py, test_interface.py
-└── agents/                       # pacote Python (não é app Django)
-    ├── gemini_client.py          # GeminiClient: único ponto de contato com o SDK
-    ├── extrator/                 # AgentExtrator + NotaFiscalExtraida
-    └── classificador/            # AgentClassificador + ClassificacaoDespesa + TipoDespesa
-```
+## 3.1 - Linha do tempo
 
-`INSTALLED_APPS`: `django.contrib.staticfiles`, `documentos`, `usuarios`. Não há `models.py`, `admin.py` nem `migrations/` em nenhum app.
+| Data (2026)      | Evento                                                                                    | Classificação |
+| ---------------- | ----------------------------------------------------------------------------------------- | ------------- |
+| 19/08            | Documento de Requisitos do Cliente (DR 0001/2026)                                         | REQUISITO     |
+| 21/08 – 31/08    | Especificação de requisitos da equipe (V0.10 → V0.91)                                     | HISTÓRICO     |
+| 22/09            | PRs #1–#5: núcleo financeiro (app `financeiro`, PostgreSQL)                               | HISTÓRICO     |
+| 22/09 – 23/09    | PRs #6–#14: MVP de Agents com model `Documento` e persistência                            | HISTÓRICO     |
+| 29/09            | PRs #15–#19: simplificação **stateless**, chave na tela, deploy Render, tag `n2-etapa1-final` | IMPLEMENTADO |
+| 29/09            | **Entrega da N2 Etapa 1** (peso 35%)                                                      | REQUISITO     |
+| 07/10            | Publicação da N2 Parte 2 no Classroom                                                     | REQUISITO     |
+| out/2026         | `tecnologias.pdf`: decisão Render + Neon PostgreSQL para a Etapa 2                        | HISTÓRICO (Neon substituído em 24/10) |
+| 24/10            | Auditoria completa; decisão **Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md)) | PLANEJADO |
+| **27/10, 23:59** | **Entrega da N2 Etapa 2** (45 pontos / peso 45%)                                          | REQUISITO     |
 
-**Arquivos locais não versionados:** `.env`, `README.txt`, `.venv/`, `staticfiles/` (saída do `collectstatic`).
+**Divergência documental:** o slide 21 da aula de Agents indica "1° etapa: ENTREGA 23/09/2025"; o documento da Etapa 2 indica 29/09/2026. A data de 2026 é coerente com a tag e os PRs; o slide provavelmente reaproveita data de outro semestre (PENDENTE DE CONFIRMAÇÃO).
+
+## 3.2 - N2 Etapa 1 — requisitos (slides 18–21)
+
+**REQUISITO**, todos atendidos pela implementação atual, exceto onde indicado:
+
+- Processador de PDF com **Agents** (Gemini recomendado) que extrai dados de uma nota fiscal de **contas a pagar** e devolve **JSON**.
+- Campos: Fornecedor (razão social, fantasia, CNPJ); Faturado (nome completo, CPF); número da nota; data de emissão; descrição dos produtos; quantidade de parcelas; data de vencimento; valor total; **TipoDespesa**.
+- Produtos sem entidade própria.
+- Parcelas: "uma parcela, porém com estrutura para receber mais de uma" → **IMPLEMENTADO** (lista `parcelas`).
+- Classificação: "uma classificação de DESPESA por registro, porém com estrutura para receber mais de uma" → **parcialmente**: `tipo_despesa` é **escalar** (ver 27).
+- DESPESA **não** é extraída: é interpretada pelo Gemini a partir dos produtos (Óleo Diesel → MANUTENÇÃO E OPERAÇÃO; Material Hidráulico → INFRAESTRUTURA E UTILIDADES).
+- Interface Web: carregar PDF → botão → JSON na tela.
+- Critérios: 40% uso do Agent conforme estrutura; 30% conteúdo do JSON; 30% assertividade da classificação.
+
+## 3.3 - N2 Etapa 2 — requisitos (`PROJETO ADMINISTRATIVO - N2 - Etapa 2.docx` + Classroom)
+
+**REQUISITO — nada disto está implementado.** Resumo abaixo. A versão rastreável, com IDs, natureza, critérios de aceite e dúvidas de escopo, está em [`docs/requisitos/matriz-n2-etapa2.md`](docs/requisitos/matriz-n2-etapa2.md).
+
+**Funcionalidades do Projeto Administrativo-Financeiro:**
+
+| Agrupamento           | Funcionalidades                                       |
+| --------------------- | ----------------------------------------------------- |
+| MANTER PESSOAS        | Manter Fornecedor, Manter Cliente, Manter Faturado    |
+| MANTER CLASSIFICAÇÃO  | Manter Tipo de Receita, Manter Tipo de Despesa        |
+| REGISTRAR CONTAS      | Registrar Contas a Pagar, Registrar Contas a Receber  |
+
+**Atividade da Etapa 2** (após a extração da Etapa 1):
+
+1. **FORNECEDOR:** consultar no banco e informar se existe ou não.
+2. **FATURADO:** consultar no banco e informar se existe ou não.
+3. **DESPESA:** consultar no banco e informar se a classificação existe ou não.
+4. Mostrar o resultado da consulta na tela (exemplo do professor: nome, CNPJ/CPF e "NÃO EXISTE" ou "EXISTE – ID: n").
+5. Em seguida: criar o fornecedor, o faturado e a despesa **se for o caso**; criar **um novo registro do movimento e sua parcela**; informar que o registro foi lançado com sucesso.
+
+**Entidades afetadas, nomeadas pelo professor:**
+
+| Entidade          | Atributos citados                                              |
+| ----------------- | -------------------------------------------------------------- |
+| `MOVIMENTOCONTAS` | `Tipo` (APAGAR)                                                |
+| `PARCELACONTAS`   | `Identificacao` (ÚNICA)                                        |
+| `CLASSIFICACAO`   | `Tipo` (DESPESA), `Descricao` (ex.: MANUTENÇÃO E OPERAÇÃO)     |
+| `PESSOAS`         | `Tipo` (CLIENTE-FORNECEDOR), `RazaoSocial` — para o fornecedor |
+| `PESSOAS`         | `Tipo` (FATURADO), `RazaoSocial` — para o faturado             |
+
+Demais atributos, chaves e cardinalidades **não** foram definidos pelo professor (PENDENTE DE CONFIRMAÇÃO / decisão da equipe).
+
+**Entrega (Classroom, 27/10/2026 23:59, 45 pontos):**
+
+- hospedar o sistema; subir no GitHub; postar o link do GitHub e do site no Classroom;
+- `Readme.txt` com: link da hospedagem, login, senha e **Key (LLM)**;
+- **"Código Última Atualização no GitHub" deve aparecer na tela principal do projeto** → **não implementado** (nenhuma referência a commit/versão na interface).
+
+**Recomendação de layout** (texto + duas capturas de outro projeto usadas como referência visual: menu lateral, busca, tabela e formulário):
+
+- tabela de registros inicialmente vazia; carregar por **Busca** ou **TODOS** (TODOS = status ATIVO);
+- ordenação por coluna; busca por mais de um elemento;
+- ações por linha: **Editar** e **Excluir (lógico)**;
+- CREATE: `STATUS` oculto = ATIVO; UPDATE: `STATUS` oculto; DELETE: altera `STATUS` para INATIVO.
 
 ---
 
-## 6 - Arquitetura Atual
+# 4 - Escopo do Sistema Completo
 
-- **Monólito Django** com renderização no servidor (SSR).
-- **Stateless:** nenhum banco, nenhum model, nenhum armazenamento de arquivos. Cada requisição recebe, processa e responde.
-- **Processamento síncrono** dentro da requisição HTTP: Extrator e Classificador rodam em sequência antes da resposta.
-- **Sessão em cookie assinado** (`signed_cookies`), usada só para o indicador de login.
-- **Integração externa:** Google Gemini, via `GeminiClient`.
-- **Camadas:** view fina → formulário/validação → orquestração (`processar_pdf`) → Agents com contratos Pydantic → `GeminiClient` → SDK.
+| Escopo                                          | Conteúdo                                                                                       | Situação                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------- |
+| Etapa 1 (entregue)                              | PDF → Extrator → Classificador → JSON na tela, login de demonstração, hospedagem               | IMPLEMENTADO / VALIDADO      |
+| Etapa 2 (entrega 27/10)                         | banco, consultas de existência, criação de pessoas/classificação/movimento/parcela, cadastros com inativação, versão do GitHub na tela | REQUISITO, não implementado |
+| Sistema completo (visão do cliente e da equipe) | contas a receber, ingestão de e-mail, quitação fracionada/amortizações, painel, alertas, autenticação real, conciliação | PLANEJADO / PENDENTE |
+
+A especificação da equipe (V0.91) previa 11 funções: Manter Contas a Pagar; Manter Contas a Receber; Gerenciar Estrutura de Parcelamento; Controlar Quitação Fracionada e Amortizações; Ingerir anexos PDF de e-mail; Extrair dados de PDF; Categorizar documentos financeiros; Painel financeiro simplificado; Conciliação de depósitos; Alertas; Autenticação. Várias estão marcadas no próprio documento como `[PENDENTE: PEND-CLT-xx]` ou `[PROPOSTO]`.
+
+---
+
+# 5 - Requisitos Funcionais
+
+| ID    | Requisito                                                             | Origem                      | Situação                         |
+| ----- | --------------------------------------------------------------------- | --------------------------- | -------------------------------- |
+| RF-01 | Receber PDF de nota fiscal pela Web                                   | Etapa 1                     | VALIDADO                         |
+| RF-02 | Extrair fornecedor, faturado, nota, data, itens, parcelas, valor      | Etapa 1                     | VALIDADO (testes com Gemini simulado) |
+| RF-03 | Classificar o tipo de despesa por IA a partir dos itens               | Etapa 1                     | VALIDADO (2 categorias)          |
+| RF-04 | Exibir o JSON na tela                                                 | Etapa 1                     | VALIDADO                         |
+| RF-05 | Consultar no banco se o fornecedor existe                             | Etapa 2                     | REQUISITO, não implementado      |
+| RF-06 | Consultar no banco se o faturado existe                               | Etapa 2                     | REQUISITO, não implementado      |
+| RF-07 | Consultar no banco se a classificação de despesa existe               | Etapa 2                     | REQUISITO, não implementado      |
+| RF-08 | Exibir o resultado das consultas (EXISTE – ID / NÃO EXISTE)           | Etapa 2                     | REQUISITO, não implementado      |
+| RF-09 | Criar fornecedor, faturado e classificação inexistentes               | Etapa 2                     | REQUISITO, não implementado      |
+| RF-10 | Criar movimento (APAGAR) e sua(s) parcela(s)                          | Etapa 2                     | REQUISITO, não implementado      |
+| RF-11 | Confirmar ao usuário o lançamento                                     | Etapa 2                     | REQUISITO, não implementado      |
+| RF-12 | Manter Fornecedor / Cliente / Faturado (PESSOAS)                      | Etapa 2 (funcionalidades)   | REQUISITO, não implementado      |
+| RF-13 | Manter Tipo de Receita / Tipo de Despesa (CLASSIFICAÇÃO)              | Etapa 2 (funcionalidades)   | REQUISITO, não implementado      |
+| RF-14 | Registrar Contas a Pagar / a Receber                                  | Etapa 2 (funcionalidades)   | REQUISITO, não implementado      |
+| RF-15 | Mostrar o código da última atualização no GitHub na tela principal    | Classroom Parte 2           | REQUISITO, não implementado      |
+| RF-16 | Login para acesso ao sistema hospedado                                | Classroom Parte 2 (login/senha no Readme) | IMPLEMENTADO (login de demonstração) |
+| RF-17 | Ingestão de PDF por e-mail, amortizações, painel, alertas, conciliação | Cliente / V0.91            | PLANEJADO / PENDENTE             |
+
+**Pendente de confirmação:** se a Etapa 2 exige telas completas de CRUD para **todas** as funcionalidades "Manter/Registrar" ou apenas o fluxo de lançamento a partir da nota. O documento lista as funcionalidades como "serão implementadas" e traz recomendação de layout de CRUD, mas a "ATIVIDADE 2° Etapa" descreve só o fluxo a partir da nota.
+
+---
+
+# 6 - Requisitos Não Funcionais
+
+| ID     | Requisito                                                                 | Origem          | Situação                                                         |
+| ------ | ------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------- |
+| RNF-01 | Simplicidade visual, linguagem direta (usuários de baixa escolaridade)    | Cliente / V0.91 | IMPLEMENTADO na tela única (mensagens em português, sem códigos) |
+| RNF-02 | Mínima intervenção manual                                                 | Cliente / V0.91 | IMPLEMENTADO parcialmente (extração automática; sem e-mail)      |
+| RNF-03 | Mensagens claras, sem códigos técnicos                                    | V0.91           | VALIDADO (`SUGESTOES_ERRO`, testes de interface)                 |
+| RNF-04 | Consistência aritmética de valores monetários                             | V0.91           | IMPLEMENTADO (`Decimal`, 2 casas, `ROUND_HALF_UP`)               |
+| RNF-05 | Sistema hospedado e acessível                                             | Etapa 1 e 2     | IMPLEMENTADO no Render (registrado em 29/09; não reverificado)   |
+| RNF-06 | Segurança de credenciais e da chave de IA                                 | equipe          | VALIDADO (seção 19)                                              |
+| RNF-07 | Cadastros nunca excluídos fisicamente                                     | Etapa 2         | REQUISITO, sem banco ainda                                       |
+| RNF-08 | Tempo de processamento                                                    | V0.91           | sem métrica definida; pior caso técnico ≈ 7 min                  |
+| RNF-09 | Custo zero de infraestrutura                                              | `tecnologias.pdf` | PENDENTE DE CONFIRMAÇÃO (Render Free; plano do Supabase a definir; Neon Free era o plano anterior) |
+
+---
+
+# 7 - Regras de Negócio
+
+## 7.1 - Regras oficiais da Etapa 2 (professor)
+
+| ID    | Regra                                                                              | Situação                    |
+| ----- | ---------------------------------------------------------------------------------- | --------------------------- |
+| RN-01 | Cadastros **não podem ser excluídos**                                              | REQUISITO, não implementado |
+| RN-02 | Cadastros devem ser **INATIVADOS** (exclusão lógica: `STATUS = INATIVO`)           | REQUISITO, não implementado |
+| RN-03 | Deve ser possível **REATIVAR** um registro inativo                                 | REQUISITO, não implementado |
+| RN-04 | Contas a pagar podem ter **uma ou mais** classificações de Tipo de DESPESA         | REQUISITO, não implementado |
+| RN-05 | Contas a receber podem ter **uma ou mais** classificações de Tipo de RECEITA       | REQUISITO, não implementado |
+| RN-06 | Contas a pagar/receber podem ter **uma ou mais PARCELAS** com vencimentos distintos | REQUISITO; a extração já entrega lista de parcelas |
+| RN-07 | Criação com `STATUS` ATIVO oculto; "TODOS" lista só ATIVO                          | REQUISITO (recomendação de layout; UI-03/UI-07 na matriz) |
+
+## 7.2 - Regras implementadas na Etapa 1
+
+| Regra                                                                                       | Onde                                         |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Extrair somente o que está escrito; ausente/ilegível → `null`                               | prompt do Extrator                           |
+| Fornecedor = emitente/prestador; faturado = destinatário/tomador                            | prompt do Extrator                           |
+| CPF/CNPJ preservados como extraídos; DV conferido localmente; DV inválido **não bloqueia**   | `agents/extrator/schemas.py`                 |
+| CNPJ alfanumérico aceito (IN RFB 2.229/2024)                                                | `_FORMATO_CNPJ`, `cnpj_dv_valido`            |
+| Documento que não é nota fiscal ou sem itens é recusado                                     | `AgentExtrator.extrair`                      |
+| Parcelas sem número são numeradas 1..n; numeração parcial ou repetida invalida a extração    | `NotaFiscalExtraida._validar_numeracao_das_parcelas` |
+| Valor total e valor de parcela > 0; valores < 10¹⁰, 2 casas                                  | tipos `ValorMonetario*`                      |
+| Classificação em **uma** de duas categorias; nenhuma adequada → erro "inconclusiva"          | `AgentClassificador`                         |
+
+## 7.3 - Regras da especificação da equipe (V0.91)
+
+**HISTÓRICO / PLANEJADO:** o documento V0.91 referencia regras RN01 (titular faturado), RN03 (subcategoria), RN04 (parcela com valor nominal e vencimento), RN05 (amortização com valor e data de pagamento), RN07 (total quitado, saldo e condição QUITADA calculados dinamicamente, não armazenados) e RN08. O texto integral dessas regras não foi localizado na extração textual; elas não estão implementadas e **não** substituem as regras oficiais da Etapa 2.
+
+## 7.4 - Divergência de categorias
+
+| Fonte                        | Categorias                                                         |
+| ---------------------------- | ------------------------------------------------------------------ |
+| Cliente (DR 0001/2026)       | DESPESA: Insumos, Operacionais; RECEITA: Venda produção            |
+| Professor (Etapa 1 e 2)      | exemplos MANUTENÇÃO E OPERAÇÃO, INFRAESTRUTURA E UTILIDADES        |
+| Código (`TipoDespesa`)       | `MANUTENCAO_E_OPERACAO`, `INFRAESTRUTURA_E_UTILIDADES`             |
+
+A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descricao`, ex.: "MANUTENÇÃO E OPERAÇÃO"). O mapeamento entre o valor do Enum e a descrição gravada no banco **não está definido** (PENDENTE DE CONFIRMAÇÃO).
+
+---
+
+# 8 - Estado Atual de Implementação
+
+## 8.1 - Painel
+
+| Área                                   | Situação                                                     | Evidência                                    |
+| -------------------------------------- | ------------------------------------------------------------ | -------------------------------------------- |
+| Fluxo PDF → Agents → JSON → tela       | **VALIDADO**                                                 | `documentos/`, `agents/`, 291 testes OK      |
+| Login de demonstração                  | **VALIDADO**                                                 | `usuarios/demo.py`, `usuarios/tests.py`      |
+| Gemini API Key informada na tela       | **VALIDADO**                                                 | `documentos/forms.py`, testes de interface   |
+| Configuração de produção (Render)      | **VALIDADO** em testes; operação real registrada em 29/09    | `config/test_producao.py`                    |
+| Banco de dados                         | **inexistente** (`DATABASES = {}`)                           | `config/settings.py`, `config/test_sem_banco.py` |
+| Models / migrations / admin            | **inexistentes**                                             | árvore do repositório                        |
+| Consultas de existência (Etapa 2)      | não implementado                                             | —                                            |
+| Cadastros e inativação (Etapa 2)       | não implementado                                             | —                                            |
+| Movimento e parcelas (Etapa 2)         | não implementado                                             | —                                            |
+| Versão/commit do GitHub na tela        | não implementado                                             | nenhuma ocorrência no código                 |
+| Trabalho da Etapa 2 em andamento       | **nenhum confirmado** no Git local ou remoto                 | `git ls-remote`, `gh pr list`                |
+
+## 8.2 - Diagnóstico da transição Etapa 1 → Etapa 2
+
+- A Etapa 1 foi entregue com arquitetura **stateless**, que removeu deliberadamente o banco (PR #15).
+- A Etapa 2 exige persistência relacional. O plano inicial (Render + Neon PostgreSQL, `tecnologias.pdf`) foi substituído em 24/10/2026 por **Render + Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md), PLANEJADO). Em nenhum dos dois casos foi adicionada **qualquer linha** de código, dependência, variável ou migration.
+- Os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco: falharão assim que a Etapa 2 começar e precisarão ser substituídos.
+- Em 24/10/2026 restam três dias para a entrega de 27/10/2026.
+
+---
+
+# 9 - Tecnologias e Dependências
+
+## 9.1 - Em uso (IMPLEMENTADO)
+
+| Tecnologia                   | Versão                     | Uso                                                   | Onde                                        |
+| ---------------------------- | -------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| Python                       | 3.14.7 (`.python-version`) | linguagem                                             | todo o projeto                              |
+| Django                       | 6.1.1                      | rotas, forms, templates, CSRF, sessão                 | `config/`, `documentos/`, `usuarios/`       |
+| google-genai                 | 2.24.0                     | SDK do Gemini (structured output, retry via tenacity) | `agents/gemini_client.py`, `agents/extrator/agent.py` |
+| Pydantic                     | 2.13.5                     | schemas de resposta do Gemini e validação             | `agents/*/schemas.py`                       |
+| httpx                        | 0.28.1                     | transporte HTTP do SDK; exceções tratadas             | `agents/gemini_client.py`                   |
+| python-dotenv                | 1.2.3                      | carrega `.env` sem sobrescrever o ambiente            | `config/settings.py`                        |
+| Gunicorn                     | 26.2.0                     | servidor WSGI de produção                             | `start.sh`                                  |
+| WhiteNoise                   | 6.12.0                     | estáticos em produção (hash + compressão)             | `config/settings.py`                        |
+| Django Templates + HTML/CSS/JS | —                        | interface sem frontend separado, sem CDN, sem build   | `*/templates/`, `*/static/`                 |
+| Render                       | —                          | hospedagem (Web Service)                              | `build.sh`, `start.sh`, `RENDER_EXTERNAL_HOSTNAME` |
+
+`requirements.txt` é um **freeze completo** de 31 pacotes com versões exatas (inclui transitivas: `tenacity`, `google-auth`, `requests`, `websockets`, `anyio`, `asgiref`, `sqlparse`…).
+
+**Divergência de runtime:** o `.venv` local foi criado com Python 3.14.7 (`pyvenv.cfg`), mas aponta para `/usr/bin/python3`, hoje **3.14.8**. Os testes desta auditoria rodaram em 3.14.8. O Render usa a versão de `.python-version` (registro anterior; não reverificado).
+
+## 9.2 - Compatibilidade declarada pelos pacotes
+
+| Pacote            | Declara                                     | Situação                                                     |
+| ----------------- | ------------------------------------------- | ------------------------------------------------------------ |
+| Django 6.1.1      | Python ≥ 3.12                               | compatível                                                   |
+| WhiteNoise 6.12.0 | Django 4.2 a 6.0                            | Django 6.1 não declarado; funciona nos testes                |
+| Gunicorn 26.2.0   | classificadores até Python 3.13             | Python 3.14 não declarado; uso em produção registrado sem problemas |
+
+## 9.3 - Previstas para a Etapa 2 (PLANEJADO, [ADR-001](docs/arquitetura/ADR-001-supabase.md))
+
+| Tecnologia               | Uso previsto                                         | Situação                                                    |
+| ------------------------ | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Supabase PostgreSQL      | banco gerenciado: pessoas, classificações, movimentos e parcelas | PLANEJADO; nenhum projeto Supabase confirmado; sem tabelas nem conexão |
+| Django ORM + Migrations  | modelos, consultas, escrita e versionamento do esquema | PLANEJADO; sem models nem migrations                      |
+| Psycopg 3                | driver PostgreSQL                                    | **proposto, sujeito a validação** (Python 3.14, Django 6.1, Render); fora do `requirements.txt` |
+
+- O Supabase é usado só como PostgreSQL gerenciado, acessado pelo Django. **Supabase Auth, Storage e API automática não fazem parte da decisão**: a autenticação continua sendo o login de demonstração.
+- **HISTÓRICO:** `tecnologias.pdf` (out/2026) previa **Neon Free** para hospedar o PostgreSQL e deixava o driver "a definir (por exemplo psycopg)". O item Neon foi substituído pelo ADR-001 em 24/10/2026. Os demais itens do PDF continuam coerentes.
+
+## 9.4 - Decisões tecnológicas anteriores (HISTÓRICO)
+
+A `Mini_Documentacao_Tecnologias_Gestao_Rural.pdf` (Etapa 1, set/2026) recomendava Django REST Framework, PostgreSQL e React + TypeScript futuro. DRF e PostgreSQL chegaram a ser usados (PRs #1–#14) e foram **removidos** no PR #15. Não há API REST nem React no projeto.
+
+---
+
+# 10 - Arquitetura Geral
+
+## 10.1 - Características (IMPLEMENTADO)
+
+- **Monólito Django** com renderização no servidor (SSR) e formulários HTML tradicionais.
+- **Stateless:** sem banco, sem models, sem gravação de arquivos; cada requisição é independente.
+- **Síncrono e sequencial:** Extrator e Classificador rodam um após o outro dentro da requisição HTTP.
+- **Sessão em cookie assinado**, usada só para o indicador de login.
+- **Integração externa única:** Google Gemini (Gemini Developer API, `vertexai=False`).
+- Cada Agent é **uma chamada de geração** com structured output; não há function calling, ferramentas, laço agêntico nem execução paralela.
+
+## 10.2 - Camadas
+
+| Camada       | Componente                                    | Responsabilidade                                                    |
+| ------------ | --------------------------------------------- | ------------------------------------------------------------------- |
+| Roteamento   | `config/urls.py`, `*/urls.py`                 | mapear URLs para views                                              |
+| Acesso       | `usuarios/demo.py::demo_login_required`       | bloquear views sem sessão                                           |
+| View         | `documentos/views.py::documento_inicio`       | receber o POST, validar, processar, montar o contexto               |
+| Validação    | `DocumentoUploadForm` + `validar_pdf`         | regras da chave e do PDF                                            |
+| Orquestração | `documentos/processamento.py::processar_pdf`  | criar o cliente, encadear os Agents, normalizar erros, montar o JSON |
+| Agents       | `AgentExtrator`, `AgentClassificador`         | prompts, schemas e erros de cada etapa de IA                        |
+| Contratos    | `agents/*/schemas.py` (Pydantic)              | schema enviado ao Gemini e validação da resposta                    |
+| Integração   | `agents/gemini_client.py::GeminiClient`       | único ponto de contato com o SDK                                    |
+
+## 10.3 - Diagrama atual
 
 ```mermaid
 flowchart LR
-    U[Usuário] -->|HTTPS| R[Render proxy]
-    R -->|HTTP + X-Forwarded-Proto| G[Gunicorn]
+    U[Navegador] -->|HTTPS| R[Proxy do Render]
+    R -->|HTTP + X-Forwarded-Proto| G[Gunicorn sync]
     G --> D[Django]
-    D --> L["/login/ (usuarios)"]
-    D --> V["/documentos/ (documentos)"]
+    D --> L["/login/ · usuarios"]
+    D --> V["/documentos/ · documentos"]
     V --> F[DocumentoUploadForm + validar_pdf]
     V --> P[processar_pdf]
     P --> C["GeminiClient(api_key da requisição)"]
@@ -175,569 +395,817 @@ flowchart LR
     C -->|HTTPS| GEM[[Google Gemini API]]
 ```
 
----
+## 10.4 - Arquitetura alvo da Etapa 2 (PLANEJADO)
 
-## 7 - Fluxo Completo
-
-```
-Usuário
- → Render (HTTPS) → Gunicorn → Django
- → /  → /documentos/ → sem sessão → /login/
- → POST /login/ (DEMO_LOGIN + DEMO_PASSWORD) → cookie assinado com demo_autenticado
- → GET /documentos/ → formulário vazio (Gemini API Key + Nota Fiscal PDF)
- → POST /documentos/ (chave + PDF, um único formulário, CSRF)
-     → DocumentoUploadForm.is_valid()
-         → gemini_api_key: obrigatória, espaços removidos
-         → arquivo → validar_pdf
-     → arquivo.read() → bytes do PDF
-     → processar_pdf(pdf_bytes, gemini_api_key)
-         → GeminiClient(api_key=gemini_api_key)        (uma instância)
-         → AgentExtrator(cliente).extrair(pdf_bytes)    → Gemini multimodal → NotaFiscalExtraida
-         → AgentClassificador(cliente).classificar(nota) → Gemini          → ClassificacaoDespesa
-         → montar_resultado(nota, classificacao)        → JSON final (dict)
-         → ResultadoProcessamento(resultado, justificativa)
-     → resumo + avisos de CPF/CNPJ + justificativa + JSON formatado (ou erro seguro)
-     → formulário novo e vazio
- → resposta HTML
- → fim da requisição: PDF, Gemini API Key e resultado são descartados
+```mermaid
+flowchart LR
+    U[Usuário / Professor] --> R["Render: Django + Gunicorn + interface + Agents"]
+    R -->|"Django ORM + Psycopg 3 (proposto)"| S[("Supabase: PostgreSQL")]
+    R --> G[[Google Gemini API]]
 ```
 
----
-
-## 8 - Login da Demonstração
-
-- **Credenciais:** `DEMO_LOGIN` e `DEMO_PASSWORD`, lidas do ambiente (`settings`). Não existem usuários, `request.user` nem `django.contrib.auth`.
-- **Comparação:** `constant_time_compare` para login e senha (as duas comparações sempre acontecem). A senha não é aparada (`strip=False`).
-- **Sem configuração** (variável ausente, vazia ou só espaços): o login recusa todo acesso ("Login indisponível no momento...") e registra um `WARNING` só com os **nomes** das variáveis. Sessões já abertas também perdem o acesso.
-- **Credenciais erradas:** "Login ou senha inválidos." (mesma mensagem para login ou senha errados). O formulário não devolve o que foi digitado.
-- **Sessão:** backend `django.contrib.sessions.backends.signed_cookies`. O cookie contém **somente** `{"demo_autenticado": true}`, assinado com `DJANGO_SECRET_KEY` (à prova de adulteração, mas não criptografado). Login e senha nunca vão para a sessão.
-- **Proteção das páginas:** `usuarios/demo.py::demo_login_required` redireciona para `/login/` antes de a view rodar (nenhum upload nem processamento acontece sem sessão).
-- **Logout:** `session.flush()` apaga o cookie de sessão.
-
-| Rota       | Nome     | View                         | Métodos   | Comportamento                                                                                    |
-| ---------- | -------- | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| `/login/`  | `login`  | `usuarios.views.login_demo`  | GET, POST | formulário; POST válido cria a sessão e vai para `/documentos/`; já autenticado → `/documentos/` |
-| `/logout/` | `logout` | `usuarios.views.logout_demo` | GET, POST | encerra a sessão e vai para `/login/` (link "Sair" no topo)                                      |
-
-Após o login, o destino é sempre `/documentos/` (não há `?next=`). `@sensitive_post_parameters("senha")` oculta a senha em relatórios de erro.
+O Django continua responsável pelas regras de negócio, consultas, validações, orquestração dos Agents e persistência. O navegador não acessa o Supabase. Na versão anterior deste diagrama (`tecnologias.pdf`), o banco era o Neon Free (HISTÓRICO).
 
 ---
 
-## 9 - Upload e Validação do PDF
+# 11 - Estrutura e Responsabilidades dos Diretórios
 
-| Componente            | Local                      | Papel                                                                    |
-| --------------------- | -------------------------- | ------------------------------------------------------------------------ |
-| `DocumentoUploadForm` | `documentos/forms.py`      | campos `gemini_api_key` e `arquivo`; `clean_arquivo` chama `validar_pdf` |
-| `validar_pdf`         | `documentos/validators.py` | fonte única das regras do PDF (a view não duplica validação)             |
-
-**Regras, na ordem:**
-
-1. arquivo obrigatório ("Selecione um arquivo PDF.") e não vazio ("O arquivo PDF está vazio."), pelo próprio `FileField`;
-2. nome base extraído do caminho (inclusive estilo Windows) e extensão **`.pdf`** (sem diferenciar maiúsculas);
-3. tamanho até **`MAX_PDF_UPLOAD_SIZE_MB`** (padrão **10 MB**);
-4. `content_type` igual a `application/pdf` (informado pelo cliente; compensado pela assinatura);
-5. primeiros 5 bytes iguais a **`%PDF-`**;
-6. nome **sanitizado** com `get_valid_filename`, usado só para exibição.
-
-O PDF é lido com `arquivo.read()` e processado **durante a requisição**. Nada é gravado pela aplicação. Uploads acima de 2,5 MB passam por um arquivo temporário do próprio Django, apagado ao fim da requisição. PDF inválido mostra o erro no campo e **não** chama o Gemini.
-
----
-
-## 10 - Gemini API Key Temporária
-
-A chave é fornecida pelo usuário **a cada processamento** e existe **somente em memória, durante o POST**.
-
-- Campo `gemini_api_key` no `DocumentoUploadForm`: `forms.CharField` com `PasswordInput` (`type="password"`, **sem** `render_value`), `autocomplete="off"`, obrigatório, máximo 256 caracteres, espaços externos removidos.
-- Vazia ou só espaços → "Informe a Gemini API Key." e nada é processado.
-- O **formato não é validado** localmente: quem valida é a API do Gemini na chamada.
-- Texto na tela: "A chave é utilizada somente durante este processamento e não é armazenada."
-
-**Caminho da chave:**
-
-```
-request.POST → form.cleaned_data["gemini_api_key"] → _processar(arquivo, chave)
- → processar_pdf(pdf_bytes, gemini_api_key) → GeminiClient(api_key=...) → genai.Client(api_key=...)
- → fim da requisição → descarte
+```text
+gestao-rural/
+├── manage.py                     # entrada do Django (config.settings)
+├── requirements.txt              # freeze completo (31 pacotes)
+├── .python-version               # 3.14.7
+├── .env.example                  # nomes das variáveis e exemplos não secretos
+├── .gitignore                    # .env, README.txt, analisetemporaria.md, .venv/, staticfiles/, media/, uploads/, db.sqlite3
+├── build.sh                      # pip install + collectstatic (executável)
+├── start.sh                      # Gunicorn em 0.0.0.0:$PORT (executável)
+├── ContextoProjeto.md            # este documento
+├── config/                       # projeto Django
+│   ├── settings.py               # configuração por ambiente
+│   ├── urls.py                   # "/" (redirect), usuarios.urls, "documentos/"
+│   ├── wsgi.py                   # config.wsgi:application (Gunicorn)
+│   ├── asgi.py                   # padrão, não usado
+│   ├── test_sem_banco.py         # garante ausência de banco/media/PostgreSQL
+│   └── test_producao.py          # cenários de produção em subprocessos
+├── usuarios/                     # app: login de demonstração
+│   ├── demo.py                   # credenciais, sessão, demo_login_required
+│   ├── forms.py                  # LoginDemoForm
+│   ├── views.py, urls.py         # /login/, /logout/
+│   ├── templates/usuarios/login.html
+│   ├── static/usuarios/login.css
+│   ├── testing.py                # apoio a testes (credenciais fictícias)
+│   └── tests.py
+├── documentos/                   # app: tela de processamento
+│   ├── forms.py                  # DocumentoUploadForm (chave + PDF)
+│   ├── validators.py             # validar_pdf
+│   ├── processamento.py          # processar_pdf, montar_resultado, ProcessamentoError
+│   ├── views.py, urls.py         # /documentos/
+│   ├── templates/documentos/     # base.html, inicio.html
+│   ├── static/documentos/        # documentos.css, documentos.js
+│   ├── test_processamento.py
+│   └── test_interface.py
+└── agents/                       # pacote Python puro (não é app Django)
+    ├── gemini_client.py          # GeminiClient + hierarquia GeminiError
+    ├── test_gemini_client.py
+    ├── extrator/                 # agent.py (AgentExtrator), schemas.py (NotaFiscalExtraida), testes
+    └── classificador/            # agent.py (AgentClassificador), schemas.py (TipoDespesa, ClassificacaoDespesa), testes
 ```
 
-**A chave NÃO:**
-
-- vem do `.env` nem de variável de ambiente (não existe `GEMINI_API_KEY` em `settings`);
-- vai para a sessão, cookie, arquivo, banco, cache, variável global, `settings`, `localStorage`/`sessionStorage` ou URL;
-- aparece no HTML depois do POST (o formulário é renderizado **novo e vazio** após processar), no JSON, no resumo, na justificativa, no contexto do template, em mensagens de erro ou em logs.
-
-Uma nova execução exige informar a chave de novo. `GOOGLE_API_KEY`/`GEMINI_API_KEY` presentes no ambiente **não** substituem a chave da tela, porque o SDK recebe a chave explicitamente. Tudo isso é coberto por testes (seção 22).
+- Nenhum app tem `models.py`, `admin.py` ou `migrations/`; os `__init__.py` estão vazios.
+- A organização `agents/<agente>/` segue a estrutura recomendada na aula (slides 14–17).
+- **Arquivos locais não versionados:** `.env` (existe), `README.txt` (existe; dados da apresentação), `.venv/`, `staticfiles/` (saída de `collectstatic`), `media/` e `uploads/` (vazios, remanescentes de versões antigas, sem uso no código).
 
 ---
 
-## 11 - GeminiClient
+# 12 - Backend e Contratos Internos
 
-`agents/gemini_client.py::GeminiClient`: único ponto de contato com o SDK `google-genai`.
+## 12.1 - Hierarquia de exceções
+
+```text
+httpx / google.genai.errors   →  GeminiError                       (GeminiClient)
+GeminiError / ValidationError →  ExtratorError | ClassificadorError (Agents)
+ExtratorError | ClassificadorError | GeminiConfiguracaoError | Exception
+                              →  ProcessamentoError(etapa, codigo, mensagem)  (orquestração)
+ProcessamentoError            →  contexto {"erro": {mensagem, sugestao}}      (view)
+```
+
+Cada camada converte a exceção inferior numa exceção própria com **mensagem fixa e segura**; a orquestração usa `from None`, cortando a cadeia de causas antes da view.
+
+## 12.2 - Orquestração (`documentos/processamento.py`)
 
 ```python
-GeminiClient(*, api_key, modelo=None, timeout_segundos=None, max_tentativas=None)
+processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None) -> ResultadoProcessamento
+
+@dataclass(frozen=True)
+class ResultadoProcessamento:
+    resultado: dict      # JSON final
+    justificativa: str
 ```
 
-| Parâmetro          | Origem                                     | Regra                                                                                              |
-| ------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `api_key`          | **sempre explícita** (chave da requisição) | ausente, vazia ou só espaços → `GeminiConfiguracaoError`; sem fallback para `settings` ou ambiente |
-| `modelo`           | `GEMINI_MODEL`                             | obrigatório                                                                                        |
-| `timeout_segundos` | `GEMINI_TIMEOUT_SEGUNDOS`                  | **por tentativa**; padrão 60                                                                       |
-| `max_tentativas`   | `GEMINI_MAX_TENTATIVAS`                    | **total** de tentativas; padrão 3                                                                  |
+```text
+_executar
+ ├── _criar_cliente(gemini_api_key) → GeminiClient   (só se algum Agent não foi injetado)
+ ├── AgentExtrator(cliente).extrair(pdf_bytes)        → NotaFiscalExtraida
+ ├── AgentClassificador(cliente).classificar(nota)    → ClassificacaoDespesa
+ └── montar_resultado(nota, classificacao)            → dict
+```
 
-- **SDK:** `genai.Client(api_key=chave, vertexai=False, http_options=HttpOptions(timeout=ms, retry_options=HttpRetryOptions(attempts=...)))`.
-- **Retry:** feito pelo SDK (HTTP 408/429/500/502/503/504 e falhas transitórias, com backoff exponencial). Não há loop de retry manual.
-- **Métodos:** `gerar_conteudo(...) -> str` e `gerar_json(...) -> dict | list`. Os Agents usam `gerar_json` com schema Pydantic e `temperatura=0`.
-- **Exceções** (base `GeminiError`, mensagens fixas):
-  - `GeminiConfiguracaoError`: chave ou modelo ausentes, timeout/tentativas inválidos;
-  - `GeminiTimeoutError`;
-  - `GeminiAPIError(status_code)`: erro da API (inclusive chave inválida) ou de rede;
-  - `GeminiRespostaInvalidaError`: resposta vazia ou JSON inválido.
-- **Sigilo:** a classe não guarda cópia da chave; `__repr__`, exceções e logs nunca contêm a chave; `@sensitive_variables` no construtor.
+- **Um único `GeminiClient`** por requisição, compartilhado pelos dois Agents.
+- `extrator`/`classificador` injetáveis apenas em testes.
+- `@sensitive_variables("gemini_api_key")` em `processar_pdf`, `_executar` e `_criar_cliente`.
+
+| Origem da falha                      | `etapa`         | `codigo`                                                                         |
+| ------------------------------------ | --------------- | -------------------------------------------------------------------------------- |
+| `GeminiConfiguracaoError` na criação | `configuracao`  | `servico_indisponivel` ("Serviço de IA indisponível no momento.")                |
+| `ExtratorError`                      | `extracao`      | `documento_ilegivel` / `servico_indisponivel` / `resposta_invalida`              |
+| `ClassificadorError`                 | `classificacao` | `servico_indisponivel` / `classificacao_invalida` / `classificacao_inconclusiva` |
+| Qualquer outra exceção               | `processamento` | `erro_interno` ("Erro inesperado ao processar o documento."; traceback só em `logger.exception`) |
+
+## 12.3 - View (`documentos/views.py`)
+
+- `documento_inicio`: decorators `sensitive_post_parameters("gemini_api_key")`, `demo_login_required`, `require_http_methods(["GET","POST"])`, `sensitive_variables`.
+- `_processar` chama `processar_pdf(arquivo.read(), chave)` e devolve `resumo`, `avisos`, `justificativa` e `json_resultado` (`json.dumps(..., ensure_ascii=False, indent=2)`), ou `erro` com sugestão de `SUGESTOES_ERRO`.
+- Formatação: `_formatar_moeda` (`R$ 1.234,56`), `_formatar_data` (`dd/mm/aaaa`), rótulos em `ROTULOS_TIPO_DESPESA`.
+- Após um POST válido (sucesso ou erro), o formulário é recriado **vazio** (a chave precisa ser informada de novo).
+
+## 12.4 - Contratos internos que a Etapa 2 poderá reutilizar
+
+- `processar_pdf` e `montar_resultado` já entregam um `dict` com fornecedor (incl. CNPJ normalizado), faturado (incl. CPF normalizado), parcelas numeradas e `tipo_despesa` — insumo direto para as consultas de existência e para criar movimento e parcelas.
+- O pacote `agents/` não depende de banco.
 
 ---
 
-## 12 - Agent Extrator
+# 13 - Frontend e Navegação
 
-`agents/extrator/agent.py`:
+## 13.1 - Rotas (IMPLEMENTADO)
+
+| Rota           | Nome               | View                                 | Métodos   | Proteção              | Função                              |
+| -------------- | ------------------ | ------------------------------------ | --------- | --------------------- | ----------------------------------- |
+| `/`            | `inicio`           | `RedirectView`                       | todos     | —                     | redireciona para `/documentos/`     |
+| `/login/`      | `login`            | `usuarios.views.login_demo`          | GET, POST | —                     | login; autenticado → `/documentos/` |
+| `/logout/`     | `logout`           | `usuarios.views.logout_demo`         | GET, POST | —                     | encerra a sessão → `/login/`        |
+| `/documentos/` | `documento_inicio` | `documentos.views.documento_inicio`  | GET, POST | `demo_login_required` | tela única de processamento         |
+| `/static/...`  | —                  | WhiteNoise / staticfiles             | GET       | —                     | CSS e JS                            |
+
+Outros métodos → 405; outras URLs → 404. Não existe API REST.
+
+## 13.2 - Templates
+
+| Template                 | Papel                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `documentos/base.html`   | layout `pt-BR`; carrega `documentos.css` e `documentos.js` (`defer`); topo com "Enviar nota" e "Sair" |
+| `documentos/inicio.html` | formulário (chave + PDF), erro (`role="alert"`), resumo, avisos (`role="note"`), justificativa, JSON em `<pre><code>` |
+| `usuarios/login.html`    | estende `base.html` sem navegação; campos escritos à mão (valor digitado não volta no HTML)    |
+
+## 13.3 - Estados da tela `/documentos/`
+
+| Estado              | Comportamento                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| GET                 | formulário vazio, limite de upload, aviso "O processamento pode levar alguns minutos."            |
+| POST inválido       | erros no próprio campo; Gemini não é chamado                                                      |
+| POST – sucesso      | resumo (tipo, valor, parcelas, fornecedor, número, data), avisos de DV, justificativa, JSON final |
+| POST – erro         | "O processamento de “<arquivo>” não foi concluído.", mensagem segura e sugestão                   |
+
+## 13.4 - JavaScript e CSS
+
+- `documentos/static/documentos/documentos.js`: em `form[data-submit-lock]`, desabilita o botão no primeiro envio, troca o texto ("Entrando..." / "Processando..."), marca `aria-busy`, bloqueia reenvio e destrava no `pageshow` vindo do cache. Não usa `fetch`, polling nem `localStorage`; a interface funciona sem JS.
+- `documentos.css` (variáveis CSS, uma media query ≤ 480 px) e `usuarios/static/usuarios/login.css`.
+- Não há indicador real de progresso, menu lateral, tabelas, busca nem CRUD (exigidos pela recomendação de layout da Etapa 2).
+
+---
+
+# 14 - Agents e Integração Gemini
+
+## 14.1 - `GeminiClient` (`agents/gemini_client.py`)
+
+```python
+GeminiClient(*, api_key=None, modelo=None, timeout_segundos=None, max_tentativas=None)
+    .gerar_conteudo(conteudo, *, instrucao_sistema=None, schema_resposta=None,
+                    tipo_resposta=None, temperatura=None) -> str
+    .gerar_json(conteudo, *, instrucao_sistema=None, schema_resposta=None,
+                temperatura=None) -> dict | list
+```
+
+| Parâmetro          | Origem                                          | Regra                                                         |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------- |
+| `api_key`          | sempre explícita (chave da requisição)          | vazia/ausente → `GeminiConfiguracaoError`; **sem fallback**   |
+| `modelo`           | parâmetro ou `settings.GEMINI_MODEL`            | obrigatório                                                   |
+| `timeout_segundos` | parâmetro ou `settings.GEMINI_TIMEOUT_SEGUNDOS` | inteiro ≥ 1, padrão 60, **por tentativa** (enviado em ms)     |
+| `max_tentativas`   | parâmetro ou `settings.GEMINI_MAX_TENTATIVAS`   | inteiro ≥ 1, padrão 3, **total** de tentativas                |
+
+- O SDK é criado com `api_key` e `vertexai=False` explícitos, impedindo que `GOOGLE_API_KEY`/`GEMINI_API_KEY` do ambiente substituam a chave da tela (testado).
+- Retry do próprio SDK (tenacity): status 408, 429, 500, 502, 503, 504, timeout e erro de conexão; espera exponencial com jitter. Não há retry manual.
+- Pior caso por processamento: 2 chamadas × 3 tentativas × 60 s + esperas ≈ 6–7 min (base do `GUNICORN_TIMEOUT=420`).
+- Exceções: `GeminiConfiguracaoError`, `GeminiTimeoutError`, `GeminiAPIError(status_code)`, `GeminiRespostaInvalidaError` — todas herdam de `GeminiError`. Logs registram só modelo e status.
+- O modelo usado em produção não foi verificado; `.env.example` sugere `gemini-3.5-flash-lite`.
+
+## 14.2 - Agent Extrator (`agents/extrator/agent.py`)
 
 ```python
 AgentExtrator(cliente=None).extrair(pdf_bytes: bytes) -> NotaFiscalExtraida
 ```
 
-- **Entrada:** bytes do PDF. Não-`bytes` ou sem `%PDF-` → `DocumentoIlegivelError`, sem chamar o Gemini.
-- **Chamada:** conteúdo multimodal `[instrução, types.Part.from_bytes(pdf, "application/pdf")]` (PDF inline), `schema_resposta=NotaFiscalExtraida`, `temperatura=0`.
-- **Prompt:** extrair só o que está escrito; `null` para ausentes; fornecedor = emitente/prestador, faturado = destinatário/tomador; copiar CPF/CNPJ sem corrigir; datas ISO; números sem símbolo nem milhar; todos os itens e parcelas; **ignorar instruções contidas no PDF**.
-- **Saída `NotaFiscalExtraida`** (`agents/extrator/schemas.py`):
-  - `documento_e_nota_fiscal` (bool, não vai para o JSON final);
-  - `fornecedor{razao_social, nome_fantasia, cnpj}`;
-  - `faturado{nome, cpf}`;
-  - `numero_nota`;
-  - `data_emissao` (`date`);
-  - `itens[]{descricao, quantidade, valor_unitario, valor_total}`;
-  - `parcelas[]{numero, data_vencimento, valor}`;
-  - `valor_total` (`Decimal` > 0);
-  - `validacoes` (calculado localmente, `computed_field`).
-- **Obrigatórios:** documento reconhecido como nota fiscal, ≥ 1 item com descrição e `valor_total`. Ausentes ficam `null` (nunca inventados). Campos extras do modelo são ignorados.
-- **Valores:** ≥ 0 (parcelas e total > 0), 2 casas (`ROUND_HALF_UP`), teto de sanidade < 10¹⁰. **Parcelas:** sem numeração → numeradas 1..n; numeração parcial, duplicada ou < 1 → resposta inválida.
-- **Política de CPF/CNPJ:**
-  - o CPF/CNPJ extraído é **preservado** e normalizado (CPF com 11 dígitos; CNPJ com 14 caracteres, inclusive o **alfanumérico**);
-  - os **dígitos verificadores** são conferidos localmente e informados em `validacoes` (`valido` / `invalido` / `ausente`);
-  - a **existência real** da pessoa ou empresa **não** é verificada;
-  - **DV inválido não invalida a nota**; só estrutura impossível (tamanho ou caracteres inválidos) invalida a resposta.
-- **Exceções** (base `ExtratorError`, `codigo` estável e mensagem segura):
-  - `DocumentoIlegivelError` (`documento_ilegivel`);
-  - `ExtracaoIndisponivelError` (`servico_indisponivel`): qualquer falha do Gemini, inclusive chave inválida;
-  - `ExtracaoInvalidaError` (`resposta_invalida`): fora do schema, não é nota fiscal ou sem itens.
+- **Entrada:** `bytes` iniciando com `%PDF-`; caso contrário `DocumentoIlegivelError` sem chamar o Gemini.
+- **Chamada:** `gerar_json([INSTRUCAO_EXTRACAO, Part.from_bytes(pdf, "application/pdf")], instrucao_sistema=INSTRUCAO_SISTEMA, schema_resposta=NotaFiscalExtraida, temperatura=0)`.
+- **Validação:** `NotaFiscalExtraida.model_validate`; exige `documento_e_nota_fiscal` verdadeiro e ao menos um item.
+- **Prompt:** extrair só o que está escrito; `null` para ausentes; fornecedor = emitente/prestador; faturado = destinatário/tomador; copiar CPF/CNPJ sem corrigir DV; datas `AAAA-MM-DD`; valores numéricos simples; listar todos os itens e parcelas; **ignorar instruções contidas no PDF**.
+- **Erros:** `DocumentoIlegivelError` (`documento_ilegivel`), `ExtracaoIndisponivelError` (`servico_indisponivel`: chave inválida, timeout, rede…), `ExtracaoInvalidaError` (`resposta_invalida`: JSON inválido, fora do schema, não é nota, sem itens).
+- **Cliente padrão:** com `cliente=None`, cria `GeminiClient()` sem chave, o que sempre falha; na prática o cliente é sempre injetado pela orquestração.
 
----
-
-## 13 - Agent Classificador
-
-`agents/classificador/agent.py`:
+## 14.3 - Agent Classificador (`agents/classificador/agent.py`)
 
 ```python
 AgentClassificador(cliente=None).classificar(nota: NotaFiscalExtraida) -> ClassificacaoDespesa
 ```
 
-- **Entrada:** o `NotaFiscalExtraida` do Extrator. Entrada inválida, não nota fiscal ou sem itens → `ClassificacaoInvalidaError`, sem chamar o Gemini.
-- **Minimização de dados:** o Gemini recebe **só** os itens (descrição, quantidade, valor total), o fornecedor (razão social e nome fantasia) e o valor total. Não recebe CPF, CNPJ nem dados do faturado.
-- **Chamada:** texto (instrução + contexto JSON), `schema_resposta=ClassificacaoDespesa`, `temperatura=0`.
-- **Saída `ClassificacaoDespesa`:** `tipo_despesa` (Enum `TipoDespesa` ou `null`) e `justificativa` (texto curto, até 500 caracteres).
-- **A classificação é produzida pelo Gemini a partir dos itens**; não é copiada do PDF nem escolhida na interface.
-- **Categorias atuais (`TipoDespesa`):**
-  - `MANUTENCAO_E_OPERACAO`: manutenção e operação de máquinas, equipamentos e veículos (ex.: diesel, lubrificante, peças);
-  - `INFRAESTRUTURA_E_UTILIDADES`: infraestrutura da propriedade e utilidades (ex.: materiais hidráulicos, elétricos e de construção).
-- **Exceções** (base `ClassificadorError`):
-  - `ClassificacaoIndisponivelError` (`servico_indisponivel`);
-  - `ClassificacaoInvalidaError` (`classificacao_invalida`);
-  - `ClassificacaoInconclusivaError` (`classificacao_inconclusiva`): `tipo_despesa` nulo, os itens não se encaixam nas categorias.
+- **Entrada:** `NotaFiscalExtraida` com nota fiscal e itens; caso contrário `ClassificacaoInvalidaError`.
+- **Minimização de dados:** `_montar_contexto` envia só razão social, nome fantasia, itens (descrição, quantidade, valor total) e valor total. **Não** envia CPF, CNPJ, faturado, número, datas nem parcelas.
+- **Categorias (`TipoDespesa`):** `MANUTENCAO_E_OPERACAO` (máquinas, equipamentos, veículos: diesel, lubrificante, peças); `INFRAESTRUTURA_E_UTILIDADES` (materiais hidráulicos, elétricos, de construção).
+- **Prompt:** uma única categoria permitida; não criar categorias; decidir pelos itens; `null` se nenhuma servir; justificativa curta. Não há instrução explícita anti-injeção (a saída restrita ao Enum mitiga).
+- **Erros:** `ClassificacaoIndisponivelError` (`servico_indisponivel`), `ClassificacaoInvalidaError` (`classificacao_invalida`), `ClassificacaoInconclusivaError` (`classificacao_inconclusiva`, quando `tipo_despesa` é `null` — não gera JSON).
 
-Os dois Agents são classes separadas, com prompts, schemas e exceções próprios. Não se comunicam diretamente: quem passa a saída do Extrator para o Classificador é a orquestração. Cada Agent é uma chamada única de geração com structured output (sem function calling nem loop agêntico).
+## 14.4 - Política de dados ausentes
+
+- Campos internos de fornecedor/faturado, número, data, quantidade e valores de item podem ser `null`.
+- Blocos `fornecedor`, `faturado`, listas `itens` e `parcelas` e `valor_total` são obrigatórios.
+- Texto vazio vira `null`; espaços e quebras de linha são colapsados.
+- `validacoes` registra `ausente` quando CPF/CNPJ não existem.
 
 ---
 
-## 14 - Orquestração
+# 15 - Banco de Dados e Modelo de Domínio
 
-`documentos/processamento.py`:
+## 15.1 - Estado atual (IMPLEMENTADO / VALIDADO)
 
-```python
-processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None) -> ResultadoProcessamento
+| Item                     | Situação                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Banco configurado        | **Não.** `DATABASES = {}` → `django.db.backends.dummy` (qualquer consulta falha)   |
+| Models / migrations      | nenhum                                                                             |
+| Apps de banco            | `admin`, `auth`, `contenttypes`, `sessions` (app) e `messages` não instalados      |
+| Persistência de arquivos | nenhuma (`MEDIA_ROOT` vazio, sem `default_storage`)                                |
+| Dependências de banco    | nenhuma em `requirements.txt`                                                      |
+| Sessões                  | somente no cookie assinado do cliente                                              |
+
+**Garantias automatizadas que impedem banco** (`config/test_sem_banco.py`, `config/test_producao.py`): falham se houver pasta `migrations`, app `financeiro`, `django.db`/`.objects.` em código de produção, `DB_*`/`postgresql`/`psycopg`/`sqlite`/`djangorestframework` em `settings.py`/`.env.example`/`requirements.txt`, `psycopg`/`dj-database-url` nos requisitos, `migrate` no `build.sh` ou `DATABASE_URL` no `.env.example`.
+
+## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
+
+Diagrama conceitual derivado **somente** das entidades e atributos citados pelo professor (ENT-01 a ENT-04 na [matriz](docs/requisitos/matriz-n2-etapa2.md)); nomes de campos adicionais, chaves e cardinalidades exatas ainda precisam ser decididos. Banco previsto: Supabase PostgreSQL ([ADR-001](docs/arquitetura/ADR-001-supabase.md)).
+
+```mermaid
+erDiagram
+    PESSOAS ||--o{ MOVIMENTOCONTAS : "fornecedor/cliente"
+    PESSOAS ||--o{ MOVIMENTOCONTAS : "faturado"
+    MOVIMENTOCONTAS }o--o{ CLASSIFICACAO : "uma ou mais (RN-04/05)"
+    MOVIMENTOCONTAS ||--|{ PARCELACONTAS : "uma ou mais (RN-06)"
+    PESSOAS {
+        string Tipo "CLIENTE-FORNECEDOR | FATURADO"
+        string RazaoSocial
+        string Status "ATIVO | INATIVO"
+    }
+    CLASSIFICACAO {
+        string Tipo "DESPESA | RECEITA"
+        string Descricao
+        string Status "ATIVO | INATIVO"
+    }
+    MOVIMENTOCONTAS {
+        string Tipo "APAGAR | ARECEBER"
+    }
+    PARCELACONTAS {
+        string Identificacao
+    }
 ```
 
-```
-GeminiClient(api_key=gemini_api_key)        (uma única instância)
- ├── AgentExtrator(cliente=...)     .extrair(pdf_bytes)  → NotaFiscalExtraida
- └── AgentClassificador(cliente=...).classificar(nota)   → ClassificacaoDespesa
- → montar_resultado(nota, classificacao)                 → dict (JSON final)
- → ResultadoProcessamento(resultado, justificativa)      (dataclass imutável, em memória)
-```
+Pontos a definir (PENDENTE DE CONFIRMAÇÃO): como identificar pessoa existente (CNPJ/CPF normalizado? razão social?); se CLIENTE e FORNECEDOR são o mesmo `Tipo`; nome do valor de tipo para contas a receber; campos de documento, valor, vencimento, número da nota e datas; se `Status` também se aplica a movimentos; atomicidade (transação) do lançamento.
 
-- **Um único `GeminiClient`**, criado com a chave da requisição, é compartilhado pelos dois Agents.
-- `extrator`/`classificador` só são injetados em testes (nesse caso, o cliente não é criado).
-- **Síncrono e sequencial:** a classificação só começa depois da extração.
-- **Erros:** toda falha vira `ProcessamentoError(etapa, codigo, mensagem)`, levantada com `from None` (sem causa encadeada):
+## 15.3 - Modelos anteriores (HISTÓRICO)
 
-| Origem                                                 | `etapa`         | `codigo`                                                                                      |
-| ------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------- |
-| chave ausente/vazia ou configuração inválida do Gemini | `configuracao`  | `servico_indisponivel`                                                                        |
-| `ExtratorError`                                        | `extracao`      | `documento_ilegivel` / `servico_indisponivel` / `resposta_invalida`                           |
-| `ClassificadorError`                                   | `classificacao` | `servico_indisponivel` / `classificacao_invalida` / `classificacao_inconclusiva`              |
-| qualquer outra exceção                                 | `processamento` | `erro_interno` ("Erro inesperado ao processar o documento."; traceback só no log do servidor) |
-
-- `@sensitive_variables("gemini_api_key")` em `processar_pdf`, `_executar` e `_criar_cliente`.
+Até o PR #14 existiam `usuarios.Usuario` (`AbstractUser`), `usuarios.Titular`, `financeiro.LancamentoFinanceiro` (categoria/subcategoria), `financeiro.Parcela`, `financeiro.Amortizacao` e `documentos.Documento`, com PostgreSQL via `psycopg` 3.3.6. Foram **removidos** no PR #15 (`69b7ca4`). Ficam no histórico Git como referência, não como base obrigatória: os nomes não coincidem com as entidades exigidas na Etapa 2.
 
 ---
 
-## 15 - JSON Final
+# 16 - Endpoints e Contratos de Comunicação
 
-Produzido por `montar_resultado` a partir do dump JSON da extração, acrescido de `quantidade_parcelas` e `tipo_despesa`. **10 chaves**, nesta ordem:
+- **Navegador ↔ Django:** HTML renderizado no servidor; formulários `POST` com CSRF.
+  - `POST /login/` — `application/x-www-form-urlencoded`: `login`, `senha`, `csrfmiddlewaretoken` → 302 para `/documentos/` ou 200 com erro.
+  - `POST /documentos/` — `multipart/form-data`: `gemini_api_key`, `arquivo` (PDF), `csrfmiddlewaretoken` → 200 com resultado ou erro.
+  - `GET|POST /logout/` → 302 para `/login/`.
+- **Django ↔ Gemini:** HTTPS via `google-genai`, structured output (`response_mime_type="application/json"`, `response_schema` Pydantic), `temperature=0`.
+- **Não existe:** API REST/JSON pública, webhooks, filas, e-mail.
+
+---
+
+# 17 - Schemas e Formatos JSON
+
+## 17.1 - `NotaFiscalExtraida` (`agents/extrator/schemas.py`, `VERSAO_SCHEMA = 1`)
+
+| Campo                     | Tipo                          | Regras                                                              |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| `documento_e_nota_fiscal` | `bool`                        | obrigatório; fora do JSON final                                     |
+| `fornecedor`              | `Fornecedor`                  | `razao_social`, `nome_fantasia`, `cnpj` opcionais                   |
+| `faturado`                | `Faturado`                    | `nome`, `cpf` opcionais                                             |
+| `numero_nota`             | `str \| None`                 | como impresso                                                       |
+| `data_emissao`            | `Data \| None`                | string `AAAA-MM-DD` estrita                                         |
+| `itens`                   | `list[Item]`                  | `descricao` obrigatória; `quantidade` ≥ 0; valores monetários       |
+| `parcelas`                | `list[ParcelaExtraida]`       | `numero` ≥ 1 ou `null`; `data_vencimento`; `valor` > 0              |
+| `valor_total`             | `ValorMonetarioPositivo`      | obrigatório, > 0                                                    |
+| `validacoes`              | `Validacoes` (`computed_field`) | calculado localmente; não enviado ao Gemini                       |
+
+- CPF: `\d{11}`; CNPJ: `[0-9A-Z]{12}\d{2}`; separadores removidos, CNPJ em maiúsculas; estrutura impossível → resposta inválida.
+- DV conferido localmente (`cpf_dv_valido`, `cnpj_dv_valido`); sequências repetidas são inválidas; DV inválido gera aviso, não erro. A existência real do documento não é verificada.
+
+## 17.2 - `ClassificacaoDespesa` (`agents/classificador/schemas.py`, `VERSAO_SCHEMA = 1`)
+
+- `tipo_despesa: TipoDespesa | None` (obrigatório no schema, pode ser `null`).
+- `justificativa: str` (1–500 caracteres; espaços colapsados).
+
+`VERSAO_SCHEMA` não é usada no código nem incluída no JSON.
+
+## 17.3 - JSON final (`montar_resultado`, 10 chaves nesta ordem)
 
 ```json
 {
-  "fornecedor": {
-    "razao_social": "...",
-    "nome_fantasia": "...",
-    "cnpj": "..."
-  },
-  "faturado": { "nome": "...", "cpf": "..." },
+  "fornecedor": {"razao_social": "...", "nome_fantasia": "...", "cnpj": "..."},
+  "faturado": {"nome": "...", "cpf": "..."},
   "numero_nota": "...",
   "data_emissao": "AAAA-MM-DD",
   "itens": [
-    {
-      "descricao": "...",
-      "quantidade": "...",
-      "valor_unitario": "0.00",
-      "valor_total": "0.00"
-    }
+    {"descricao": "...", "quantidade": "...", "valor_unitario": "0.00", "valor_total": "0.00"}
   ],
   "quantidade_parcelas": 1,
-  "parcelas": [
-    { "numero": 1, "data_vencimento": "AAAA-MM-DD", "valor": "0.00" }
-  ],
+  "parcelas": [{"numero": 1, "data_vencimento": "AAAA-MM-DD", "valor": "0.00"}],
   "valor_total": "0.00",
   "tipo_despesa": "MANUTENCAO_E_OPERACAO",
   "validacoes": {
-    "fornecedor_cnpj": { "status": "valido", "motivo": null },
-    "faturado_cpf": {
-      "status": "invalido",
-      "motivo": "digitos_verificadores_invalidos"
-    }
+    "fornecedor_cnpj": {"status": "valido", "motivo": null},
+    "faturado_cpf": {"status": "invalido", "motivo": "digitos_verificadores_invalidos"}
   }
 }
 ```
 
-- **Valores monetários:** strings com 2 casas (`"1500.00"`), sem perda de precisão.
-- **Datas:** ISO `AAAA-MM-DD` (ou `null`).
-- **CPF/CNPJ:** normalizados, sem máscara.
-- **`quantidade_parcelas`:** `len(parcelas)` (`0` para nota sem parcelas impressas).
-- **`tipo_despesa`:** valor do Enum; nunca `null` no JSON final (inconclusiva vira erro).
-- **`validacoes`:** status dos dígitos verificadores, calculado localmente.
-- **Fora do JSON:** `documento_e_nota_fiscal` e a `justificativa`, exibida numa seção própria da tela.
-- A view serializa com `json.dumps(resultado, ensure_ascii=False, indent=2)`, preservando a ordem acima.
-- O JSON existe **apenas na resposta atual**; não é persistido.
-
-> **DECISÃO DO MVP:** `tipo_despesa` é **escalar**, uma classificação principal por nota, o que é suficiente para esta etapa. A estrutura para várias classificações, mencionada na atividade, fica como **evolução futura**.
+- Valores monetários como string `Decimal` com 2 casas; `quantidade` como string `Decimal`.
+- `quantidade_parcelas = len(parcelas)` (0 quando a nota não traz parcelas).
+- `tipo_despesa` nunca é `null` no JSON final; `validacoes.*.status ∈ {valido, invalido, ausente}`.
+- A `justificativa` fica fora do JSON, em seção própria da tela.
 
 ---
 
-## 16 - Interface Web
+# 18 - Fluxos Completos do Sistema
 
-| Rota           | Nome               | View               | Métodos   | Função                                                   |
-| -------------- | ------------------ | ------------------ | --------- | -------------------------------------------------------- |
-| `/`            | `inicio`           | `RedirectView`     | —         | redireciona para `/documentos/` (sem sessão → `/login/`) |
-| `/login/`      | `login`            | `login_demo`       | GET, POST | login da demonstração                                    |
-| `/logout/`     | `logout`           | `logout_demo`      | GET, POST | encerra a sessão                                         |
-| `/documentos/` | `documento_inicio` | `documento_inicio` | GET, POST | tela única de processamento                              |
+## 18.1 - Processamento de nota fiscal (IMPLEMENTADO / VALIDADO)
 
-Além delas, só `/static/...`. Outras URLs → 404.
-
-**`/documentos/`:**
-
-- **GET:** formulário vazio com "Gemini API Key", "Nota Fiscal PDF" e o botão **Processar**.
-- **POST:** chave + PDF no mesmo formulário (um único POST, CSRF) → validação → processamento → na **mesma resposta**:
-  - **sucesso:** resumo (tipo de despesa com rótulo, valor total em `R$ 1.234,56`, quantidade de parcelas, fornecedor, número, data `dd/mm/aaaa`), avisos de DV inválido de CPF/CNPJ (sem impedir o processamento), justificativa e **JSON final** formatado;
-  - **erro:** "O processamento de “<arquivo>” não foi concluído.", mensagem segura e sugestão por código (ex.: para `servico_indisponivel`, conferir a Gemini API Key e tentar mais tarde). Etapa, código interno, traceback e detalhes da API não aparecem.
-  - Em ambos os casos, o formulário volta **novo e vazio**.
-- Recarregar ou reenviar a página processa de novo (sem histórico).
-
-**JavaScript (`documentos.js`):** só a trava visual contra clique duplo nos formulários marcados com `data-submit-lock` (login e processamento): desabilita o botão e mostra "Entrando..." / "Processando...". Sem fetch, polling, `localStorage` nem referência à chave. A interface funciona sem JavaScript.
-
-**Templates:** `documentos/base.html` (layout, topo com "Enviar nota" e "Sair"), `documentos/inicio.html` e `usuarios/login.html` (estende `base.html` sem a navegação). CSS próprio e responsivo.
-
----
-
-## 17 - Arquitetura Stateless / Não Persistência
-
-**Não existe:**
-
-- banco de dados (`DATABASES = {}` → backend `dummy`, que recusa qualquer conexão);
-- models, migrations ou Django Admin;
-- apps `django.contrib.admin`, `auth`, `contenttypes`, `sessions` ou `messages`;
-- `MEDIA_ROOT`/`MEDIA_URL` ou qualquer gravação de arquivo pela aplicação;
-- histórico de documentos ou de resultados;
-- persistência do **PDF**, do **JSON**, da **justificativa** ou da **Gemini API Key**.
-
-**Única persistência temporária:** o **cookie de sessão assinado** com `demo_autenticado = true` (mais o cookie `csrftoken` padrão do Django). Nenhum dado da nota, do JSON ou da chave entra no cookie (testado).
-
-Consequências: fechar ou recarregar a página perde o resultado; cada processamento é independente; não há estado a recuperar após falhas.
-
----
-
-## 18 - Segurança
-
-| Tema               | Como está                                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Segredos no Git    | `.env` e `README.txt` ignorados; `.env.example` só com nomes e valores de exemplo; nenhum segredo versionado               |
-| Gemini API Key     | temporária, só em memória na requisição (seção 10)                                                                         |
-| Relatórios de erro | `@sensitive_post_parameters` (`senha`, `gemini_api_key`) e `@sensitive_variables` nas funções que manipulam senha ou chave |
-| CSRF               | `CsrfViewMiddleware` + `{% csrf_token %}` em todos os POSTs; `CSRF_TRUSTED_ORIGINS` por ambiente                           |
-| Cookies            | `HttpOnly` na sessão; `Secure` na sessão e no CSRF quando `DEBUG=False`; `SameSite=Lax` (padrão)                           |
-| HTTPS              | TLS terminado no proxy do Render; `SECURE_PROXY_SSL_HEADER` reconhece a requisição original HTTPS                          |
-| Hosts              | `ALLOWED_HOSTS` por ambiente + hostname do Render; host desconhecido → 400                                                 |
-| XSS                | escape automático do Django; nenhum `                                                                                      | safe`nem`autoescape off` (testado) |
-| Clickjacking       | `XFrameOptionsMiddleware`                                                                                                  |
-| Login              | comparação em tempo constante; mensagem genérica; configuração ausente nega tudo                                           |
-| Erros              | mensagens fixas e seguras; sem traceback, `__cause__`, status HTTP ou resposta bruta da API na tela                        |
-| Logs               | sem chave, senha ou dados da nota (só nomes de campos inválidos, tipo de erro, modelo e status)                            |
-| Dados pessoais     | o Classificador não recebe CPF/CNPJ; o PDF é enviado ao Gemini (serviço externo), como exige a atividade                   |
-| Prompt injection   | o Extrator instrui a ignorar comandos no PDF; a saída do Classificador é restrita ao Enum                                  |
-| Banco              | inexistente (sem superfície de SQL)                                                                                        |
-
----
-
-## 19 - Configuração por Ambiente
-
-Somente **nomes**; valores reais ficam no `.env` local ou no Dashboard do Render.
-
-| Variável                       | Uso                                                                            | Padrão                     |
-| ------------------------------ | ------------------------------------------------------------------------------ | -------------------------- |
-| `DJANGO_SECRET_KEY`            | assinatura da sessão e do CSRF (**obrigatória**; vazia, toda requisição falha) | —                          |
-| `DJANGO_DEBUG`                 | `True` só em desenvolvimento                                                   | `False`                    |
-| `DJANGO_ALLOWED_HOSTS`         | hosts aceitos, separados por vírgula                                           | vazio                      |
-| `DJANGO_CSRF_TRUSTED_ORIGINS`  | origens HTTPS extras, separadas por vírgula                                    | vazio                      |
-| `DEMO_LOGIN` / `DEMO_PASSWORD` | credenciais do login da demonstração                                           | — (vazias = acesso negado) |
-| `GEMINI_MODEL`                 | modelo usado pelos dois Agents                                                 | — (obrigatório)            |
-| `GEMINI_TIMEOUT_SEGUNDOS`      | timeout por tentativa                                                          | 60                         |
-| `GEMINI_MAX_TENTATIVAS`        | tentativas no total                                                            | 3                          |
-| `MAX_PDF_UPLOAD_SIZE_MB`       | tamanho máximo do PDF                                                          | 10                         |
-| `GUNICORN_TIMEOUT`             | timeout do Gunicorn em segundos (`start.sh`)                                   | 420                        |
-
-**Fornecidas pelo Render (não configurar manualmente):** `PORT`, `RENDER_EXTERNAL_HOSTNAME` (entra automaticamente em `ALLOWED_HOSTS` e como `https://...` em `CSRF_TRUSTED_ORIGINS`) e `WEB_CONCURRENCY` (conforme o plano).
-
-**`GEMINI_API_KEY` não é variável de ambiente:** a chave é informada na tela. Não existem variáveis de banco (`DB_*`, `DATABASE_URL`).
-
-Em desenvolvimento, `python-dotenv` carrega o `.env` sem sobrescrever variáveis já definidas no ambiente. Com `DEBUG=True` e `DJANGO_ALLOWED_HOSTS` vazio, o Django aceita `localhost`/`127.0.0.1`.
-
----
-
-## 20 - Produção e Render
-
-- **Serviço:** Render Web Service, runtime Python, **plano Free**, conectado ao repositório GitHub, deploy da branch `main`.
-- **Build Command:** `./build.sh` · **Start Command:** `./start.sh`.
-- **Servidor:** Gunicorn escutando em `0.0.0.0:$PORT` (porta fornecida pelo Render a cada deploy), worker `sync`, `--workers ${WEB_CONCURRENCY:-1}`, `--timeout ${GUNICORN_TIMEOUT:-420}`.
-- **HTTPS:** terminado no proxy do Render, que redireciona HTTP para HTTPS. O Django reconhece a origem HTTPS por `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`.
-- **Hosts e CSRF:** `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS` montados a partir do ambiente + `RENDER_EXTERNAL_HOSTNAME`, sem domínio fixo no código.
-- **Arquivos estáticos:** WhiteNoise (`WhiteNoiseMiddleware` logo após o `SecurityMiddleware`); `STATIC_ROOT = BASE_DIR / "staticfiles"`, preenchido pelo `collectstatic` no build.
-  - Com `DEBUG=False`: `whitenoise.storage.CompressedManifestStaticFilesStorage` (nomes com hash + `.gz`, exige o manifesto do `collectstatic`).
-  - Com `DEBUG=True` (desenvolvimento e testes): `StaticFilesStorage` simples do Django.
-  - O alias `default` de `STORAGES` existe só por padrão do Django; nada é gravado nele.
-- **Cookies:** `Secure` em produção (`not DEBUG`).
-- **`check --deploy` em produção:** restam só `security.W004` (HSTS) e `security.W008` (`SECURE_SSL_REDIRECT`), **aceitos deliberadamente**: o Render já força HTTPS na borda, e HSTS mal configurado é difícil de desfazer.
-- **Plano Free:** o serviço entra em suspensão (spin down) após inatividade; a primeira requisição depois disso pode demorar. Para a apresentação, abrir o sistema alguns minutos antes.
-
----
-
-## 21 - Build e Start
-
-**`./build.sh`** (Build Command):
-
-```bash
-python -m pip install -r requirements.txt
-python manage.py collectstatic --noinput
+```mermaid
+sequenceDiagram
+    actor U as Usuário
+    participant V as documento_inicio
+    participant F as DocumentoUploadForm
+    participant P as processar_pdf
+    participant E as AgentExtrator
+    participant K as AgentClassificador
+    participant G as GeminiClient / Gemini
+    U->>V: GET /documentos/ (sem sessão → /login/)
+    U->>V: POST /documentos/ (CSRF, chave, PDF)
+    V->>F: is_valid()
+    F-->>V: erros de campo (fim, sem Gemini) ou dados limpos
+    V->>P: processar_pdf(arquivo.read(), chave)
+    P->>G: GeminiClient(api_key=chave)
+    P->>E: extrair(pdf_bytes)
+    E->>G: gerar_json([instrução, PDF inline], NotaFiscalExtraida)
+    G-->>E: dict → NotaFiscalExtraida
+    P->>K: classificar(nota)
+    K->>G: gerar_json([instrução, contexto JSON], ClassificacaoDespesa)
+    G-->>K: dict → ClassificacaoDespesa
+    P-->>V: ResultadoProcessamento(resultado, justificativa)
+    V-->>U: HTML com resumo, avisos, justificativa e JSON (formulário vazio)
 ```
 
-- Sem `migrate` nem qualquer comando de banco (o projeto não tem banco).
+Validação do upload (`validar_pdf`, nesta ordem): arquivo obrigatório e não vazio → extensão `.pdf` → tamanho ≤ `MAX_PDF_UPLOAD_SIZE_MB` (padrão 10) → `content_type == application/pdf` → assinatura `%PDF-` → nome sanitizado (só exibição). Ao fim da requisição PDF, chave e resultado são descartados; reenviar reprocessa e consome cota do Gemini.
 
-**`./start.sh`** (Start Command):
+## 18.2 - Fluxo financeiro da Etapa 2 (REQUISITO)
 
-```bash
-exec python -m gunicorn config.wsgi:application \
-    --bind "0.0.0.0:${PORT:-8000}" \
-    --workers "${WEB_CONCURRENCY:-1}" \
-    --timeout "${GUNICORN_TIMEOUT:-420}"
+```mermaid
+flowchart TD
+    A["Dados extraídos e classificados (Etapa 1)"]:::impl --> B[Consultar fornecedor no banco]:::req
+    A --> C[Consultar faturado no banco]:::req
+    A --> D[Consultar classificação de despesa no banco]:::req
+    B --> E["Exibir: EXISTE – ID / NÃO EXISTE"]:::req
+    C --> E
+    D --> E
+    E --> F[Criar fornecedor, faturado e classificação se não existirem]:::req
+    F --> G["Criar MOVIMENTOCONTAS (APAGAR) e PARCELACONTAS"]:::req
+    G --> H[Informar lançamento com sucesso]:::req
+    classDef impl fill:#cfe8cf,stroke:#2e7d32
+    classDef req fill:#fde2c8,stroke:#e65100
 ```
 
-- **Timeout de 420 s (7 min):** o pior caso teórico do processamento é ≈ 2 chamadas × 3 tentativas × 60 s + backoff (≈ 6 min+). O padrão de 30 s do Gunicorn mataria o worker no meio do processamento.
-- **Workers:** o valor de `WEB_CONCURRENCY` do Render (1 localmente). Worker `sync`, sem threads.
-- `exec` faz o Gunicorn receber os sinais da plataforma diretamente. `runserver` não é usado em produção.
-- Os dois scripts usam `#!/usr/bin/env bash` + `set -o errexit` e são executáveis (modo 755, versionado). **Localmente**, rodar com o `.venv` ativado (eles chamam `python`).
+| Etapa                                             | Situação                    |
+| ------------------------------------------------- | --------------------------- |
+| Dados extraídos e classificados                   | IMPLEMENTADO / VALIDADO     |
+| Consulta de fornecedor, faturado e classificação  | REQUISITO, não implementado |
+| Exibição do resultado das consultas               | REQUISITO, não implementado |
+| Criação dos registros ausentes                    | REQUISITO, não implementado |
+| Registro do movimento e parcela(s)                | REQUISITO, não implementado |
+| Confirmação ao usuário                            | REQUISITO, não implementado |
+
+Indefinido (PENDENTE DE CONFIRMAÇÃO): se a criação é automática após a exibição ou exige confirmação do usuário; tratamento de classificação inconclusiva e de CPF/CNPJ ausente ou com DV inválido; prevenção de lançamento duplicado da mesma nota.
+
+## 18.3 - Autenticação (IMPLEMENTADO / VALIDADO)
+
+```text
+GET /documentos/ sem sessão → 302 /login/
+POST /login/ → sem DEMO_* configurados → "Login indisponível..." (WARNING no log)
+             → credenciais erradas      → "Login ou senha inválidos."
+             → corretas                 → session["demo_autenticado"]=True → 302 /documentos/
+GET|POST /logout/ → session.flush() → 302 /login/
+```
+
+## 18.4 - Erros
+
+`httpx`/SDK → `GeminiError` → erro do Agent → `ProcessamentoError` → mensagem fixa + sugestão na tela. Etapa, código interno, traceback, status HTTP e resposta bruta da API **não** aparecem. Ver 12.1–12.2.
+
+## 18.5 - Classificação
+
+Nota válida → contexto mínimo → Gemini com Enum de 2 valores → `null` vira `classificacao_inconclusiva` (erro na tela, sem JSON) → valor fora do Enum vira `classificacao_invalida`.
+
+## 18.6 - Persistência
+
+Não existe. Etapa 2: ver 18.2 e 15.2.
+
+## 18.7 - Inicialização da aplicação
+
+`start.sh` → Gunicorn `config.wsgi:application` → `config/settings.py` (lê `.env` via `load_dotenv`, sem sobrescrever o ambiente; monta hosts/CSRF; `DATABASES = {}`) → apps `staticfiles`, `documentos`, `usuarios`. `MAX_PDF_UPLOAD_SIZE_MB` é convertido com `int()` na importação (valor inválido impede a inicialização). `GEMINI_*` só são validados quando um `GeminiClient` é criado.
+
+## 18.8 - Publicação (registrada em 29/09/2026)
+
+```mermaid
+flowchart LR
+    A[branch de tarefa] --> B[Pull Request] --> C[merge na main] --> D["Render: build.sh"] --> E["Render: start.sh"] --> F[Serviço Live]
+```
+
+Detalhes e ressalvas na seção 22.
 
 ---
 
-## 22 - Testes
+# 19 - Autenticação e Segurança
 
-**Estado atual: 291 testes passando** (`python manage.py test`). Todos são `SimpleTestCase` (qualquer consulta ao banco faria o teste falhar).
+## 19.1 - Autenticação de demonstração (`usuarios/`)
 
-| Área                                                                                                          | Arquivo                                | Testes |
-| ------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------ |
-| GeminiClient                                                                                                  | `agents/test_gemini_client.py`         | 29     |
-| Extrator: schemas                                                                                             | `agents/extrator/test_schemas.py`      | 52     |
-| Extrator: Agent                                                                                               | `agents/extrator/test_agent.py`        | 29     |
-| Classificador: schemas                                                                                        | `agents/classificador/test_schemas.py` | 11     |
-| Classificador: Agent                                                                                          | `agents/classificador/test_agent.py`   | 15     |
-| Processamento (`processar_pdf`, JSON, chave da requisição)                                                    | `documentos/test_processamento.py`     | 26     |
-| Interface (validação, tela, erros, XSS, CSRF, integração ponta a ponta, Gemini API Key, não persistência, JS) | `documentos/test_interface.py`         | 64     |
-| Login, logout, CSRF, sessão em cookie                                                                         | `usuarios/tests.py`                    | 37     |
-| Ausência de banco                                                                                             | `config/test_sem_banco.py`             | 9      |
-| Produção/Render (hosts, CSRF, HTTPS, cookies, static, scripts, `check --deploy`)                              | `config/test_producao.py`              | 19     |
+Não é um sistema de usuários: não há `django.contrib.auth`, `request.user`, cadastro, perfis ou permissões; existe **um único par de credenciais** do ambiente (`DEMO_LOGIN`/`DEMO_PASSWORD`).
 
-**Regras:**
+| Elemento                   | Comportamento                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `credenciais_configuradas` | `DEMO_LOGIN` e `DEMO_PASSWORD` não vazios                                           |
+| `credenciais_validas`      | `constant_time_compare` em login e senha, combinados com `&`                        |
+| `demo_autenticado`         | `session["demo_autenticado"] is True` **e** credenciais configuradas                |
+| `demo_login_required`      | sem sessão válida → `redirect("login")`                                             |
+| Sessão                     | `signed_cookies`: conteúdo `{"demo_autenticado": true}` assinado com `DJANGO_SECRET_KEY` (não criptografado), `HttpOnly`, `Secure` com `DEBUG=False`, `SameSite=Lax`, 2 semanas |
 
-- Testes automatizados **nunca** fazem chamadas reais ao Gemini: usam clientes/Agents falsos, o SDK patchado para falhar ou o SDK real com o envio HTTP interceptado.
-- Credenciais e chaves nos testes são **fictícias**.
-- Os testes de produção rodam cada cenário de `settings` num **subprocesso** com ambiente controlado.
-- Rode a suíte no modo de desenvolvimento (`DJANGO_DEBUG=True`, como no `.env` local). Com `DEBUG=False` no ambiente, o storage de produção passaria a exigir o manifesto do `collectstatic`.
+## 19.2 - Controles existentes (VALIDADO)
 
----
+| Tema               | Implementação                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Segredos no Git    | `.env`, `README.txt`, `analisetemporaria.md` ignorados; `.env.example` sem valores secretos           |
+| Gemini API Key     | só em memória no POST; `PasswordInput` sem `render_value`, `autocomplete="off"`, ≤ 256; nunca em sessão, contexto, HTML, JSON ou logs |
+| Relatórios de erro | `@sensitive_post_parameters` e `@sensitive_variables` em senha/chave                                  |
+| CSRF               | middleware + `{% csrf_token %}`; `CSRF_TRUSTED_ORIGINS` por ambiente                                  |
+| Hosts              | `ALLOWED_HOSTS` por ambiente + `RENDER_EXTERNAL_HOSTNAME`                                             |
+| XSS / clickjacking | autoescape sem `safe`; `XFrameOptionsMiddleware`                                                      |
+| Erros e logs       | mensagens fixas; logs só com nomes de campo, tipo de erro, modelo e status                            |
+| Dados pessoais     | Classificador não recebe CPF/CNPJ/faturado                                                            |
+| Prompt injection   | Extrator instrui a ignorar comandos do PDF; saídas restritas por schema/Enum                          |
 
-## 23 - Validação Real
+## 19.3 - Riscos conhecidos (não corrigidos)
 
-Fatos confirmados (sem dados de notas):
-
-| Validação                                                         | Resultado                                                                                                                                          |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Suíte automatizada local                                          | 291 testes OK; `check` sem problemas                                                                                                               |
-| Simulação local de produção (`DEBUG=False`, Gunicorn, WhiteNoise) | login pelo proxy HTTPS simulado, statics com hash e gzip, host inválido recusado, sem página de debug; `check --deploy` só com W004/W008           |
-| Build no Render                                                   | dependências instaladas (Django 6.1.1, Gunicorn 26.2.0, WhiteNoise 6.12.0); `collectstatic` OK; build concluído                                    |
-| Start no Render                                                   | `./start.sh`, Gunicorn com worker `sync`, `WEB_CONCURRENCY=1`, escutando em `0.0.0.0` na porta do Render; serviço **Live**                         |
-| Interface em produção                                             | URL pública com HTTPS; `/login/` com CSS; login com as credenciais `DEMO_*`; `/documentos/` e sessão funcionando                                   |
-| Processamento real em produção                                    | Gemini API Key real informada na tela + PDF de nota fiscal → Extrator e Classificador executados → resumo, justificativa e JSON exibidos, sem erro |
-
-Os valores de configuração, a chave e o conteúdo da nota usada não são registrados.
-
----
-
-## 24 - Limitações Atuais
-
-- **Processamento síncrono:** a resposta só chega depois das duas chamadas ao Gemini; no pior caso, alguns minutos.
-- **Um worker:** com `WEB_CONCURRENCY=1`, um processamento longo bloqueia outras requisições até terminar.
-- **Plano Free do Render:** suspensão por inatividade e primeira requisição lenta.
-- **Sem histórico:** o resultado some ao fechar ou recarregar a página; reenviar o formulário processa de novo e consome cota do Gemini.
-- **Duas categorias:** notas com itens fora de `MANUTENCAO_E_OPERACAO`/`INFRAESTRUTURA_E_UTILIDADES` terminam em erro (`classificacao_inconclusiva`), sem JSON.
-- **`tipo_despesa` escalar** (seção 15).
-- **"Contas a pagar"** não é verificado: qualquer nota fiscal é aceita.
-- **Mensagens de erro do Gemini:** chave inválida e indisponibilidade do serviço mostram a mesma mensagem (com a sugestão de conferir a chave).
-- **Login:** um único par de credenciais, sem limite de tentativas; logout aceita GET.
-- **Sessão em cookie assinado:** sem revogação no servidor; um cookie copiado vale até expirar (2 semanas) ou até a `DJANGO_SECRET_KEY` mudar.
-- **Compatibilidade declarada:** WhiteNoise não declara Django 6.1 e Gunicorn não declara Python 3.14 (validados funcionalmente; seção 4).
-- **Prompt injection:** o Classificador não tem instrução explícita para ignorar comandos embutidos nas descrições dos itens (mitigado pela saída restrita ao Enum).
+| Nível | Risco                                                                                  |
+| ----- | -------------------------------------------------------------------------------------- |
+| Alto  | 1 worker `sync` + processamento de até ~7 min: um processamento bloqueia todo o serviço |
+| Alto  | **Repositório público** + exigência de `Readme.txt` com login, senha e Key (LLM): publicar esse arquivo no GitHub exporia credenciais e a chave (hoje está no `.gitignore`) |
+| Médio | Login sem limite de tentativas                                                         |
+| Médio | Dados pessoais (CPF, nomes, valores) enviados ao Gemini sem registro de base legal (tarefa GR-18 LGPD) |
+| Médio | Sessão em cookie sem revogação no servidor                                             |
+| Médio | Limite de tamanho do PDF só após o upload completo                                     |
+| Baixo | Logout por GET; Classificador sem instrução anti-injeção; validação de PDF superficial; sem `LOGGING`; HSTS/SSL redirect delegados ao Render; sem CSP |
 
 ---
 
-## 25 - Evolução Futura
+# 20 - Configurações por Ambiente
 
-Fora do escopo da Etapa 1:
+## 20.1 - Variáveis lidas (somente nomes)
 
-- **Novo DER** do Sistema Administrativo-Financeiro, elaborado em etapa posterior.
-- **Banco de dados** implementado **depois** do DER. O modelo de dados de versões anteriores do repositório **não** é base obrigatória nem deve ser reaproveitado automaticamente.
-- **Persistência** de documentos processados e resultados, com histórico.
-- **Módulo financeiro definitivo** (lançamentos, parcelas, pagamentos), alimentado a partir do JSON extraído.
-- **Usuários e perfis** reais, substituindo o login da demonstração.
-- **Classificação múltipla** e novas categorias de `TipoDespesa`.
-- Processamento assíncrono (fila/worker), se o tempo de resposta exigir.
+| Variável                       | Uso                                                       | Padrão no código            |
+| ------------------------------ | --------------------------------------------------------- | --------------------------- |
+| `DJANGO_SECRET_KEY`            | assinatura de sessão e CSRF (obrigatória)                 | `None`                      |
+| `DJANGO_DEBUG`                 | `"true"` liga desenvolvimento                             | `False`                     |
+| `DJANGO_ALLOWED_HOSTS`         | hosts, separados por vírgula                              | vazio                       |
+| `DJANGO_CSRF_TRUSTED_ORIGINS`  | origens extras, separadas por vírgula                     | vazio                       |
+| `RENDER_EXTERNAL_HOSTNAME`     | fornecida pelo Render; entra em hosts e CSRF (`https://`) | —                           |
+| `DEMO_LOGIN` / `DEMO_PASSWORD` | credenciais da demonstração                               | `None` (acesso negado)      |
+| `GEMINI_MODEL`                 | modelo dos dois Agents                                    | `None` (falha ao processar) |
+| `GEMINI_TIMEOUT_SEGUNDOS`      | timeout por tentativa                                     | `"60"`                      |
+| `GEMINI_MAX_TENTATIVAS`        | total de tentativas                                       | `"3"`                       |
+| `MAX_PDF_UPLOAD_SIZE_MB`       | limite do PDF                                             | `10`                        |
+| `PORT`, `WEB_CONCURRENCY`, `GUNICORN_TIMEOUT` | lidas por `start.sh`                       | 8000, 1, 420                |
+
+**Não existem:** `GEMINI_API_KEY` (a chave vem da tela; testado), `DATABASE_URL`/`DB_*`, configuração `LOGGING`. O `.env` local define apenas `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DEMO_LOGIN`, `DEMO_PASSWORD` e `GEMINI_*` (nomes conferidos sem ler valores).
+
+## 20.2 - Diferenças entre ambientes
+
+| Aspecto            | Desenvolvimento (`DJANGO_DEBUG=True`)   | Produção (`DJANGO_DEBUG=False`)                             |
+| ------------------ | --------------------------------------- | ----------------------------------------------------------- |
+| Hosts              | vazio → `localhost`/`127.0.0.1`/`[::1]` | `DJANGO_ALLOWED_HOSTS` + `RENDER_EXTERNAL_HOSTNAME`         |
+| Cookies            | sem `Secure`                            | `Secure`                                                    |
+| Estáticos          | `StaticFilesStorage`                    | `CompressedManifestStaticFilesStorage` (exige `collectstatic`) |
+| Servidor           | `runserver`                             | Gunicorn (`start.sh`)                                       |
+
+Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = True`; `SECURE_PROXY_SSL_HEADER` para o proxy do Render.
 
 ---
 
-## 26 - Comandos Essenciais
+# 21 - Testes e Critérios de Validação
 
-**Ambiente:**
+## 21.1 - Resultado nesta auditoria (24/10/2026)
+
+| Comando                              | Resultado                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `python manage.py check`             | sem problemas                                                             |
+| `python manage.py test`              | **Ran 291 tests — OK** (2,65 s)                                           |
+| `python manage.py check --deploy` com `.env` local | 6 avisos esperados por `DEBUG=True` local (o cenário de produção é coberto por `test_producao.py`, que exige só W004 e W008) |
+
+Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
+
+## 21.2 - Distribuição
+
+| Arquivo                                | Testes | Foco                                                                  |
+| -------------------------------------- | -----: | --------------------------------------------------------------------- |
+| `agents/test_gemini_client.py`         | 29     | configuração, chamada, falhas, sigilo, SDK real sem rede              |
+| `agents/extrator/test_schemas.py`      | 52     | campos, documentos, DV, datas/valores, itens, parcelas, schema Gemini |
+| `agents/extrator/test_agent.py`        | 29     | sucesso, entrada inválida, resposta inválida, falhas, sigilo          |
+| `agents/classificador/test_schemas.py` | 11     | `TipoDespesa`, `ClassificacaoDespesa`                                 |
+| `agents/classificador/test_agent.py`   | 15     | sucesso, entrada inválida, resposta inválida, falhas                  |
+| `documentos/test_processamento.py`     | 26     | `montar_resultado`, erros, chave da requisição                        |
+| `documentos/test_interface.py`         | 64     | acesso, validação, processamento, XSS/CSRF, integração, não persistência, JS |
+| `usuarios/tests.py`                    | 37     | login, sigilo, configuração ausente, logout, CSRF, cookie             |
+| `config/test_sem_banco.py`             | 9      | ausência de banco, models, migrations, media, PostgreSQL              |
+| `config/test_producao.py`              | 19     | hosts, CSRF, HTTPS, cookies, estáticos, `check --deploy`, scripts     |
+| **Total**                              | **291** |                                                                      |
+
+## 21.3 - Estratégia e lacunas
+
+- Todos são `SimpleTestCase`; **nenhuma chamada real ao Gemini** (clientes falsos ou SDK patchado); cenários de produção em subprocessos.
+- Lacunas: sem cobertura medida, sem E2E/navegador, sem medição da assertividade da classificação, sem lint nem CI (nenhum workflow no GitHub).
+- A suíte deve rodar em modo de desenvolvimento (`DJANGO_DEBUG=True`).
+- **Etapa 2:** `config/test_sem_banco.py` e os testes de "sem banco" de `config/test_producao.py` precisarão ser substituídos por testes do novo contrato; testes com banco exigirão `TestCase`.
+
+---
+
+# 22 - Infraestrutura, Hospedagem e Deploy
+
+## 22.1 - Configuração no repositório (IMPLEMENTADO)
+
+| Aspecto          | Configuração                                                                  |
+| ---------------- | ----------------------------------------------------------------------------- |
+| Build            | `./build.sh`: `pip install -r requirements.txt` + `collectstatic --noinput` (sem `migrate`) |
+| Start            | `./start.sh`: `exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --timeout ${GUNICORN_TIMEOUT:-420}` |
+| HTTPS            | TLS no proxy; `SECURE_PROXY_SSL_HEADER`                                       |
+| Estáticos        | WhiteNoise após `SecurityMiddleware`; `STATIC_ROOT = staticfiles/`            |
+| HSTS / redirect  | delegados ao Render (`security.W004`/`W008` aceitos)                          |
+
+Não há `render.yaml`, `Procfile` ou `Dockerfile`: comandos, variáveis e branch vivem no painel do Render. O GitHub não registra deployments.
+
+## 22.2 - Ambientes
+
+| Ambiente        | Aplicação / Branch       | Banco                     | Situação                                                   |
+| --------------- | ------------------------ | ------------------------- | ---------------------------------------------------------- |
+| Desenvolvimento | local / branch de tarefa | nenhum                    | IMPLEMENTADO                                               |
+| Homologação     | `develop` (homologação local; Render de homologação não definido) | Supabase de homologação (planejado) | **PLANEJADO** — sem evidência de serviço. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO) |
+| Produção        | Render Free / `main`     | nenhum (Supabase Produção planejado) | registrado em 29/09/2026; **não reverificado**   |
+
+Registro anterior (29/09/2026, não reverificado): Render Web Service, runtime Python, plano Free, deploy da `main`, `WEB_CONCURRENCY=1`, serviço Live, processamento real com PDF e chave reais concluído. O plano Free suspende por inatividade (primeiro acesso lento). QA e produção devem ter bancos e credenciais independentes (PLANEJADO).
+
+O plano anterior (`tecnologias.pdf`) previa "Neon QA" e "Neon Produção" (HISTÓRICO). Ainda falta definir e validar, para o Supabase: modo de conexão (direta ou pooler), região, limites do plano e pausa por inatividade ([ADR-001](docs/arquitetura/ADR-001-supabase.md), seções 9 e 11).
+
+---
+
+# 23 - Organização da Equipe
+
+| Pessoa        | GitHub        | Contribuições confirmadas (PRs)                                            |
+| ------------- | ------------- | -------------------------------------------------------------------------- |
+| Pedro Simon   | `PedroSimon1` | #1–#5 (financeiro), #9 Gemini, #10 Extrator, #12 Orquestração, #13 Interface, #14 Validação final, #15–#19 (stateless, chave, deploy, docs) |
+| Gustavo Lopes | `devlopes-lq` | #6 Documento, #7 Upload, #8 Validação PDF, #11 Classificador               |
+
+Commits sem merge na `main`: 19 de Pedro Simon, 4 de Gustavo Lopes (os merges dos PRs ficam com quem mergeou). A divisão de responsabilidades da **Etapa 2** não está registrada em nenhuma fonte acessível (PENDENTE DE CONFIRMAÇÃO no Jira).
+
+---
+
+# 24 - Gestão de Tarefas no Jira
+
+**O Jira não pôde ser consultado nesta auditoria.** O único retrato disponível é `ContextoTasksJira.md` de **23/09/2026** (anterior à simplificação stateless e à Etapa 2):
+
+| Épico | Nome                                              | Tarefas                                                                                   |
+| ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| GR-30 | [MVP N2] Agents – Processamento de Nota Fiscal    | GR-6, 7, 8, 9, 10, 11, 12, 14, 21                                                         |
+| GR-31 | [EVOLUÇÃO] Sistema de Gestão Financeira Rural     | GR-1, 2, 3, 4, 5, 13 (API), 15 (testes), 16 (README), 18 (LGPD), 19 (qualidade), 20 (deploy), 22 (Documento → Lançamento) |
+| —     | Transversal                                       | GR-17 (fluxo de branches e PRs)                                                           |
+
+**Confrontação com o Git:** todas as tarefas do GR-30 têm PR mergeado (#6–#14), mas GR-6 (Documento) e GR-7 (salvar PDF) foram **desfeitas** pelo PR #15; os PRs #15–#19 não citam chave Jira. Não há épico ou tarefa da Etapa 2 conhecido. Status, responsáveis e critérios de aceite atuais: PENDENTE DE CONFIRMAÇÃO no Jira.
+
+**Decisão (24/10/2026):** a organização das tarefas da Etapa 2 no Jira será feita **depois da consolidação documental**. Ela será baseada nos IDs da [matriz de requisitos](docs/requisitos/matriz-n2-etapa2.md) e na divisão de responsabilidades da Fase 2.
+
+---
+
+# 25 - Fluxo Git, GitHub, Homologação e Produção
+
+## 25.1 - Fluxo oficial vigente (decisão da equipe, 24/10/2026)
+
+```text
+feature/* · fix/* · docs/* · refactor/* · test/* · chore/*  ──PR──▶  develop (integração, testes, homologação)  ──PR──▶  main (produção)
+hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
+```
+
+- Branches de tarefa são criadas a partir da `develop`. Toda mudança entra na `develop` por Pull Request.
+- Só mudanças revisadas e homologadas seguem por PR de `develop` para `main`.
+- Nenhum desenvolvimento ou push direto em `main` ou `develop`.
+- A `qa` foi **excluída** e não será mais usada (ver 25.4).
+- Commit, push, PR e merge somente com autorização.
+- **Referência detalhada:** [`ContextoFluxoGit.md`](ContextoFluxoGit.md) v1.0 (nomes de branch, Conventional Commits, PR e revisão, homologação, publicação no Render, conflitos, hotfix, proteção, checklist e regras para agentes de IA).
+
+## 25.2 - Configuração real verificada
+
+**Na auditoria de 24/10/2026 (antes da exclusão da `qa`; HISTÓRICO):**
+
+| Item                  | Valor                                                                          |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Branches remotas      | `main`, `qa` — ambas em `f7786e8`                                              |
+| Branches locais       | `main`, `qa`, `feature/Auditoria-Correcao` (esta auditoria, sem commits próprios) |
+| Proteção de branch    | **nenhuma** (`main` e `qa` com `protected=false`; sem rulesets)                |
+| CI                    | nenhum workflow                                                                 |
+| PRs                   | #1–#19, **todos com base `main`**, todos mergeados (merge commit)              |
+| Tag                   | `n2-etapa1-final` (anotada) em `f7786e8`                                       |
+| Repositório           | público; merge e squash permitidos; branches não apagadas automaticamente      |
+
+**Nova verificação (24/10/2026, após a decisão `develop`, com `git ls-remote` e `gh api`):**
+
+| Item                  | Valor                                                                          |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Branches remotas      | `main` e `develop`, ambas em `f7786e8`; **`qa` não existe mais no GitHub**     |
+| Branches locais       | `main`, `qa` (resto local), `feature/Auditoria-Correcao`; ainda há a referência obsoleta `origin/qa`. Não existe `develop` local |
+| Proteção de branch    | **nenhuma** (`main` e `develop` com `protected=false`; sem rulesets)           |
+| CI                    | nenhum workflow                                                                 |
+| Métodos de merge      | merge commit, squash e rebase habilitados; apagar branch após merge desabilitado |
+
+**Divergência:** o fluxo praticado até a Etapa 1 foi `branch de tarefa → PR → main`. O fluxo oficial com `develop` ainda não foi exercitado e não é garantido por proteção de branch. A configuração recomendada está em [`ContextoFluxoGit.md`](ContextoFluxoGit.md), seção 11.2, e não foi aplicada.
+
+## 25.3 - Convenções
+
+- Vigentes: [`ContextoFluxoGit.md`](ContextoFluxoGit.md), seções 3 e 4 (`<tipo>/<descricao>` em minúsculas; Conventional Commits).
+- Observadas até a Etapa 1 (HISTÓRICO):
+  - branches `feature/GR-<n>-<descricao>` na fase Jira; depois `<tipo>/n2-etapa1-<descricao>`;
+  - commits `tipo(escopo): descrição`;
+  - `git add` com lista explícita e `git diff --cached` antes do commit.
+- A branch desta auditoria (`feature/Auditoria-Correcao`) é anterior ao `ContextoFluxoGit.md` e não segue o padrão (`docs/*`, minúsculas). Sua base `f7786e8` coincide com a `develop`.
+
+## 25.4 - Branch `qa` (HISTÓRICO)
+
+- Criada em 29/09/2026 como branch de integração e homologação; nunca recebeu PR.
+- O fluxo documentado entre 29/09 e 24/10/2026 era `feature/*` ou `docs/*` → `qa` → `main`.
+- Em 24/10/2026, a equipe decidiu substituí-la pela `develop`, e a `qa` foi excluída do GitHub.
+- Os registros da auditoria que citam `qa` (seções 1.2 e 25.2) descrevem o estado daquela data.
+
+---
+
+# 26 - Histórico de Decisões Arquiteturais Relevantes
+
+| #  | Decisão                                                                    | Quando / onde           | Situação                                    |
+| -- | -------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
+| D1 | Django (em vez de Flask) pensando no sistema completo                      | Mini Documentação, set  | vigente                                     |
+| D2 | Django REST Framework + PostgreSQL desde o início                          | Mini Documentação; PRs #1–#14 | **HISTÓRICO** (removidos no PR #15)  |
+| D3 | Agents em pacote `agents/<agente>/` com cliente Gemini compartilhado       | PRs #9–#11              | vigente                                     |
+| D4 | Structured output com schemas Pydantic e `temperature=0`                   | PRs #10–#11             | vigente                                     |
+| D5 | Etapa 1 **stateless**: sem banco, sem models, login de demonstração        | PR #15, 29/09           | vigente no código; será revista na Etapa 2  |
+| D6 | Gemini API Key informada na tela a cada processamento, nunca armazenada    | PR #16, 29/09           | vigente                                     |
+| D7 | Render + Gunicorn + WhiteNoise; HSTS/redirect delegados à plataforma       | PRs #17–#18             | vigente                                     |
+| D8 | Etapa 2: manter Render e adicionar **PostgreSQL no Neon Free**             | `tecnologias.pdf`, out  | **HISTÓRICO** (substituída pela D10)        |
+| D9 | Ambientes dev / QA (`qa`) / produção (`main`) com bancos independentes     | `tecnologias.pdf`       | PLANEJADO (agora com Supabase); a homologação passa a ser a `develop` (D11) |
+| D11 | Fluxo Git: `develop` (integração/homologação) → `main` (produção); `qa` excluída | [`ContextoFluxoGit.md`](ContextoFluxoGit.md), 24/10 | **vigente** (sem proteção de branch configurada) |
+| D10 | Etapa 2: **Supabase PostgreSQL** como banco gerenciado, Django ORM + Migrations, Psycopg 3 como driver proposto; backend Django mantido; sem Supabase Auth/Storage | [ADR-001](docs/arquitetura/ADR-001-supabase.md), 24/10 | **ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO** |
+
+---
+
+# 27 - Limitações Técnicas
+
+- Duas categorias de despesa apenas; itens fora delas → erro, sem JSON.
+- `tipo_despesa` escalar (RN-04 exige uma ou mais classificações por conta).
+- Não verifica se a nota é de contas a pagar; não processa receitas.
+- Sem histórico: recarregar perde o resultado; reenviar consome cota.
+- Chave inválida e serviço indisponível produzem a mesma mensagem.
+- Numeração de parcelas parcial/duplicada invalida toda a extração.
+- Processamento síncrono; 1 worker; suspensão do plano Free.
+- Compatibilidade não declarada: WhiteNoise × Django 6.1; Gunicorn × Python 3.14.
+- Comentário "ver 34.7" em `config/settings.py` aponta para documento de trabalho que não existe mais.
+
+---
+
+# 28 - Pendências e Problemas Conhecidos
+
+| Pendência                                                                                      | Tipo                  |
+| ---------------------------------------------------------------------------------------------- | --------------------- |
+| Implementar toda a Etapa 2 (banco, consultas, criação, movimento/parcela, mensagens)           | **crítico — prazo 27/10** |
+| Exibir o código da última atualização do GitHub na tela principal                              | requisito da entrega  |
+| Definir como entregar o `Readme.txt` (login, senha, Key) sem expor segredos no repositório público | decisão urgente   |
+| Definir o modelo de dados (atributos, chaves, identificação de pessoa, mapeamento de categorias) | decisão de arquitetura |
+| Definir escopo das telas CRUD "Manter/Registrar" na Etapa 2                                     | confirmação com o professor |
+| Validar Psycopg 3 (proposto) e definir a configuração da conexão com o Supabase (variáveis, modo direto ou pooler) | decisão técnica |
+| Substituir os testes que proíbem banco                                                          | técnico               |
+| Criar os bancos Supabase (dev/homologação/prod) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
+| Confirmar status do serviço Render de produção                                                  | verificação externa   |
+| Organizar o Jira (épico e tarefas da Etapa 2, responsáveis) **depois da consolidação documental** | gestão              |
+| Configurar a proteção de `main` e `develop` ([`ContextoFluxoGit.md`](ContextoFluxoGit.md), 11.2); limpar a `qa` local e `origin/qa` (3.4) | processo |
+| Alinhar `.venv` local (3.14.8) com `.python-version` (3.14.7)                                    | ambiente              |
+| Riscos da seção 19.3                                                                            | priorização           |
+| `VERSAO_SCHEMA` sem uso; comentário "ver 34.7"                                                  | limpeza               |
+
+---
+
+# 29 - Evolução Planejada
+
+**Etapa 2 (PLANEJADO / REQUISITO):**
+
+1. PostgreSQL no Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)) configurado por ambiente; `migrate` no processo de publicação.
+2. Models para PESSOAS, CLASSIFICACAO, MOVIMENTOCONTAS, PARCELACONTAS com `Status` ATIVO/INATIVO.
+3. Após o processamento atual: consultas de existência, exibição, criação dos registros ausentes, movimento e parcelas, confirmação.
+4. Telas de cadastro com busca, "TODOS", ordenação, editar e excluir lógico; reativação.
+5. Código da última atualização do GitHub na tela principal.
+
+**Componentes que podem ser preservados:** `agents/` inteiro; `processar_pdf`/`montar_resultado`; formulário, validador, templates e JS; `build.sh`/`start.sh` e configuração de produção; testes dos Agents e da orquestração.
+
+**Componentes que precisarão mudar:** `config/settings.py` (`DATABASES`, apps de banco), `requirements.txt` (driver), `.env.example` (nomes das variáveis de conexão), `build.sh` ou comando de pre-deploy (`migrate`), `config/test_sem_banco.py` e `config/test_producao.py`, `documentos/views.py`, eventualmente `usuarios/`.
+
+**Riscos:**
+
+- suporte do Psycopg 3 ao Python 3.14;
+- suspensão do Render Free combinada com os limites do plano do Supabase;
+- conectividade e modo de conexão Render → Supabase;
+- conexões abertas durante chamadas longas ao Gemini com worker único;
+- latência entre regiões.
+
+Ver [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 11.
+
+**Sistema completo (PLANEJADO / PENDENTE):** contas a receber com Agent para contratos de venda; ingestão por e-mail; quitação fracionada e amortizações; painel; alertas; autenticação real por membro da família; conciliação de depósitos.
+
+---
+
+# 30 - Próximos Passos
+
+1. Revisar e integrar este documento e os de `docs/` (ver 25 e [`LEIA-ME-integracao.md`](docs/organizacao/LEIA-ME-integracao.md)).
+2. Fase 2: dividir responsabilidades a partir da [matriz](docs/requisitos/matriz-n2-etapa2.md). A organização das tarefas no Jira (épico e tarefas da Etapa 2, com responsáveis) vem **depois da consolidação documental**.
+3. Decidir o modelo de dados mínimo e o fluxo de confirmação (seções 15.2 e 18.2).
+4. Decidir a entrega do `Readme.txt` sem publicar segredos no GitHub público.
+5. Criar as branches de tarefa a partir da `develop` ([`ContextoFluxoGit.md`](ContextoFluxoGit.md)) e implementar: banco → models/migrations → consultas/criação → interface → versão do GitHub na tela → testes.
+6. Criar os bancos Supabase e configurar as variáveis no Render; publicar via `develop` → `main`; validar em produção conforme o [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 14.
+7. Atualizar este documento ao consolidar cada mudança.
+
+---
+
+# 31 - Comandos para Desenvolvimento e Testes
 
 ```bash
-source .venv/bin/activate          # Linux/macOS
+# Ambiente
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env               # preencher DJANGO_SECRET_KEY, DEMO_*, GEMINI_MODEL (nunca versionar)
-```
+cp .env.example .env                 # preencher DJANGO_SECRET_KEY, DEMO_*, GEMINI_MODEL (nunca versionar)
 
-**Desenvolvimento** (`DJANGO_DEBUG=True` no `.env`):
-
-```bash
+# Desenvolvimento (DJANGO_DEBUG=True no .env)
 python manage.py check
-python manage.py test              # não chama o Gemini real
-python manage.py runserver         # http://127.0.0.1:8000/ → /login/ → /documentos/
-```
+python manage.py test                # 291 testes; não chama o Gemini real
+python manage.py runserver           # http://127.0.0.1:8000/ → /login/ → /documentos/
 
-**Produção local** (com o `.venv` ativado):
+# Produção local
+./build.sh                           # pip install + collectstatic
+PORT=8000 ./start.sh                 # Gunicorn
 
-```bash
-./build.sh                         # pip install + collectstatic
-PORT=8000 ./start.sh               # Gunicorn
-```
+# Verificação de produção sem alterar o .env
+DJANGO_DEBUG=False DJANGO_SECRET_KEY=<valor-forte-de-teste> DJANGO_ALLOWED_HOSTS=localhost \
+  python manage.py check --deploy    # esperado: apenas security.W004 e security.W008
 
-**Verificação de produção sem alterar o `.env`** (valores só no ambiente do comando):
-
-```bash
-DJANGO_DEBUG=False DJANGO_SECRET_KEY=<forte-de-teste> DJANGO_ALLOWED_HOSTS=localhost \
-  python manage.py check --deploy
-```
-
-Com `DEBUG=False`, os cookies são `Secure`: o login por `http://localhost` no navegador não é o caminho de teste; use o modo de desenvolvimento ou um contexto HTTPS.
-
-**Git:**
-
-```bash
+# Git
 git status
 git diff --check
 git check-ignore -v .env README.txt staticfiles/
 ```
 
----
-
-## 27 - Git
-
-```
-main
- → branch da tarefa (feature/…, chore/…, docs/…)
- → implementação
- → testes (python manage.py check / test / git diff --check)
- → commit
- → push
- → Pull Request
- → merge
- → atualizar a main local
- → apagar a branch mergeada
-```
-
-- Mensagens de commit no formato `tipo: descrição` (ex.: `feat: add temporary Gemini API key input`, `chore: perform safe pre-deploy cleanup`).
-- `git add` com a lista explícita de arquivos e `git diff --cached` antes do commit.
-- Antes de apagar branches, conferir que foram mergeadas (`git branch --merged main`).
-- O Render faz deploy a partir da `main`.
+Com `DEBUG=False` os cookies são `Secure`: login por `http://localhost` não funciona no navegador.
 
 ---
 
-## 28 - Estado Atual da Entrega
+# 32 - Referências e Fontes de Evidência
 
-**N2 - Etapa 1:**
+| Assunto                         | Fonte de autoridade                         | Evidência principal                                                    |
+| ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
+| Requisitos Etapa 1              | slides 18–21 da aula de Agents              | `../Documentos/Att-01--21-09-Agent IA/Material/03 - Aula - Pratica de Engenharia (Agents).pptx` |
+| Requisitos Etapa 2              | documento do professor + Classroom          | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/PROJETO ADMINISTRATIVO - N2 - Etapa 2.docx`, `Instruções Parte 2.pdf` |
+| Stack da Etapa 2                | decisão da equipe (ADR mais recente)        | [`docs/arquitetura/ADR-001-supabase.md`](docs/arquitetura/ADR-001-supabase.md); histórico Neon em `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/tecnologias.pdf` |
+| Rastreabilidade da Etapa 2      | matriz derivada das fontes oficiais         | [`docs/requisitos/matriz-n2-etapa2.md`](docs/requisitos/matriz-n2-etapa2.md) |
+| Inventário de documentos        | índice documental                           | [`docs/INDICE.md`](docs/INDICE.md)                                      |
+| Contexto do cliente             | DR 0001/2026                                | `../Documentos/Material-Suporte/Material Suporte/Documento de Requisitos Cliente (1).docx` |
+| Especificação da equipe         | V0.91 (HISTÓRICO)                           | `../Documentos/Documentação/V0.91/`                                     |
+| Implementação                   | código em `f7786e8`                         | `agents/`, `documentos/`, `usuarios/`, `config/`, scripts              |
+| Integrações aprovadas           | PRs do GitHub                               | PRs #1–#19; `69b7ca4` (stateless), `8acad04` (chave), `89a19aa` (Render) |
+| Status e responsáveis           | Jira atual (**não consultado**)             | retrato `ContextoTasksJira.md` (23/09/2026)                             |
+| Fluxo de desenvolvimento        | [`ContextoFluxoGit.md`](ContextoFluxoGit.md) v1.0 + configuração do GitHub | `gh api .../branches`, `rulesets`, `actions/workflows` |
+| Validação                       | execução nesta auditoria                    | `manage.py check`, `manage.py test` (291 OK)                           |
 
-| Item                                                 | Estado                                                                            |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Implementação funcional (PDF → Agents → JSON → tela) | ✅ concluída                                                                      |
-| Login da demonstração                                | ✅ concluído                                                                      |
-| Gemini API Key temporária                            | ✅ concluída                                                                      |
-| Arquitetura sem banco (stateless)                    | ✅ concluída                                                                      |
-| Preparação para produção                             | ✅ concluída                                                                      |
-| Hospedagem no Render                                 | ✅ concluída                                                                      |
-| Teste real em produção                               | ✅ concluído                                                                      |
-| Documentação consolidada                             | em consolidação na branch `docs/n2-etapa1-contexto-final`; concluída após o merge |
+Quando houver conflito: requisitos → documento acadêmico oficial mais recente; implementação → código da branch; status/responsáveis → Jira; integrações → PRs; histórico → documentos anteriores.
 
 ---
 
-## 29 - Arquivos de Contexto
+# 33 - Regras para Manutenção deste Documento
 
-| Arquivo                | Papel                                                                                                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ContextoProjeto.md`   | Verdade atual e consolidada do projeto. É versionado no Git e deve refletir sempre o código e a arquitetura vigentes.                                                                    |
-| `analisetemporaria.md` | Arquivo local e temporário de trabalho. Registra análises, decisões, alterações e validações durante uma tarefa. É ignorado pelo Git e não faz parte da documentação oficial versionada. |
-| `README.txt`           | Arquivo local da apresentação, com URL, login, senha e Gemini API Key. É ignorado pelo Git e nunca deve ter seu conteúdo copiado para a documentação versionada.                         |
-
-Regra: o que representa o estado atual do sistema fica em `ContextoProjeto.md`. O histórico operacional e as anotações feitas durante o trabalho ficam localmente em `analisetemporaria.md`.
+1. Este arquivo representa o **estado consolidado** do projeto, não um diário. Atualize-o quando mudanças em arquitetura, requisitos, regras de negócio, tecnologias, contratos, banco, Agents, segurança, autenticação, testes, deploy ou fluxo operacional forem **integradas**.
+2. Use sempre as marcas da legenda; nunca descreva requisito ou plano como implementado.
+3. Atualize a seção 1.2 (branch, commit, data) e a seção 21.1 (resultado real dos testes) a cada revisão; não reutilize contagens antigas.
+4. Informe caminhos de arquivo para afirmações técnicas.
+5. Registre divergências entre fontes com as duas versões e a evidência; não decida arbitrariamente.
+6. Nunca inclua segredos, valores do `.env`, conteúdo do `README.txt`, URL privada ou dados pessoais reais.
+7. `ContextoFluxoGit.md` é a referência detalhada de colaboração; `ContextoTasksJira.md` é complementar (o Jira atual prevalece); `analisetemporaria.md` é rascunho temporário e não é fonte de verdade.
+8. Ao mover algo de PLANEJADO para IMPLEMENTADO, remova a versão antiga e, se a decisão anterior for relevante, registre-a como HISTÓRICO na seção 26.
+9. Detalhes ficam nos documentos donos de cada assunto: requisitos na matriz, decisões nos ADRs (`docs/arquitetura/ADR-NNN-*.md`), localização no índice. Este arquivo resume e aponta para eles. Ver [`docs/organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md`](docs/organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md).
