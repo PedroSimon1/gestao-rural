@@ -85,13 +85,15 @@ São requisitos da N2 Etapa 2 ou decisões da equipe. **Nenhum destes itens est�
 
 - [ ] Banco de dados **PostgreSQL no Supabase** (decisão em [ADR-001](docs/arquitetura/ADR-001-supabase.md))
 - [ ] Consulta de existência do **fornecedor**, do **faturado** e da **classificação de despesa**, com o resultado exibido na tela
-- [ ] Criação dos registros ausentes (se será automática ou com confirmação do usuário ainda está em aberto: dúvida Q-02 da matriz)
+- [ ] Criação dos registros ausentes somente após **confirmação manual do usuário**, com revalidação dos dados pelo backend antes da gravação (decisão da equipe sobre a dúvida Q-02)
 - [ ] Lançamento da **movimentação financeira** e de suas **parcelas**, com confirmação ao usuário
 - [ ] Cadastros de **pessoas** (fornecedores, clientes e faturados) e de **classificações** (tipos de receita e de despesa)
 - [ ] Registro de **contas a pagar** e **contas a receber**
 - [ ] **Inativação e reativação** de cadastros, sem exclusão física
 - [ ] **Múltiplas classificações** e **múltiplas parcelas** por conta
 - [ ] Exibição do **código da última atualização no GitHub** na tela principal
+
+**Prioridade (decisão da equipe, 24/10/2026, dúvida Q-01):** primeiro o fluxo completo da nota fiscal e os cadastros necessários a ele. As demais funcionalidades administrativas continuam sendo requisitos oficiais ainda não atendidos. Essa prioridade é escolha da equipe e **não** representa dispensa concedida pelo professor.
 
 O detalhamento, com critérios de aceite e dúvidas de escopo, está na [matriz de requisitos da N2 Etapa 2](docs/requisitos/matriz-n2-etapa2.md).
 

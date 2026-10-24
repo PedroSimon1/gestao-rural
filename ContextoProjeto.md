@@ -787,7 +787,9 @@ flowchart TD
 | Registro do movimento e parcela(s)                | REQUISITO, não implementado |
 | Confirmação ao usuário                            | REQUISITO, não implementado |
 
-Indefinido (PENDENTE DE CONFIRMAÇÃO): se a criação é automática após a exibição ou exige confirmação do usuário; tratamento de classificação inconclusiva e de CPF/CNPJ ausente ou com DV inválido; prevenção de lançamento duplicado da mesma nota.
+**Decisão da equipe (24/10/2026, PLANEJADO):** a criação **exige confirmação manual do usuário**. Os registros são revalidados e gravados só depois da confirmação, e o sucesso é exibido após a persistência (Q-02 na [matriz](docs/requisitos/matriz-n2-etapa2.md), seção 8.1; fluxo no [plano de responsabilidades](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md), seção 1.2).
+
+Indefinido (PENDENTE DE CONFIRMAÇÃO): tratamento de classificação inconclusiva e de CPF/CNPJ ausente ou com DV inválido; prevenção de lançamento duplicado da mesma nota; onde preservar os dados entre a consulta e a confirmação (contrato C-01 a C-10 e questões T-01 a T-06 do plano).
 
 ## 18.3 - Autenticação (IMPLEMENTADO / VALIDADO)
 
@@ -973,7 +975,7 @@ O plano anterior (`tecnologias.pdf`) previa "Neon QA" e "Neon Produção" (HIST�
 | Pedro Simon   | `PedroSimon1` | #1–#5 (financeiro), #9 Gemini, #10 Extrator, #12 Orquestração, #13 Interface, #14 Validação final, #15–#19 (stateless, chave, deploy, docs) |
 | Gustavo Lopes | `devlopes-lq` | #6 Documento, #7 Upload, #8 Validação PDF, #11 Classificador               |
 
-Commits sem merge na `main`: 19 de Pedro Simon, 4 de Gustavo Lopes (os merges dos PRs ficam com quem mergeou). A divisão de responsabilidades da **Etapa 2** não está registrada em nenhuma fonte acessível (PENDENTE DE CONFIRMAÇÃO no Jira).
+Commits sem merge na `main`: 19 de Pedro Simon, 4 de Gustavo Lopes (os merges dos PRs ficam com quem mergeou). **Etapa 2 (PLANEJADO, aprovado para planejamento em 24/10/2026):** Pedro Simon fica com backend e persistência (Supabase, conexão, models, migrations, consultas, gravação, transações e duplicidade); Gustavo Lopes, com Agents, interface e integração (adaptação do processamento, tela de consultas, conferência, confirmação, mensagens e versão publicada na tela). Contratos, revisão, testes integrados, homologação, publicação e entrega são compartilhados. Detalhes e pacotes P01–P10: [plano de responsabilidades](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md). Nada disso foi iniciado; o Jira ainda não foi atualizado.
 
 ---
 
@@ -1093,7 +1095,7 @@ hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
 | Exibir o código da última atualização do GitHub na tela principal                              | requisito da entrega  |
 | Definir como entregar o `Readme.txt` (login, senha, Key) sem expor segredos no repositório público | decisão urgente   |
 | Definir o modelo de dados (atributos, chaves, identificação de pessoa, mapeamento de categorias) | decisão de arquitetura |
-| Definir escopo das telas CRUD "Manter/Registrar" na Etapa 2                                     | confirmação com o professor |
+| Telas CRUD "Manter/Registrar": a equipe priorizou o fluxo da nota (Q-01, 24/10/2026); os cadastros continuam requisitos não atendidos, no pacote P08 | priorização; obrigatoriedade sem resposta do professor |
 | Validar Psycopg 3 (proposto) e definir a configuração da conexão com o Supabase (variáveis, modo direto ou pooler) | decisão técnica |
 | Substituir os testes que proíbem banco                                                          | técnico               |
 | Criar os bancos Supabase (dev/homologação/prod) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
@@ -1137,8 +1139,8 @@ Ver [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 11.
 # 30 - Próximos Passos
 
 1. Revisar e integrar este documento e os de `docs/` (ver 25 e [`LEIA-ME-integracao.md`](docs/organizacao/LEIA-ME-integracao.md)).
-2. Fase 2: dividir responsabilidades a partir da [matriz](docs/requisitos/matriz-n2-etapa2.md). A organização das tarefas no Jira (épico e tarefas da Etapa 2, com responsáveis) vem **depois da consolidação documental**.
-3. Decidir o modelo de dados mínimo e o fluxo de confirmação (seções 15.2 e 18.2).
+2. Fase 2 (em revisão): responsabilidades, pacotes e tarefas propostas para o Jira estão no [plano de responsabilidades](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md). Cadastrar as tarefas no Jira depois da revisão.
+3. Acordar o contrato entre backend e interface e decidir o modelo de dados mínimo (seção 15.2; plano, seções 4 e 5). O fluxo com confirmação manual já foi decidido (seção 18.2).
 4. Decidir a entrega do `Readme.txt` sem publicar segredos no GitHub público.
 5. Criar as branches de tarefa a partir da `develop` ([`ContextoFluxoGit.md`](ContextoFluxoGit.md)) e implementar: banco → models/migrations → consultas/criação → interface → versão do GitHub na tela → testes.
 6. Criar os bancos Supabase e configurar as variáveis no Render; publicar via `develop` → `main`; validar em produção conforme o [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 14.

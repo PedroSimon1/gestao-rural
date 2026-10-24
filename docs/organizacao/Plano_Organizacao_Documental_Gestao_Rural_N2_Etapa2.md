@@ -149,7 +149,7 @@ Os documentos acadêmicos continuam fora do repositório, em `../Documentos/`, s
 | ORG-3 | Organizar o Jira (épicos e tarefas da Etapa 2) **depois da consolidação documental** | PENDENTE (após ORG-1 e ORG-5) |
 | ORG-4 | Decidir o destino dos rascunhos externos da pasta-pai                      | PENDENTE  |
 | ORG-5 | Integrar a documentação ao Git (`docs/*` → `develop` → `main`) com autorização | PENDENTE |
-| ORG-6 | Registrar uma resposta ou decisão provisória para Q-01 e Q-02 da matriz    | PENDENTE  |
+| ORG-6 | Registrar uma resposta ou decisão provisória para Q-01 e Q-02 da matriz. Decididas **pela equipe** em 24/10/2026 (não pelo professor): **Q-01** — priorizar o fluxo completo da nota fiscal e os cadastros necessários, sem dispensar os demais requisitos oficiais; **Q-02** — exigir confirmação manual do usuário antes de gravar os lançamentos financeiros. Ver [matriz, seção 8.1](../requisitos/matriz-n2-etapa2.md#81-decisões-da-equipe) e [plano de responsabilidades](Plano_Responsabilidades_N2_Etapa2.md), seção 1 | FEITO (para planejamento) |
 
 ## 13. Checklist de validação
 
@@ -172,7 +172,7 @@ Os documentos acadêmicos continuam fora do repositório, em `../Documentos/`, s
 A Fase 2 pode começar quando:
 
 1. a equipe revisou e aceitou a matriz e o ADR-001 (ORG-1);
-2. existe resposta ou decisão provisória para **Q-01** (escopo dos CRUDs) e **Q-02** (criação automática ou com confirmação), porque elas definem o tamanho do trabalho;
+2. existe resposta ou decisão provisória para **Q-01** (escopo dos CRUDs) e **Q-02** (criação automática ou com confirmação), porque elas definem o tamanho do trabalho. **Atendido em 24/10/2026** por decisão da equipe (ORG-6);
 3. o [`ContextoFluxoGit.md`](../../ContextoFluxoGit.md) foi revisado pela equipe (ORG-2);
 4. a documentação foi integrada ou, no mínimo, está disponível para os dois integrantes.
 

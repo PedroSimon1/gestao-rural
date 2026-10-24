@@ -31,7 +31,7 @@ Guia rápido para Pedro Simon, Gustavo Lopes e agentes de IA (Claude Code, ChatG
   - a **Evidência**: commit, PR ou teste.
 
   Sem evidência, a situação não muda.
-- A coluna **Responsável** só é preenchida na Fase 2 (divisão de responsabilidades).
+- A coluna **Responsável** foi preenchida na Fase 2 (24/10/2026) com o responsável **planejado** de cada item, conforme o [plano de responsabilidades](Plano_Responsabilidades_N2_Etapa2.md). Atribuição não é implementação.
 - Dúvidas novas viram uma linha na seção 8 da matriz (`Q-NN`).
 
 ## 4. Como registrar uma nova decisão de arquitetura
@@ -141,7 +141,7 @@ No `.env.example` entram só os **nomes** das variáveis, nunca os valores.
 | ------------------------------------------------- | ---------------------------------------------------------------------- |
 | Revisão do [`ContextoFluxoGit.md`](../../ContextoFluxoGit.md) e proteção de `main`/`develop` | [plano](Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md), ORG-2 |
 | Organização das tarefas no Jira `GR` (**depois da consolidação documental**) | plano, ORG-3                                  |
-| Escopo dos CRUDs e criação automática (Q-01, Q-02) | [matriz](../requisitos/matriz-n2-etapa2.md), seção 8                   |
+| Q-01 e Q-02 **decididas pela equipe** em 24/10/2026: prioridade ao fluxo da nota fiscal e aos cadastros necessários (os demais requisitos oficiais continuam não atendidos, sem dispensa do professor) e confirmação manual com revalidação no backend antes da gravação. Falta acordar o contrato de implementação | [matriz](../requisitos/matriz-n2-etapa2.md), seção 8.1; [plano de responsabilidades](Plano_Responsabilidades_N2_Etapa2.md), seções 1, 4 e 5 |
 | Canal de entrega do `Readme.txt` (Q-07)           | matriz, seção 8                                                         |
 | Implementação do Supabase e validação do Psycopg 3 | [ADR-001](../arquitetura/ADR-001-supabase.md), seções 13 e 14          |
 | Estado atual do serviço no Render                 | `ContextoProjeto.md`, seção 22.2                                        |

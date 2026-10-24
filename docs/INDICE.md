@@ -7,7 +7,7 @@
 | Projeto                 | Gestão Rural (Projeto Administrativo-Financeiro) — ESW424, UniRV                        |
 | Finalidade deste índice | dizer **quais documentos existem, para que servem, onde estão e qual a autoridade de cada um** |
 | Data da organização     | 24/10/2026                                                                             |
-| Estado da documentação  | organização da N2 Etapa 2 em revisão local (branch `feature/Auditoria-Correcao`, sem commit); integração prevista por PR para `develop` |
+| Estado da documentação  | Fase 1 (organização documental) integrada à `develop` pelo PR #20; Fase 2 (escopo e responsabilidades) em revisão local na branch `docs/n2-etapa2-escopo-responsabilidades`, sem commit |
 | Mantido junto com       | [`../ContextoProjeto.md`](../ContextoProjeto.md) e [`organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md`](organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md) |
 
 **Como ler os caminhos:**
@@ -26,6 +26,7 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | por que Supabase e não Neon                        | [`arquitetura/ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)      |
 | como a documentação é organizada e mantida         | [`organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md`](organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md) |
 | como integrar a documentação ao fluxo de trabalho  | [`organizacao/LEIA-ME-integracao.md`](organizacao/LEIA-ME-integracao.md)  |
+| quem faz o quê na Etapa 2, pacotes e tarefas do Jira | [`organizacao/Plano_Responsabilidades_N2_Etapa2.md`](organizacao/Plano_Responsabilidades_N2_Etapa2.md) |
 | como criar branches, commitar e abrir PRs          | [`ContextoFluxoGit.md`](../ContextoFluxoGit.md)                           |
 
 ## 3. Documentos oficiais (professor e Classroom)
@@ -63,8 +64,9 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | Documento                         | Finalidade                                                    | Localização                                                     | Estado |
 | --------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- | ------ |
 | [`ContextoFluxoGit.md`](../ContextoFluxoGit.md) | fluxo Git oficial: `develop` (integração/homologação) → `main` (produção); nomes, commits, PR, hotfix, proteção, regras para IA | repositório (raiz) | **criado em 24/10/2026 (v1.0)**; não existia antes. O fluxo anterior com `qa` está registrado como HISTÓRICO nele |
+| [`Plano_Responsabilidades_N2_Etapa2.md`](organizacao/Plano_Responsabilidades_N2_Etapa2.md) | decisões Q-01/Q-02 da equipe, divisão Pedro/Gustavo, pacotes P01–P10, contrato a acordar e tarefas propostas para o Jira | repositório | **criado em 24/10/2026**; aprovado para planejamento, em revisão; nada implementado |
 | `ContextoTasksJira.md`            | retrato das tarefas Jira (projeto `GR`)                       | `../Documentos/Att-01--21-09-Agent IA/Contexto/Novo Contexto/`  | localizado; **retrato de 23/09/2026**, anterior à Etapa 2 |
-| Jira (projeto `GR`)               | status atual das tarefas e responsáveis                       | serviço externo                                                 | **não consultado** (sem acesso nesta sessão); tarefas da Etapa 2 serão organizadas **depois da consolidação documental** |
+| Jira (projeto `GR`)               | status atual das tarefas e responsáveis                       | serviço externo                                                 | **não consultado** (sem acesso nesta sessão); tarefas da Etapa 2 **preparadas** no plano de responsabilidades (seção 6), ainda **não cadastradas** |
 | `FluxoAtividadeAula.pdf`          | roteiro de execução e apresentação da atividade em aula       | `../Documentos/Att-01--21-09-Agent IA/Documentação/`            | localizado; Etapa 1 |
 | GitHub (PRs #1–#19, branches)     | histórico de integração                                       | `https://github.com/PedroSimon1/gestao-rural`                   | consultado em 24/10/2026 |
 
@@ -112,10 +114,11 @@ Classes de documentos que **nunca** podem ser publicadas no repositório (que é
 | `docs/INDICE.md`                                    | índice                             | este arquivo                                           | Processo    | organizacional                   | localizado         | criado em 24/10/2026                       |
 | `docs/organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md` | procedimento de organização | [repositório](organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md) | Processo | organizacional | localizado | criado em 24/10/2026                       |
 | `docs/organizacao/LEIA-ME-integracao.md`            | guia de integração                 | [repositório](organizacao/LEIA-ME-integracao.md)       | Processo    | organizacional                   | localizado         | criado em 24/10/2026                       |
+| `docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md` | escopo e responsabilidades da Etapa 2 | [repositório](organizacao/Plano_Responsabilidades_N2_Etapa2.md) | Planejamento / Processo | decisão da equipe para planejamento | localizado | criado em 24/10/2026, em revisão |
 | `tecnologias.pdf`                                   | stack da Etapa 2 (Neon)            | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/` | Histórica (Neon) / Técnica (demais itens) | substituída pelo ADR-001 no item banco | localizado | não editar               |
 | `Mini_Documentacao_Tecnologias_Gestao_Rural.pdf`    | stack inicial                      | `../Documentos/Att-01--21-09-Agent IA/Contexto/`       | Histórica   | nenhuma sobre o estado atual     | localizado         | superada                                   |
 | `ContextoTasksJira.md`                              | tarefas Jira                       | `../Documentos/Att-01--21-09-Agent IA/Contexto/Novo Contexto/` | Processo / Histórica | o Jira atual prevalece | localizado | retrato de 23/09/2026                      |
-| Jira `GR`                                           | status e responsáveis              | externo                                                | Processo    | máxima para status de tarefas    | **não consultado** | organização após a consolidação documental |
+| Jira `GR`                                           | status e responsáveis              | externo                                                | Processo    | máxima para status de tarefas    | **não consultado** | tarefas propostas no plano de responsabilidades; cadastro após a revisão |
 | `ContextoFluxoGit.md`                               | regras de Git                      | [repositório](../ContextoFluxoGit.md)                  | Processo    | máxima para o fluxo Git          | localizado         | criado em 24/10/2026 (v1.0)                |
 | `MVPcompleto.pdf`, `FluxoAtividadeAula.pdf`         | MVP e roteiro da Etapa 1           | `../Documentos/Att-01--21-09-Agent IA/Documentação/`   | Histórica   | complementar                     | localizado         | anterior ao PR #15                         |
 | `.env`, `README.txt`                                | segredos e entrega                 | raiz do repositório (ignorados pelo Git)               | Restrita    | —                                | existem localmente; conteúdo não lido | nunca publicar |
