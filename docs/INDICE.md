@@ -52,8 +52,8 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 
 | Documento                                                        | Finalidade                                                             | Localização | Estado |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------- | ------ |
-| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; auditoria de 24/10/2026 | repositório | atualizado em 24/10/2026 (sem commit) |
-| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | novo; ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO |
+| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; auditoria de 24/10/2026 | repositório | atualizado em 24/10/2026; em 25/10/2026, estado da GR-33 (branch `feature/gr-33-configurar-supabase`, não integrada) |
+| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33, branch `feature/gr-33-configurar-supabase`, não integrada); antes: ACEITO PARA PLANEJAMENTO |
 | [`matriz-n2-etapa2.md`](requisitos/matriz-n2-etapa2.md)           | rastreabilidade dos requisitos da Etapa 2                              | repositório | novo |
 | `tecnologias.pdf`                                                | stack da Etapa 2 com Render + **Neon** (out/2026)                      | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/` | localizado; **histórico quanto ao Neon** (substituído pelo ADR-001) |
 | `MVPcompleto.pdf`                                                | arquitetura e execução do MVP da Etapa 1                               | `../Documentos/Att-01--21-09-Agent IA/Documentação/` | localizado; histórico (anterior ao PR #15) |

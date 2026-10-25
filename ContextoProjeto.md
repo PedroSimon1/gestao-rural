@@ -53,6 +53,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Working tree           | apenas `ContextoProjeto.md` modificado (não commitado)                                        |
 | Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
 | Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
+| Atualização GR-33      | 25/10/2026, branch `feature/gr-33-configurar-supabase` (**não integrada** a `develop`): conexão PostgreSQL com o Supabase configurada em `config/settings.py`, `psycopg[binary]==3.3.6` e variáveis `DB_*` no `.env.example`. Sem models, migrations nem `migrate`. Ver 15.1.1 e [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.1 |
 
 ## 1.3 - Fontes consultadas e limitações
 
@@ -289,7 +290,7 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 | Login de demonstração                  | **VALIDADO**                                                 | `usuarios/demo.py`, `usuarios/tests.py`      |
 | Gemini API Key informada na tela       | **VALIDADO**                                                 | `documentos/forms.py`, testes de interface   |
 | Configuração de produção (Render)      | **VALIDADO** em testes; operação real registrada em 29/09    | `config/test_producao.py`                    |
-| Banco de dados                         | **inexistente** (`DATABASES = {}`)                           | `config/settings.py`, `config/test_sem_banco.py` |
+| Banco de dados                         | **inexistente** (`DATABASES = {}`) em `f7786e8`. Na branch da GR-33 (não integrada): conexão PostgreSQL configurada (15.1.1) | `config/settings.py`, `config/test_sem_banco.py` |
 | Models / migrations / admin            | **inexistentes**                                             | árvore do repositório                        |
 | Consultas de existência (Etapa 2)      | não implementado                                             | —                                            |
 | Cadastros e inativação (Etapa 2)       | não implementado                                             | —                                            |
@@ -300,8 +301,8 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 ## 8.2 - Diagnóstico da transição Etapa 1 → Etapa 2
 
 - A Etapa 1 foi entregue com arquitetura **stateless**, que removeu deliberadamente o banco (PR #15).
-- A Etapa 2 exige persistência relacional. O plano inicial (Render + Neon PostgreSQL, `tecnologias.pdf`) foi substituído em 24/10/2026 por **Render + Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md), PLANEJADO). Em nenhum dos dois casos foi adicionada **qualquer linha** de código, dependência, variável ou migration.
-- Os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco: falharão assim que a Etapa 2 começar e precisarão ser substituídos.
+- A Etapa 2 exige persistência relacional. O plano inicial (Render + Neon PostgreSQL, `tecnologias.pdf`) foi substituído em 24/10/2026 por **Render + Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md), PLANEJADO). Em nenhum dos dois casos foi adicionada **qualquer linha** de código, dependência, variável ou migration até `f7786e8`. Em 25/10/2026, a GR-33 configurou a conexão na branch `feature/gr-33-configurar-supabase`, ainda não integrada (15.1.1).
+- Em `f7786e8`, os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco. Na branch da GR-33 (não integrada), essas garantias passaram a verificar a configuração PostgreSQL. Os testes com banco (`TestCase`) continuam pendentes (GR-34).
 - Em 24/10/2026 restam três dias para a entrega de 27/10/2026.
 
 ---
@@ -339,9 +340,9 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 
 | Tecnologia               | Uso previsto                                         | Situação                                                    |
 | ------------------------ | ---------------------------------------------------- | ----------------------------------------------------------- |
-| Supabase PostgreSQL      | banco gerenciado: pessoas, classificações, movimentos e parcelas | PLANEJADO; nenhum projeto Supabase confirmado; sem tabelas nem conexão |
+| Supabase PostgreSQL      | banco gerenciado: pessoas, classificações, movimentos e parcelas | EM ANDAMENTO (GR-33, branch não integrada): só o projeto `gestao-rural-homologacao` existe; conexão configurada pelo Session Pooler; sem tabelas |
 | Django ORM + Migrations  | modelos, consultas, escrita e versionamento do esquema | PLANEJADO; sem models nem migrations                      |
-| Psycopg 3                | driver PostgreSQL                                    | **proposto, sujeito a validação** (Python 3.14, Django 6.1, Render); fora do `requirements.txt` |
+| Psycopg 3                | driver PostgreSQL                                    | `psycopg[binary]==3.3.6` em `requirements.txt` na branch da GR-33; validado localmente; build no Render **não validado** |
 
 - O Supabase é usado só como PostgreSQL gerenciado, acessado pelo Django. **Supabase Auth, Storage e API automática não fazem parte da decisão**: a autenticação continua sendo o login de demonstração.
 - **HISTÓRICO:** `tecnologias.pdf` (out/2026) previa **Neon Free** para hospedar o PostgreSQL e deixava o driver "a definir (por exemplo psycopg)". O item Neon foi substituído pelo ADR-001 em 24/10/2026. Os demais itens do PDF continuam coerentes.
@@ -425,7 +426,7 @@ gestao-rural/
 │   ├── urls.py                   # "/" (redirect), usuarios.urls, "documentos/"
 │   ├── wsgi.py                   # config.wsgi:application (Gunicorn)
 │   ├── asgi.py                   # padrão, não usado
-│   ├── test_sem_banco.py         # garante ausência de banco/media/PostgreSQL
+│   ├── test_sem_banco.py         # f7786e8: garante ausência de banco/media/PostgreSQL; GR-33: PostgreSQL com TLS, sem models/migrations
 │   └── test_producao.py          # cenários de produção em subprocessos
 ├── usuarios/                     # app: login de demonstração
 │   ├── demo.py                   # credenciais, sessão, demo_login_required
@@ -626,7 +627,26 @@ AgentClassificador(cliente=None).classificar(nota: NotaFiscalExtraida) -> Classi
 | Dependências de banco    | nenhuma em `requirements.txt`                                                      |
 | Sessões                  | somente no cookie assinado do cliente                                              |
 
+A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da GR-33 está em 15.1.1.
+
 **Garantias automatizadas que impedem banco** (`config/test_sem_banco.py`, `config/test_producao.py`): falham se houver pasta `migrations`, app `financeiro`, `django.db`/`.objects.` em código de produção, `DB_*`/`postgresql`/`psycopg`/`sqlite`/`djangorestframework` em `settings.py`/`.env.example`/`requirements.txt`, `psycopg`/`dj-database-url` nos requisitos, `migrate` no `build.sh` ou `DATABASE_URL` no `.env.example`.
+
+## 15.1.1 - Estado na branch `feature/gr-33-configurar-supabase` (GR-33, 25/10/2026, não integrada)
+
+| Item                     | Situação                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Banco configurado        | `DATABASES["default"]` com `django.db.backends.postgresql` (Psycopg 3, `psycopg[binary]==3.3.6`) |
+| Provedor e modo          | Supabase, projeto `gestao-rural-homologacao` (São Paulo), o **único** existente; Session Pooler (Supavisor, modo *session*, porta 5432), compatível com IPv4 e *prepared statements* |
+| Variáveis obrigatórias   | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`; ausentes ou vazias → `ImproperlyConfigured` na carga do settings, sem banco substituto |
+| Variáveis opcionais      | `DB_PORT` (5432), `DB_SSLMODE` (`require`; só `require`, `verify-ca`, `verify-full`), `DB_SSLROOTCERT` (CA do Supabase, para `verify-*`), `DB_CONNECT_TIMEOUT` (10 s) |
+| Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
+| Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
+| Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
+| Models / migrations      | nenhum (GR-34/GR-35+); `build.sh` sem `migrate`                                    |
+| Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
+| Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
+
+Não existe banco de desenvolvimento separado, de testes nem de produção. Proposta (não decidida, T-06 do [plano](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md)): PostgreSQL local para DEV e testes e projeto Supabase separado para produção.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
@@ -815,7 +835,7 @@ Não existe. Etapa 2: ver 18.2 e 15.2.
 
 ## 18.7 - Inicialização da aplicação
 
-`start.sh` → Gunicorn `config.wsgi:application` → `config/settings.py` (lê `.env` via `load_dotenv`, sem sobrescrever o ambiente; monta hosts/CSRF; `DATABASES = {}`) → apps `staticfiles`, `documentos`, `usuarios`. `MAX_PDF_UPLOAD_SIZE_MB` é convertido com `int()` na importação (valor inválido impede a inicialização). `GEMINI_*` só são validados quando um `GeminiClient` é criado.
+`start.sh` → Gunicorn `config.wsgi:application` → `config/settings.py` (lê `.env` via `load_dotenv`, sem sobrescrever o ambiente; monta hosts/CSRF; `DATABASES = {}` em `f7786e8`; na branch da GR-33, exige as variáveis `DB_*` — 15.1.1) → apps `staticfiles`, `documentos`, `usuarios`. `MAX_PDF_UPLOAD_SIZE_MB` é convertido com `int()` na importação (valor inválido impede a inicialização). `GEMINI_*` só são validados quando um `GeminiClient` é criado.
 
 ## 18.8 - Publicação (registrada em 29/09/2026)
 
@@ -931,12 +951,14 @@ Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 | `config/test_producao.py`              | 19     | hosts, CSRF, HTTPS, cookies, estáticos, `check --deploy`, scripts     |
 | **Total**                              | **291** |                                                                      |
 
+A tabela acima é a de `f7786e8`. Na branch da GR-33 (25/10/2026, não integrada): `config/test_sem_banco.py` continua com 9 testes, agora sobre a configuração PostgreSQL com TLS, sem models e sem migrations; `config/test_producao.py` passou a ter 23 (variáveis `DB_*`, TLS e falha sem as variáveis obrigatórias). Total: **295**, `OK`, rodando com um host de banco inalcançável (`DB_HOST=db-teste.invalid`).
+
 ## 21.3 - Estratégia e lacunas
 
 - Todos são `SimpleTestCase`; **nenhuma chamada real ao Gemini** (clientes falsos ou SDK patchado); cenários de produção em subprocessos.
 - Lacunas: sem cobertura medida, sem E2E/navegador, sem medição da assertividade da classificação, sem lint nem CI (nenhum workflow no GitHub).
 - A suíte deve rodar em modo de desenvolvimento (`DJANGO_DEBUG=True`).
-- **Etapa 2:** `config/test_sem_banco.py` e os testes de "sem banco" de `config/test_producao.py` precisarão ser substituídos por testes do novo contrato; testes com banco exigirão `TestCase`.
+- **Etapa 2:** na GR-33 (branch não integrada), os testes "sem banco" de `config/test_sem_banco.py` e `config/test_producao.py` foram substituídos pelo contrato da configuração PostgreSQL. Continuam pendentes (GR-34) os testes com banco, que exigirão `TestCase` e um PostgreSQL de teste isolado (T-06), nunca o Supabase de homologação ou de produção.
 
 ---
 
@@ -959,12 +981,12 @@ Não há `render.yaml`, `Procfile` ou `Dockerfile`: comandos, variáveis e branc
 | Ambiente        | Aplicação / Branch       | Banco                     | Situação                                                   |
 | --------------- | ------------------------ | ------------------------- | ---------------------------------------------------------- |
 | Desenvolvimento | local / branch de tarefa | nenhum                    | IMPLEMENTADO                                               |
-| Homologação     | `develop` (homologação local; Render de homologação não definido) | Supabase de homologação (planejado) | **PLANEJADO** — sem evidência de serviço. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO) |
+| Homologação     | `develop` (homologação local; Render de homologação não definido) | Supabase `gestao-rural-homologacao` (projeto criado; conexão na branch da GR-33, não integrada) | **EM ANDAMENTO** — sem evidência de serviço Render. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO) |
 | Produção        | Render Free / `main`     | nenhum (Supabase Produção planejado) | registrado em 29/09/2026; **não reverificado**   |
 
 Registro anterior (29/09/2026, não reverificado): Render Web Service, runtime Python, plano Free, deploy da `main`, `WEB_CONCURRENCY=1`, serviço Live, processamento real com PDF e chave reais concluído. O plano Free suspende por inatividade (primeiro acesso lento). QA e produção devem ter bancos e credenciais independentes (PLANEJADO).
 
-O plano anterior (`tecnologias.pdf`) previa "Neon QA" e "Neon Produção" (HISTÓRICO). Ainda falta definir e validar, para o Supabase: modo de conexão (direta ou pooler), região, limites do plano e pausa por inatividade ([ADR-001](docs/arquitetura/ADR-001-supabase.md), seções 9 e 11).
+O plano anterior (`tecnologias.pdf`) previa "Neon QA" e "Neon Produção" (HISTÓRICO). Definidos na GR-33 (25/10/2026): Session Pooler, porta 5432, região São Paulo. Ainda falta validar, para o Supabase: alcance a partir do Render, latência, limites do plano e pausa por inatividade ([ADR-001](docs/arquitetura/ADR-001-supabase.md), seções 9 e 11).
 
 ---
 
@@ -1069,7 +1091,7 @@ hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
 | D8 | Etapa 2: manter Render e adicionar **PostgreSQL no Neon Free**             | `tecnologias.pdf`, out  | **HISTÓRICO** (substituída pela D10)        |
 | D9 | Ambientes dev / QA (`qa`) / produção (`main`) com bancos independentes     | `tecnologias.pdf`       | PLANEJADO (agora com Supabase); a homologação passa a ser a `develop` (D11) |
 | D11 | Fluxo Git: `develop` (integração/homologação) → `main` (produção); `qa` excluída | [`ContextoFluxoGit.md`](ContextoFluxoGit.md), 24/10 | **vigente** (sem proteção de branch configurada) |
-| D10 | Etapa 2: **Supabase PostgreSQL** como banco gerenciado, Django ORM + Migrations, Psycopg 3 como driver proposto; backend Django mantido; sem Supabase Auth/Storage | [ADR-001](docs/arquitetura/ADR-001-supabase.md), 24/10 | **ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO** |
+| D10 | Etapa 2: **Supabase PostgreSQL** como banco gerenciado, Django ORM + Migrations, Psycopg 3 como driver proposto; backend Django mantido; sem Supabase Auth/Storage | [ADR-001](docs/arquitetura/ADR-001-supabase.md), 24/10 | **ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO** (GR-33, 25/10, branch não integrada; antes: ACEITO PARA PLANEJAMENTO) |
 
 ---
 
@@ -1096,9 +1118,9 @@ hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
 | Definir como entregar o `Readme.txt` (login, senha, Key) sem expor segredos no repositório público | decisão urgente   |
 | Definir o modelo de dados (atributos, chaves, identificação de pessoa, mapeamento de categorias) | decisão de arquitetura |
 | Telas CRUD "Manter/Registrar": a equipe priorizou o fluxo da nota (Q-01, 24/10/2026); os cadastros continuam requisitos não atendidos, no pacote P08 | priorização; obrigatoriedade sem resposta do professor |
-| Validar Psycopg 3 (proposto) e definir a configuração da conexão com o Supabase (variáveis, modo direto ou pooler) | decisão técnica |
+| Validar Psycopg 3 no build do Render (localmente validado e configuração da conexão definida na GR-33, branch não integrada) | técnico |
 | Substituir os testes que proíbem banco                                                          | técnico               |
-| Criar os bancos Supabase (dev/homologação/prod) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
+| Criar os bancos de DEV/testes e de produção (só o Supabase de homologação existe; proposta T-06 não decidida), configurar as variáveis `DB_*` no Render (GR-20) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
 | Confirmar status do serviço Render de produção                                                  | verificação externa   |
 | Organizar o Jira (épico e tarefas da Etapa 2, responsáveis) **depois da consolidação documental** | gestão              |
 | Configurar a proteção de `main` e `develop` ([`ContextoFluxoGit.md`](ContextoFluxoGit.md), 11.2); limpar a `qa` local e `origin/qa` (3.4) | processo |

@@ -21,6 +21,7 @@ RAIZ = Path(settings.BASE_DIR)
 
 # Valores fictícios, só para os subprocessos.
 SECRET_TESTE = "chave-de-teste-producao-" + "x9Q2m7Lk4Rt8Vw1Zp6Hs3Jd5Nb0Fc" * 2
+SENHA_DB_TESTE = "senha-db-ficticia-Q7w2"
 
 AMBIENTE_BASE = {
     "DJANGO_SECRET_KEY": SECRET_TESTE,
@@ -31,6 +32,15 @@ AMBIENTE_BASE = {
     "DEMO_LOGIN": "login-ficticio",
     "DEMO_PASSWORD": "senha-ficticia",
     "GEMINI_MODEL": "modelo-teste",
+    # Banco fictício e inalcançável (.invalid): nenhum cenário usa o .env real.
+    "DB_HOST": "db-teste.invalid",
+    "DB_PORT": "",
+    "DB_NAME": "banco-teste",
+    "DB_USER": "usuario-teste",
+    "DB_PASSWORD": SENHA_DB_TESTE,
+    "DB_SSLMODE": "",
+    "DB_SSLROOTCERT": "",
+    "DB_CONNECT_TIMEOUT": "",
 }
 
 SCRIPT_SETTINGS = """
@@ -50,6 +60,10 @@ print(json.dumps({
     "STATIC_ROOT": str(settings.STATIC_ROOT),
     "STORAGES": settings.STORAGES,
     "DATABASE_ENGINE": connections["default"].settings_dict["ENGINE"],
+    "DATABASE_HOST": connections["default"].settings_dict["HOST"],
+    "DATABASE_PORT": connections["default"].settings_dict["PORT"],
+    "DATABASE_CONN_MAX_AGE": connections["default"].settings_dict["CONN_MAX_AGE"],
+    "DATABASE_OPTIONS": connections["default"].settings_dict["OPTIONS"],
     "TEM_GEMINI_API_KEY": hasattr(settings, "GEMINI_API_KEY"),
 }))
 """
@@ -177,12 +191,49 @@ class ArquivosEstaticosTests(SimpleTestCase):
                 )
 
 
-class SemBancoNemChaveEmProducaoTests(SimpleTestCase):
-    def test_producao_sem_banco_sem_database_url_e_sem_gemini_api_key(self):
+class BancoESemChaveEmProducaoTests(SimpleTestCase):
+    def test_producao_com_postgresql_sem_database_url_e_sem_gemini_api_key(self):
         config = settings_com(RENDER_EXTERNAL_HOSTNAME="app-teste.onrender.com")
 
-        self.assertEqual(config["DATABASE_ENGINE"], "django.db.backends.dummy")
+        self.assertEqual(config["DATABASE_ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual(config["DATABASE_HOST"], "db-teste.invalid")
         self.assertIs(config["TEM_GEMINI_API_KEY"], False)
+
+    def test_padroes_do_banco_session_pooler_com_tls(self):
+        config = settings_com()
+
+        self.assertEqual(config["DATABASE_PORT"], "5432")
+        self.assertEqual(config["DATABASE_CONN_MAX_AGE"], 0)
+        self.assertEqual(config["DATABASE_OPTIONS"], {"sslmode": "require", "connect_timeout": 10})
+
+    def test_verify_full_com_certificado_da_ca(self):
+        config = settings_com(DB_SSLMODE="verify-full", DB_SSLROOTCERT="/caminho/ca.crt",
+                              DB_CONNECT_TIMEOUT="5")
+
+        self.assertEqual(config["DATABASE_OPTIONS"], {
+            "sslmode": "verify-full", "connect_timeout": 5, "sslrootcert": "/caminho/ca.crt",
+        })
+
+    def test_variaveis_obrigatorias_ausentes_impedem_a_inicializacao(self):
+        for variavel in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD"):
+            with self.subTest(variavel=variavel):
+                processo = executar(["-c", SCRIPT_SETTINGS], **{variavel: "  "})
+
+                self.assertNotEqual(processo.returncode, 0)
+                self.assertIn("ImproperlyConfigured", processo.stderr)
+                self.assertIn(f"Variáveis de banco ausentes: {variavel}", processo.stderr)
+                self.assertNotIn(SENHA_DB_TESTE, processo.stderr)
+
+    def test_modos_tls_inseguros_e_timeout_invalido_sao_recusados(self):
+        for alteracao in ({"DB_SSLMODE": "disable"}, {"DB_SSLMODE": "allow"},
+                          {"DB_SSLMODE": "prefer"}, {"DB_CONNECT_TIMEOUT": "abc"},
+                          {"DB_CONNECT_TIMEOUT": "0"}):
+            with self.subTest(**alteracao):
+                processo = executar(["-c", SCRIPT_SETTINGS], **alteracao)
+
+                self.assertNotEqual(processo.returncode, 0)
+                self.assertIn("ImproperlyConfigured", processo.stderr)
+                self.assertNotIn(SENHA_DB_TESTE, processo.stderr)
 
     def test_check_deploy_so_com_avisos_delegados_ao_render(self):
         processo = executar(
@@ -237,12 +288,13 @@ class ScriptsDeDeployTests(SimpleTestCase):
         self.assertRegex(versao, r"^3\.\d+\.\d+$")
         self.assertGreaterEqual(tuple(map(int, versao.split(".")[:2])), (3, 12))  # Django 6.1
 
-    def test_dependencias_de_producao_fixadas_e_sem_banco(self):
+    def test_dependencias_de_producao_fixadas_com_driver_postgresql(self):
         requisitos = self.ler("requirements.txt").lower()
 
         self.assertRegex(requisitos, r"(?m)^gunicorn==\d")
         self.assertRegex(requisitos, r"(?m)^whitenoise==\d")
-        for proibido in ("uvicorn", "psycopg", "dj-database-url", "celery", "redis"):
+        self.assertRegex(requisitos, r"(?m)^psycopg\[binary\]==\d")
+        for proibido in ("uvicorn", "psycopg2", "dj-database-url", "celery", "redis"):
             self.assertNotIn(proibido, requisitos)
 
     def test_env_example_sem_chave_gemini_nem_banco(self):

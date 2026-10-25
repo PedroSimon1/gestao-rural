@@ -123,7 +123,7 @@ As versões vêm do `requirements.txt`, que fixa todas as dependências, inclusi
 
 ## Arquitetura
 
-Monólito **Django** com renderização no servidor. A versão atual é **stateless**: não tem banco de dados, models nem armazenamento de arquivos. O processamento é **síncrono**: os dois Agents rodam em sequência dentro da mesma requisição.
+Monólito **Django** com renderização no servidor. A Etapa 1 (`f7786e8`) é **stateless**: não tem banco de dados, models nem armazenamento de arquivos. Na GR-33, a conexão com o PostgreSQL (Supabase) foi configurada, mas ainda não há models nem migrations, e nada é gravado: o processamento continua sem estado. A persistência da Etapa 2 está planejada. O processamento é **síncrono**: os dois Agents rodam em sequência dentro da mesma requisição.
 
 | Camada | Componente | Responsabilidade |
 | ------ | ---------- | ---------------- |
@@ -242,7 +242,7 @@ gestao-rural/
 | **Conta e chave da Google Gemini API** | Necessária para processar notas. A chave é informada **na tela**, não no `.env` |
 | Acesso à internet | Os Agents chamam a API do Gemini |
 
-A versão atual **não precisa de banco de dados**. PostgreSQL ou Supabase **não** são pré-requisitos.
+Um banco **PostgreSQL** acessível (o projeto usa o Supabase pelo Session Pooler) é pré-requisito: sem as variáveis `DB_*` preenchidas no `.env`, o Django não inicia. Ainda não há models nem migrations, e nada é gravado no banco.
 
 ---
 
@@ -296,6 +296,7 @@ Edite o `.env` e preencha, no mínimo:
 - `DJANGO_SECRET_KEY`: um valor longo e aleatório. Sem ele, toda requisição falha.
 - `DEMO_LOGIN` e `DEMO_PASSWORD`: as credenciais que você usará para entrar. Se ficarem vazias, o login recusa todo acesso.
 - `GEMINI_MODEL`: o modelo do Gemini usado pelos Agents. O `.env.example` traz um valor sugerido.
+- `DB_HOST`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`: a conexão do PostgreSQL (Session Pooler do Supabase, porta 5432). Se alguma faltar, o Django não inicia. `DB_PORT` já vem com `5432`, e os comentários do `.env.example` explicam cada valor.
 
 Mantenha `DJANGO_DEBUG=True` para desenvolvimento local. Para gerar uma chave secreta:
 
@@ -319,7 +320,7 @@ python manage.py runserver
 
 Acesse **http://127.0.0.1:8000/**. A raiz redireciona para `/documentos/`, que exige login e leva a `/login/`. Depois de entrar, selecione o PDF, informe a sua Gemini API Key e clique em processar.
 
-> **Não é necessário executar `python manage.py migrate`**: a versão atual não usa banco de dados. Estas instruções serão atualizadas quando a persistência da Etapa 2 for integrada.
+> **Não é necessário executar `python manage.py migrate`**: a conexão com o PostgreSQL está configurada, mas ainda não há models nem migrations, e o código não usa o banco. Estas instruções serão atualizadas quando a persistência da Etapa 2 for integrada.
 
 ---
 
@@ -342,7 +343,7 @@ Nomes conferidos em `config/settings.py`, `start.sh` e `.env.example`. **Nunca v
 | `PORT`, `WEB_CONCURRENCY` | Não | Porta e número de workers do Gunicorn (definidos pelo Render) | `8000`, `1` |
 | `RENDER_EXTERNAL_HOSTNAME` | — | Fornecida automaticamente pelo Render; incluída em hosts e CSRF | — |
 
-A **Gemini API Key não é uma variável de ambiente**: ela é informada na interface a cada processamento. Ainda não existem variáveis de conexão com banco de dados.
+A **Gemini API Key não é uma variável de ambiente**: ela é informada na interface a cada processamento. A conexão com o banco usa `DB_HOST`, `DB_NAME`, `DB_USER` e `DB_PASSWORD` (obrigatórias) e `DB_PORT`, `DB_SSLMODE`, `DB_SSLROOTCERT` e `DB_CONNECT_TIMEOUT` (opcionais), descritas no `.env.example`.
 
 ---
 
@@ -364,15 +365,15 @@ Execute com `DJANGO_DEBUG=True` no `.env`.
 | `documentos/test_processamento.py` | 26 | Montagem do JSON final, erros por etapa, uso da chave da requisição |
 | `documentos/test_interface.py` | 64 | Acesso, validação do PDF, processamento, XSS/CSRF, não persistência |
 | `usuarios/tests.py` | 37 | Login, logout, sigilo das credenciais, configuração ausente, cookies |
-| `config/test_sem_banco.py` | 9 | Garantia de que a versão atual não usa banco de dados |
-| `config/test_producao.py` | 19 | Hosts, HTTPS, cookies, estáticos, `check --deploy` e scripts |
+| `config/test_sem_banco.py` | 9 | PostgreSQL com TLS configurado, sem models, migrations nem uso do banco no código |
+| `config/test_producao.py` | 23 | Hosts, HTTPS, cookies, estáticos, `check --deploy`, scripts e variáveis `DB_*` |
 
 - **Sem chamadas reais à API:** os Agents são testados com clientes falsos ou com o SDK do Gemini substituído por dublês. A suíte não consome cota nem precisa de chave.
-- **Sem banco:** todos os testes são `SimpleTestCase`.
-- **Resultado registrado:** `Ran 291 tests — OK` no commit `f7786e8`, auditado em 24/10/2026 e reexecutado em 24/10/2026 (Python 3.14.8).
+- **Sem acesso ao banco:** todos os testes são `SimpleTestCase`, que recusam qualquer conexão; nenhum banco de teste é criado. Para garantir isolamento total do Supabase, rode com um host inalcançável, por exemplo `DB_HOST=db-teste.invalid DB_NAME=teste DB_USER=teste DB_PASSWORD=teste python manage.py test` (variáveis já definidas no ambiente não são sobrescritas pelo `.env`).
+- **Resultado registrado:** `Ran 291 tests — OK` no commit `f7786e8`, auditado em 24/10/2026 e reexecutado em 24/10/2026 (Python 3.14.8). Na branch da GR-33 (25/10/2026): `Ran 295 tests — OK`, com banco inalcançável.
 - **Limites:** não há medição de cobertura nem integração contínua (CI) configurada.
 
-> Os testes de `config/test_sem_banco.py` e parte de `config/test_producao.py` proíbem banco de dados. Eles serão substituídos quando a persistência da Etapa 2 for introduzida.
+> Na GR-33, as garantias "sem banco" de `config/test_sem_banco.py` e `config/test_producao.py` passaram a verificar a configuração PostgreSQL. Testes com banco (`TestCase`) exigem antes um PostgreSQL de teste isolado e ficam para a GR-34.
 
 ---
 
