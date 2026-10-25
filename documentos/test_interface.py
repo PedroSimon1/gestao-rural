@@ -659,11 +659,12 @@ class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
         self.assertFalse(hasattr(settings, "GEMINI_API_KEY"))
         self.assertNotIn(CHAVE_FORMULARIO, repr(dict(os.environ)))
 
-    def test_sem_banco(self):
-        # SimpleTestCase já falha em qualquer consulta; aqui só se confirma o backend.
+    def test_processamento_nao_abre_conexao_com_o_banco(self):
+        # SimpleTestCase já falha em qualquer consulta; aqui se confirma que o
+        # processamento nem chega a abrir conexão com o PostgreSQL.
         self.processar_com_logs()
 
-        self.assertEqual(connections["default"].settings_dict["ENGINE"], "django.db.backends.dummy")
+        self.assertIsNone(connections["default"].connection)
 
 
 class JavaScriptTests(InterfaceTestBase):

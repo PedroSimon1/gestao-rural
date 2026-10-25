@@ -1,8 +1,12 @@
 # ADR-001 — Adoção do Supabase PostgreSQL para a N2 Etapa 2
 
-> **Estado: ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO.**
+> **Estado: ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33: conexão configurada).**
 >
 > Este registro documenta uma decisão da equipe. Nada do que está descrito aqui existe no código auditado (`f7786e8`, tag `n2-etapa1-final`).
+>
+> **Atualização de 25/10/2026 (GR-33):** a conexão PostgreSQL foi configurada na branch `feature/gr-33-configurar-supabase`, ainda **não integrada** a `develop`. Não há models, migrations nem `migrate` na publicação. Detalhes na seção 13.1.
+>
+> Estado anterior (HISTÓRICO, 24/10/2026): ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO.
 
 ---
 
@@ -14,10 +18,10 @@
 | Título               | Adoção do Supabase PostgreSQL para a N2 Etapa 2                                       |
 | Data do registro     | 24/10/2026                                                                            |
 | Decisores            | Equipe do projeto (Pedro Simon e Gustavo Lopes)                                       |
-| Estado               | **ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO**                                       |
+| Estado               | **ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33: conexão configurada)**; antes: ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO |
 | Substitui            | Plano Render + **Neon** PostgreSQL de `tecnologias.pdf` (out/2026), somente no item "hospedagem do banco" |
 | Substituído por      | —                                                                                     |
-| Código de referência | `f7786e8` (`main` = `qa` na auditoria; hoje `main` = `develop`), sem banco de dados   |
+| Código de referência | `f7786e8` (`main` = `qa` na auditoria; hoje `main` = `develop`), sem banco de dados. Conexão em andamento: branch `feature/gr-33-configurar-supabase` (não integrada) |
 | Documento central    | [`ContextoProjeto.md`](../../ContextoProjeto.md), seções 9.3, 10.4, 15, 22.2 e 26     |
 
 ## 2. Contexto
@@ -83,14 +87,14 @@ O acesso ao banco será feito pelo Django, no servidor. O navegador não acessar
 | Render                                    | hospedagem da aplicação Django                   | `build.sh`, `start.sh`, registro de 29/09/2026   |
 | Git, GitHub, Jira                         | versionamento, PRs, tarefas                      | repositório, `ContextoTasksJira.md`              |
 
-Tecnologias **adicionadas pela decisão** (PLANEJADO):
+Tecnologias **adicionadas pela decisão** (situação na branch `feature/gr-33-configurar-supabase`, 25/10/2026):
 
 | Tecnologia                    | Papel                                     | Situação                                         |
 | ----------------------------- | ----------------------------------------- | ------------------------------------------------ |
-| Supabase PostgreSQL           | banco relacional gerenciado               | projeto Supabase **não criado/não confirmado**   |
-| Django ORM                    | models, consultas e escrita               | nenhum model existe                              |
+| Supabase PostgreSQL           | banco relacional gerenciado               | **EM ANDAMENTO**: um único projeto, `gestao-rural-homologacao` (São Paulo), criado por Pedro Simon; conexão configurada em `config/settings.py` |
+| Django ORM                    | models, consultas e escrita               | engine `django.db.backends.postgresql` configurado; nenhum model existe |
 | Django Migrations             | versionamento do esquema                  | nenhuma migration existe; `build.sh` não executa `migrate` |
-| Psycopg 3 (driver)            | conexão Django ↔ PostgreSQL               | **proposto, sujeito a validação técnica**; não está em `requirements.txt` |
+| Psycopg 3 (driver)            | conexão Django ↔ PostgreSQL               | `psycopg[binary]==3.3.6` em `requirements.txt`; instalado e validado localmente; build no Render **não validado** |
 
 ## 6. Tecnologia substituída
 
@@ -98,7 +102,7 @@ Tecnologias **adicionadas pela decisão** (PLANEJADO):
 | --------------------- | -------------------------------------------- | -------------------------- |
 | Hospedagem do banco   | Neon Free (`tecnologias.pdf`)                | Supabase PostgreSQL        |
 | Banco QA / Produção   | "Neon QA" / "Neon Produção"                  | bancos Supabase independentes por ambiente (a definir) |
-| Driver                | "a definir (por exemplo psycopg)"            | Psycopg 3 como candidato   |
+| Driver                | "a definir (por exemplo psycopg)"            | Psycopg 3 (`psycopg[binary]==3.3.6`, GR-33) |
 
 O restante de `tecnologias.pdf` continua coerente com esta decisão: Render, Django, Agents, ORM, Migrations e ambientes separados. O PDF **não deve ser editado**. Ele permanece como registro histórico do plano Neon.
 
@@ -113,7 +117,7 @@ Motivos registrados pela equipe:
 
 ## 8. Consequências técnicas
 
-Quando a decisão for implementada, as seguintes mudanças serão necessárias (lista derivada do código atual; nenhuma foi feita):
+Quando a decisão for implementada, as seguintes mudanças serão necessárias (lista derivada do código de 24/10/2026). Na GR-33 (branch `feature/gr-33-configurar-supabase`, não integrada) foram feitas a configuração do banco, a dependência e as variáveis de ambiente (`.env.example`); a adaptação dos testes de "sem banco" está em andamento; as demais continuam pendentes:
 
 | Área                       | Arquivo(s) afetado(s)                               | Mudança prevista                                                       |
 | -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -132,16 +136,16 @@ Os testes atuais vão **falhar de propósito** assim que qualquer item de banco 
 
 | Ambiente        | Aplicação                        | Banco (PLANEJADO)                 | Situação                                    |
 | --------------- | -------------------------------- | --------------------------------- | ------------------------------------------- |
-| Desenvolvimento | local, branch de tarefa          | PostgreSQL local ou projeto Supabase de desenvolvimento (a definir) | não configurado |
-| Homologação     | `develop` (homologação local; Render de homologação não definido) | projeto/banco Supabase de homologação | não configurado; não há serviço Render de homologação comprovado. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO; `qa` excluída) |
-| Produção        | Render / `main`                  | projeto/banco Supabase de produção | não configurado                             |
+| Desenvolvimento | local, branch de tarefa          | PostgreSQL local ou projeto Supabase de desenvolvimento (a definir) | **não existe** banco de DEV separado; o único banco disponível para o ambiente local é o projeto de homologação. Proposta (não decidida, T-06): PostgreSQL local para DEV e testes |
+| Homologação     | `develop` (homologação local; Render de homologação não definido) | projeto Supabase `gestao-rural-homologacao` (São Paulo) | **projeto criado** (Pedro Simon); conexão configurada na branch da GR-33 e validada localmente. Não há serviço Render de homologação comprovado. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO; `qa` excluída) |
+| Produção        | Render / `main`                  | projeto/banco Supabase de produção | **não existe**; Render sem as variáveis `DB_*` (GR-20). Proposta (não decidida, T-06): projeto Supabase separado para produção |
 
 Requisitos para a implementação:
 
 - credenciais independentes por ambiente, cadastradas no painel do Render e no `.env` local, **nunca** no repositório;
-- escolher o modo de conexão: conexão direta ou *connection pooler* do Supabase. Verificar se o Render alcança o endereço escolhido;
-- se for usado o pooler em modo *transaction*, validar o comportamento de *prepared statements* do Psycopg 3 com o Django;
-- definir a região do banco e verificar a latência com o Render.
+- escolher o modo de conexão: conexão direta ou *connection pooler* do Supabase. Verificar se o Render alcança o endereço escolhido. **Escolhido (GR-33):** Session Pooler (Supavisor, modo *session*, porta 5432), compatível com IPv4; o alcance a partir do Render ainda **não foi validado**;
+- se for usado o pooler em modo *transaction*, validar o comportamento de *prepared statements* do Psycopg 3 com o Django. **Não se aplica** ao modo *session* escolhido, compatível com *prepared statements*;
+- definir a região do banco e verificar a latência com o Render. **Região:** São Paulo; latência com o Render não medida.
 
 ## 10. Impactos na documentação
 
@@ -157,10 +161,12 @@ Requisitos para a implementação:
 | Risco                                                                         | Situação          |
 | ----------------------------------------------------------------------------- | ----------------- |
 | Prazo: decisão tomada a 3 dias da entrega (27/10/2026), sem implementação     | crítico           |
-| Compatibilidade do Psycopg 3 com Python 3.14 e Django 6.1 no Render           | a validar         |
-| Conectividade Render → Supabase (modo de conexão, rede, TLS)                  | a validar         |
+| Compatibilidade do Psycopg 3 com Python 3.14 e Django 6.1 no Render           | validado localmente (`psycopg[binary]==3.3.6`); build no Render a validar |
+| Conectividade Render → Supabase (modo de conexão, rede, TLS)                  | a validar (modo escolhido: Session Pooler com TLS) |
+| Publicar a GR-33 sem as variáveis `DB_*` no Render                            | o Django **não inicia** (falha intencional na carga do settings); configurar o Render (GR-20) antes de publicar |
+| TLS em `require` criptografa mas não valida o certificado do servidor         | aceito por ora; `verify-ca`/`verify-full` com `DB_SSLROOTCERT` disponíveis |
 | Limites e pausa por inatividade do plano gratuito do Supabase, somados à suspensão do Render Free | a confirmar nas regras vigentes do plano |
-| Worker único do Gunicorn e chamadas longas ao Gemini mantendo conexões abertas | a avaliar        |
+| Worker único do Gunicorn e chamadas longas ao Gemini mantendo conexões abertas | mitigado: `CONN_MAX_AGE = 0` (conexão por requisição) pelo limite de conexões do Session Pooler |
 | Exposição acidental de credenciais em repositório **público**                 | mitigação: variáveis de ambiente, `.env` no `.gitignore`, revisão do diff |
 | Confundir componentes do Supabase (Auth, Storage, chaves de API) com requisitos | mitigação: seção 4 deste ADR |
 
@@ -175,16 +181,38 @@ Requisitos para a implementação:
 
 ## 13. Pendências de implementação
 
-| ID     | Pendência                                                                      |
-| ------ | ------------------------------------------------------------------------------ |
-| ADR1-P1 | Criar os projetos/bancos Supabase por ambiente (quem cria e quem tem acesso: a definir) |
-| ADR1-P2 | Validar Psycopg 3 (versão, instalação no Render, Python 3.14)                 |
-| ADR1-P3 | Definir os nomes das variáveis de conexão e o formato de configuração em `settings.py` |
-| ADR1-P4 | Escolher conexão direta ou pooler, com os parâmetros correspondentes          |
-| ADR1-P5 | Modelar as entidades da Etapa 2 (fase posterior; não faz parte deste ADR)     |
-| ADR1-P6 | Incluir `migrate` na publicação                                                |
-| ADR1-P7 | Substituir os testes que proíbem banco                                         |
-| ADR1-P8 | Atualizar `.env.example` (somente nomes) e o painel do Render                  |
+| ID     | Pendência                                                                      | Situação (25/10/2026, branch da GR-33) |
+| ------ | ------------------------------------------------------------------------------ | -------------------------------------- |
+| ADR1-P1 | Criar os projetos/bancos Supabase por ambiente (quem cria e quem tem acesso: a definir) | **PARCIAL**: só o projeto de homologação existe (Pedro Simon). DEV, testes e produção: proposta T-06, não decidida |
+| ADR1-P2 | Validar Psycopg 3 (versão, instalação no Render, Python 3.14)                 | **PARCIAL**: `psycopg[binary]==3.3.6` validado localmente; build no Render não validado |
+| ADR1-P3 | Definir os nomes das variáveis de conexão e o formato de configuração em `settings.py` | **RESOLVIDA**: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSLMODE`, `DB_SSLROOTCERT`, `DB_CONNECT_TIMEOUT` (seção 13.1) |
+| ADR1-P4 | Escolher conexão direta ou pooler, com os parâmetros correspondentes          | **RESOLVIDA**: Session Pooler, modo *session*, porta 5432, TLS obrigatório |
+| ADR1-P5 | Modelar as entidades da Etapa 2 (fase posterior; não faz parte deste ADR)     | pendente (GR-34/GR-35+) |
+| ADR1-P6 | Incluir `migrate` na publicação                                                | pendente (`build.sh` sem `migrate`) |
+| ADR1-P7 | Substituir os testes que proíbem banco                                         | em andamento na GR-33 (testes de configuração); testes com banco: pendente |
+| ADR1-P8 | Atualizar `.env.example` (somente nomes) e o painel do Render                  | **PARCIAL**: `.env.example` atualizado; Render sem as variáveis `DB_*` (GR-20) |
+
+### 13.1 Andamento — GR-33 (conexão configurada)
+
+Estado da branch `feature/gr-33-configurar-supabase` em 25/10/2026, ainda **não integrada** a `develop`:
+
+- `DATABASES["default"]` usa `django.db.backends.postgresql` com Psycopg 3 (`psycopg[binary]==3.3.6`).
+- Supabase usado **somente como PostgreSQL**: Data API desativada; sem Auth e sem Storage; o navegador não acessa o banco.
+- Conexão pelo **Session Pooler** (Supavisor, modo *session*, porta 5432): compatível com IPv4 e com *prepared statements*. Projeto `gestao-rural-homologacao`, região São Paulo — o **único** projeto Supabase existente.
+- Variáveis (somente nomes; valores fora do Git):
+
+  | Variável             | Uso                                                                 |
+  | -------------------- | ------------------------------------------------------------------- |
+  | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | obrigatórias; ausentes ou vazias → `ImproperlyConfigured` na carga do settings, sem banco substituto |
+  | `DB_PORT`            | opcional; padrão 5432                                               |
+  | `DB_SSLMODE`         | opcional; padrão `require`; aceita só `require`, `verify-ca`, `verify-full` |
+  | `DB_SSLROOTCERT`     | opcional; certificado da CA do Supabase, necessário para `verify-ca`/`verify-full` |
+  | `DB_CONNECT_TIMEOUT` | opcional; padrão 10 s                                               |
+
+- `CONN_MAX_AGE = 0`: conexão por requisição, pelo limite de conexões do Session Pooler e pelas requisições longas ao Gemini.
+- Limitação: `require` criptografa, mas não valida o certificado do servidor.
+- Validação da conexão pelo Django ORM: validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado.
+- Fora da GR-33: models e migrations (GR-34/GR-35+), `migrate` na publicação e variáveis no Render (GR-20).
 
 ## 14. Critérios futuros de validação
 

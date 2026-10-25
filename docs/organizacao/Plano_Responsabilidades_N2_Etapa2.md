@@ -184,7 +184,7 @@ Caminhos que podem andar em paralelo desde o início, depois de acordado o contr
 | Dependências          | [ADR-001](../arquitetura/ADR-001-supabase.md) (pendências ADR1-P1 a ADR1-P4, ADR1-P6, ADR1-P8) |
 | Critérios de aceite   | 1. `python manage.py check` passa com a conexão configurada por variáveis de ambiente.<br>2. O driver escolhido (Psycopg 3 é o candidato) instala e funciona com Python 3.14 e Django 6.1, localmente e no build do Render.<br>3. `.env.example` contém só **nomes** de variáveis.<br>4. Nenhuma credencial aparece no diff.<br>5. O modo de conexão (direta ou pooler) está registrado no ADR-001. |
 | Entregáveis           | conexão configurada; dependência do driver; `.env.example` atualizado; decisão do modo de conexão registrada; bancos de desenvolvimento e produção criados (com autorização) |
-| Situação atual        | NÃO INICIADO. `DATABASES = {}`; projeto Supabase não criado |
+| Situação atual        | EM ANDAMENTO (GR-33, 25/10/2026; branch `feature/gr-33-configurar-supabase`, não integrada). Conexão PostgreSQL configurada por variáveis `DB_*` com Psycopg 3 e Session Pooler; `.env.example` atualizado; modo de conexão registrado no ADR-001 (seção 13.1). Existe só o projeto Supabase de homologação; bancos de DEV/testes e de produção pendentes (T-06); build e variáveis no Render pendentes (GR-20); `migrate` na publicação pendente. Antes: NÃO INICIADO |
 
 ### P02 — Models e migrations
 
