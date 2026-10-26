@@ -282,6 +282,14 @@ class ScriptsDeDeployTests(SimpleTestCase):
         self.assertIn('--timeout "${GUNICORN_TIMEOUT:-420}"', start)
         self.assertNotIn("runserver", start)
 
+    def test_publicacao_nao_aplica_migrations(self):
+        # Migrations são aplicadas manualmente, no ambiente certo (GR-34).
+        for nome in ("build.sh", "start.sh"):
+            comandos = self.comandos(nome)
+            for proibido in ("migrate", "makemigrations", "flush", "loaddata"):
+                with self.subTest(script=nome, comando=proibido):
+                    self.assertNotIn(proibido, comandos)
+
     def test_versao_do_python_fixada(self):
         versao = self.ler(".python-version").strip()
 
@@ -306,3 +314,13 @@ class ScriptsDeDeployTests(SimpleTestCase):
             self.assertNotIn(proibido, exemplo)
         for variavel in ("DJANGO_SECRET_KEY", "DEMO_LOGIN", "DEMO_PASSWORD"):
             self.assertRegex(exemplo, rf"(?m)^{variavel}=$")
+
+    def test_env_example_com_banco_de_teste_sem_credenciais(self):
+        exemplo = self.ler(".env.example")
+
+        for variavel in ("DB_TEST_HOST", "DB_TEST_PORT", "DB_TEST_NAME", "DB_TEST_USER"):
+            self.assertRegex(exemplo, rf"(?m)^{variavel}=")
+        self.assertRegex(exemplo, r"(?m)^DB_TEST_NAME=test_")
+        self.assertRegex(exemplo, r"(?m)^DB_TEST_PASSWORD=$")
+        # O exemplo aponta para o PostgreSQL local (socket ou loopback).
+        self.assertRegex(exemplo, r"(?m)^DB_TEST_HOST=(/|localhost$|127\.0\.0\.1$)")
