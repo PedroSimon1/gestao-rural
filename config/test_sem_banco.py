@@ -31,7 +31,7 @@ from config.banco_de_teste import (
 )
 
 RAIZ = Path(settings.BASE_DIR)
-PASTAS_DO_PROJETO = ("agents", "cadastros", "config", "documentos", "usuarios")
+PASTAS_DO_PROJETO = ("agents", "cadastros", "config", "documentos", "financeiro", "usuarios")
 
 # O PDF é lido só durante a requisição: nenhum campo guarda arquivo ou bytes.
 CAMPOS_DE_ARQUIVO = (models.FileField, models.FilePathField, models.BinaryField)
