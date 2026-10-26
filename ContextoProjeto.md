@@ -642,7 +642,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (branch não integrada): `Pessoa` e `PapelPessoa`, ver 15.1.2 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (branch não integrada): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (branch não integrada): `Classificacao` e categorias iniciais, ver 15.1.3 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -695,6 +695,52 @@ Novo app `cadastros` (`cadastros/models.py`, `cadastros/validators.py`, migratio
 - **Rebaixar COMPLETO para INCOMPLETO** (apagar um documento válido): não especificado; o model não impede, e a regra deve ser decidida pela equipe.
 - **Integração:** ainda falta usar os models no fluxo (P03 e P04) e nos cadastros (P08).
 - **GR-36:** as FKs de `MovimentoContas` para Pessoa ou para PapelPessoa devem usar `PROTECT`.
+
+## 15.1.3 - GR-36: Classificacao e categorias iniciais (branch `feature/gr-36-classificacoes`, 26/10/2026, não integrada)
+
+Model `Classificacao` no app `cadastros` (`cadastros/models.py`), com as migrations `0002_classificacao` (esquema) e `0003_categorias_iniciais` (dados). A `0001_initial` da GR-35 não foi alterada.
+
+| Entidade | Tabela | Campos | Constraints no banco |
+| -------- | ------ | ------ | -------------------- |
+| `Classificacao` (ENT-02) | `classificacoes` | `id` (BigAutoField), `tipo` (DESPESA/RECEITA), `codigo` (até 60, código estável em maiúsculas, como o valor do Enum do Classificador), `descricao` (até 255, texto legível), `status` (ATIVO/INATIVO), `criado_em`, `atualizado_em` | `classificacao_tipo_codigo_unico` (`tipo`, `codigo`): o mesmo código pode existir em tipos diferentes; `classificacao_tipo_valido`; `classificacao_codigo_valido` (`^[A-Z0-9]+(_[A-Z0-9]+)*$`); `classificacao_descricao_preenchida`; `classificacao_status_valido` |
+
+**Regras:**
+- **Reuso da GR-35:** `ComStatus` e `SemExclusaoQuerySet`. Não há exclusão física (`delete()` levanta `ExclusaoNaoPermitida`, RN-01); `inativar()` e `reativar()` são explícitos; `ativos()` filtra as ativas.
+- **Identidade imutável:** `tipo` e `codigo` não mudam depois da criação (`ValidationError` com código `identidade_imutavel` no `save()` e no `full_clean()`), para não alterar o significado dos registros que os usam. A `descricao` pode ser corrigida. `QuerySet.update()` não passa por essa verificação; a aplicação não o usa para isso.
+- **Busca:** `Classificacao.objects.por_codigo(tipo, codigo)` encontra o registro em qualquer status: um INATIVO é identificado, não recriado (coerente com T-05).
+
+**Categorias iniciais** (migration de dados `0003_categorias_iniciais`, `RunPython`, valores congelados na migration, sem importar código da aplicação):
+
+| Tipo | Código | Descrição |
+| ---- | ------ | --------- |
+| DESPESA | `MANUTENCAO_E_OPERACAO` | MANUTENÇÃO E OPERAÇÃO |
+| DESPESA | `INFRAESTRUTURA_E_UTILIDADES` | INFRAESTRUTURA E UTILIDADES |
+
+- Os códigos são iguais aos valores do Enum `TipoDespesa` (`agents/classificador/schemas.py`).
+- Idempotente: `get_or_create` por (`tipo`, `codigo`); um registro existente fica como está (não é reativado e a descrição não é sobrescrita). A reversão é `noop`: nada é apagado (RN-01).
+- Compatível com PT-06: aplicada manualmente com `migrate` em cada ambiente. Não depende do Gemini.
+
+**Migrations e testes:**
+- `0002_classificacao` e `0003_categorias_iniciais` foram geradas com `DB_HOST` inalcançável e validadas **só** no banco local descartável dos testes. **Não** foram aplicadas em homologação nem em produção.
+- **Testes:** `cadastros/test_classificacao.py`, com 22 testes no PostgreSQL local (`DB_TEST_*`).
+- **Suíte completa:** `Ran 386 tests — OK`.
+
+**Separação do que existe e do que falta:**
+
+| Escopo | Situação |
+| ------ | -------- |
+| GR-36 (implementado na branch) | model, constraints, imutabilidade de `tipo`/`codigo`, `por_codigo()`, inativação e reativação, duas categorias iniciais de DESPESA |
+| Integração com o Extrator e o Classificador | **não implementada**: consulta da classificação (FLU-03) e criação a partir do resultado do Classificador (FLU-07) |
+| Movimentos financeiros | **não implementados**: `MovimentoContas`, `ParcelaContas`, N classificações por movimento e FKs com `PROTECT` |
+| Homologação | **pendente**: aplicar `0002` e `0003` manualmente no projeto de homologação (PT-06) |
+
+**Pendências e decisões em aberto** (não decididas pelo agente):
+- **Q-05 (parcial):** o valor do Enum corresponde diretamente ao `codigo`, e a `Descricao` é o texto legível. As categorias do cliente (Insumos/Operacionais/Venda produção) e as categorias de RECEITA **não** foram criadas, porque não há lista aprovada; a questão continua em aberto.
+- **Q-06** (várias classificações por nota) e **RN-04** pertencem aos movimentos, ainda não implementados.
+- **Interface:** FUN-04 e FUN-05 (manter tipos de receita e de despesa) continuam sem telas (P08).
+- **Reversão (PT-06):** `migrate cadastros 0002` é seguro (a carga não apaga nada); `migrate cadastros 0001` derruba a tabela `classificacoes` com os dados, o que contraria RN-01 — não reverter assim em ambiente compartilhado.
+- **Testes futuros:** um `TransactionTestCase` apaga as categorias iniciais no `flush`; testes desse tipo que dependam delas devem criá-las ou usar `serialized_rollback=True`.
+- **Movimentos (decisões futuras):** FKs com `PROTECT`; se o vínculo N classificações por movimento (RN-04) também segue RN-01; conferir o `tipo` com a natureza do movimento; bloquear classificação INATIVA em movimento novo.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 

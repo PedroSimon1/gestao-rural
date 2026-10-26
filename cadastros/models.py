@@ -287,3 +287,107 @@ class PapelPessoa(ComStatus):
 
     def __str__(self):
         return f"{self.pessoa.razao_social}: {self.papel}"
+
+
+class TipoClassificacao(models.TextChoices):
+    DESPESA = "DESPESA", "Despesa"
+    RECEITA = "RECEITA", "Receita"
+
+
+# Código estável em maiúsculas, como os valores do Enum do Classificador
+# (ex.: MANUTENCAO_E_OPERACAO).
+FORMATO_CODIGO = r"^[A-Z0-9]+(_[A-Z0-9]+)*$"
+
+
+class ClassificacaoQuerySet(SemExclusaoQuerySet):
+    def por_codigo(self, tipo, codigo):
+        """Busca em qualquer status: um registro INATIVO é identificado, não recriado."""
+        return self.filter(tipo=tipo, codigo=(codigo or "").strip().upper())
+
+
+class Classificacao(ComStatus):
+    """Tipos de despesa e de receita (ENT-02, GR-36).
+
+    tipo e codigo identificam a classificação e não mudam depois de criados,
+    para não alterar o significado de registros que já a usam; a descrição é o
+    texto legível e pode ser corrigida. Inativação e reativação são explícitas
+    e não há exclusão (RN-01 a RN-03). QuerySet.update() e fixtures (loaddata,
+    que não chamam o save()) não passam por essa proteção: a aplicação não os
+    usa para mudar tipo ou código.
+    """
+
+    tipo = models.CharField(max_length=7, choices=TipoClassificacao)
+    codigo = models.CharField(max_length=60)
+    descricao = models.CharField(max_length=255)
+
+    objects = ClassificacaoQuerySet.as_manager()
+
+    class Meta:
+        db_table = "classificacoes"
+        ordering = ["tipo", "descricao", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tipo", "codigo"],
+                name="classificacao_tipo_codigo_unico",
+                violation_error_message="Já existe uma classificação com este tipo e código.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(tipo__in=TipoClassificacao.values),
+                name="classificacao_tipo_valido",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(codigo__regex=FORMATO_CODIGO),
+                name="classificacao_codigo_valido",
+                violation_error_message=(
+                    "Use letras maiúsculas sem acento, números e sublinhado no "
+                    "código (ex.: MANUTENCAO_E_OPERACAO)."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(descricao__regex=r"\S"),
+                name="classificacao_descricao_preenchida",
+                violation_error_message="Informe a descrição.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=Status.values),
+                name="classificacao_status_valido",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()}: {self.descricao}"
+
+    def _normalizar(self):
+        self.codigo = (self.codigo or "").strip().upper()
+        self.descricao = " ".join((self.descricao or "").split())
+
+    def _validar_identidade(self):
+        """tipo e codigo de uma classificação gravada não mudam."""
+        # pk, e não _state.adding: um objeto novo com pk explícita de um
+        # registro existente faria UPDATE sem passar por esta verificação.
+        if self.pk is None:
+            return
+        original = (
+            Classificacao.objects.filter(pk=self.pk).values_list("tipo", "codigo").first()
+        )
+        if original and original != (self.tipo, self.codigo):
+            raise ValidationError(
+                "O tipo e o código de uma classificação não podem ser alterados; "
+                "crie outra classificação e inative esta.",
+                code="identidade_imutavel",
+            )
+
+    def clean_fields(self, exclude=None):
+        self._normalizar()
+        super().clean_fields(exclude=exclude)
+
+    def clean(self):
+        super().clean()
+        self._validar_identidade()
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or {"tipo", "codigo", "descricao"} & set(update_fields):
+            self._normalizar()
+            self._validar_identidade()
+        super().save(*args, **kwargs)
