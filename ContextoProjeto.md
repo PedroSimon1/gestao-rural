@@ -642,7 +642,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (branch não integrada): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (branch não integrada): `Classificacao` e categorias iniciais, ver 15.1.3 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (branch não integrada): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -741,6 +741,65 @@ Model `Classificacao` no app `cadastros` (`cadastros/models.py`), com as migrati
 - **Reversão (PT-06):** `migrate cadastros 0002` é seguro (a carga não apaga nada); `migrate cadastros 0001` derruba a tabela `classificacoes` com os dados, o que contraria RN-01 — não reverter assim em ambiente compartilhado.
 - **Testes futuros:** um `TransactionTestCase` apaga as categorias iniciais no `flush`; testes desse tipo que dependam delas devem criá-las ou usar `serialized_rollback=True`.
 - **Movimentos (decisões futuras):** FKs com `PROTECT`; se o vínculo N classificações por movimento (RN-04) também segue RN-01; conferir o `tipo` com a natureza do movimento; bloquear classificação INATIVA em movimento novo.
+
+## 15.1.4 - GR-37: MovimentoConta e MovimentoClassificacao (branch `feature/gr-37-movimento-classificacao`, 26/10/2026, não integrada)
+
+Novo app `financeiro` (`financeiro/models.py`, `financeiro/servicos.py`, migration `financeiro/migrations/0001_initial.py`). O app depende de `cadastros`, e não o contrário. As migrations de `cadastros` não foram alteradas. Decisões aprovadas por Pedro Simon e Gustavo Lopes em 26/10/2026.
+
+| Entidade | Tabela | Campos | Constraints no banco |
+| -------- | ------ | ------ | -------------------- |
+| `MovimentoConta` (ENT-03) | `movimentos_contas` | `id` (BigAutoField), `tipo` (APAGAR/ARECEBER), `origem` (NOTA_FISCAL/MANUAL), `status` (CONFIRMADO, padrão / CANCELADO; sem PENDENTE ou RASCUNHO, conforme Q-02), `contraparte` (FK `Pessoa`, `PROTECT`), `faturado` (FK `Pessoa`, `PROTECT`, anulável; obrigatório no APAGAR, FLU-08), `valor_total` (Decimal 12,2), `analise_origem_id` (UUID opcional, **único**), `criado_em`, `atualizado_em` | `movimento_tipo_valido`; `movimento_origem_valida`; `movimento_status_valido`; `movimento_valor_total_positivo` (> 0 e < R$ 10 bilhões, o mesmo teto do Extrator); `movimento_apagar_com_faturado` |
+| `MovimentoClassificacao` (RN-04) | `movimentos_classificacoes` | `id`, `movimento` (FK, `PROTECT`), `classificacao` (FK, `PROTECT`), `principal` (booleano) | `movimento_classificacao_unica` (`movimento`, `classificacao`); `movimento_uma_classificacao_principal` (única parcial: no máximo uma principal no banco; "exatamente uma" é garantida pelo serviço) |
+
+A regra "MANUAL → `analise_origem_id` NULL" **não** foi imposta, de propósito.
+
+**Regras dos models:**
+- **Exclusão:** não há exclusão física. `delete()` do model e do QuerySet levanta `ExclusaoDeMovimentoNaoPermitida`, subclasse de `ExclusaoNaoPermitida` de `cadastros` (RN-01).
+- **Campos essenciais imutáveis após a gravação:** `tipo`, `origem`, `status`, `contraparte`, `faturado`, `valor_total`, `analise_origem_id` e `criado_em` no movimento; `movimento`, `classificacao` e `principal` no vínculo. A alteração levanta `AlteracaoNaoPermitida` no `save()`, no `QuerySet.update()`, no `bulk_update()` e no upsert do `bulk_create(update_conflicts=True)`, inclusive com argumentos posicionais e nas versões assíncronas; o `_base_manager` usa o mesmo QuerySet protegido (`base_manager_name`). Nos gerenciadores reversos (`pessoa.movimentos_como_faturado`, `movimento.classificacoes` etc.), `add`, `remove`, `clear` e `set` trocariam uma FK imutável e são recusados; `create` continua permitido. O `bulk_update()` e os gerenciadores reversos recusam antes de o Django abrir o `atomic(savepoint=False)`, e a transação de quem chamou continua utilizável. Um objeto novo com a `pk` de um registro existente é recusado. Valores em formato equivalente (`"150.00"` e `Decimal("150.00")`) não contam como alteração.
+- **Riscos:** SQL bruto, `loaddata` (que não chama o `save()`) e APIs privadas do Django (`_update`, `_raw_delete`) não passam por essas verificações; não há trigger no banco. O `id` não está entre os campos imutáveis.
+- **Status:** imutável até existir uma operação de cancelamento. O cancelamento **não** foi implementado (escopo aprovado).
+
+**Serviço `registrar_movimento(DadosMovimento)` → `(movimento, criado)`** (`financeiro/servicos.py`):
+
+| Aspecto | Comportamento |
+| ------- | ------------- |
+| Transação | movimento e classificações gravados em um único `transaction.atomic` |
+| Papéis | APAGAR exige contraparte com papel FORNECEDOR vigente e faturado com FATURADO vigente; ARECEBER exige contraparte CLIENTE (faturado opcional; se informado, precisa de FATURADO) |
+| Entrada | tipos reais conferidos, e não só a `pk`: contraparte e faturado precisam ser `Pessoa`, cada item um `ItemClassificacao` com `Classificacao`, `principal` um `bool` e `analise_origem_id` um `UUID`; as classificações são lidas uma única vez (um gerador é aceito) |
+| Pessoas incompletas | sempre recusadas; não há opção de consentimento (C-02 pendente) |
+| Inativos | pessoas, papéis e classificações inativos são recusados, sem reativação automática (T-05) |
+| Classificações | APAGAR ↔ DESPESA, ARECEBER ↔ RECEITA; pelo menos uma, sem repetição e com exatamente uma principal |
+| Valor | `Decimal` obrigatório (sem `float`), finito, > 0, abaixo do teto e com no máximo 2 casas decimais |
+| Concorrência | `Pessoa`, `PapelPessoa` e `Classificacao` são relidas com `select_for_update` dentro da transação: instâncias desatualizadas em memória ou uma inativação concorrente não escapam da validação. O bloqueio é `FOR NO KEY UPDATE`, em consultas ordenadas por `pk` e sempre na mesma ordem de tabelas, o que evita deadlock entre lançamentos com papéis cruzados; um deadlock residual chegaria como `OperationalError`, não tratado |
+| Idempotência | por `analise_origem_id`: mesmos dados → devolve o existente (`criado=False`); dados diferentes → `ValidationError` com código `analise_ja_lancada`; duplicata concorrente tratada pelo `IntegrityError`, devolvendo o existente |
+| Extensão | `DadosMovimento` é um dataclass, para que as parcelas (GR-38) entrem na mesma transação. A GR-38 precisa normalizar as parcelas com `tuple()` (mesmo risco do gerador) e incluí-las na comparação de `_mesma_analise`; sem isso, repetir a análise com parcelas diferentes devolveria o movimento antigo |
+
+**Migration e testes:**
+- **Migration:** `financeiro/migrations/0001_initial.py` depende de `cadastros` `0003_categorias_iniciais`. Foi gerada com `DB_HOST` inalcançável e validada **só** no banco local descartável dos testes. **Não** foi aplicada em homologação nem em produção.
+- **Testes:** 100 no app `financeiro`: `financeiro/test_models.py` (53) e `financeiro/test_servicos.py` (47), no PostgreSQL local 18.6 (`DB_TEST_*`). Incluem `AutocommitTests` (`TransactionTestCase` com `serialized_rollback=True`), que roda o serviço fora de qualquer transação externa. O banco descartável foi criado e removido; o Supabase não foi usado.
+**Códigos de erro** (`ValidationError.code`, para as mensagens da tela na GR-51):
+
+| Etapa | Códigos |
+| ----- | ------- |
+| Entrada, sem banco | `tipo`, `origem`, `valor_tipo`, `valor`, `valor_centavos`, `contraparte`, `faturado`, `analise_origem`, `sem_classificacao`, `classificacao`, `principal_tipo`, `classificacao_repetida`, `principal` |
+| Validação no banco | `pessoa_inexistente`, `pessoa_inativa`, `pessoa_incompleta`, `papel_ausente`, `papel_inativo`, `classificacao_inexistente`, `classificacao_inativa`, `classificacao_incompativel` |
+| Idempotência | `analise_ja_lancada` |
+| Models (`AlteracaoNaoPermitida`) | `campo_imutavel`, `registro_existente` |
+
+`analise_origem_id` deve chegar como `uuid.UUID` (um texto guardado em sessão precisa de `UUID(...)` antes da chamada) e `principal` como `bool`.
+
+- **Correções da auditoria final (26/10/2026):** gerador de classificações consumido na validação (movimento gravado sem classificação), `principal` não booleano, objetos de outro model aceitos pela `pk`, upsert posicional, gerenciadores reversos (inclusive `alters_data`, para templates não chamarem os métodos recusados) e `bulk_update` sem campos. Cada uma tem teste de regressão que falhava antes da correção.
+- **Suíte completa:** `Ran 486 tests — OK`.
+
+**Separação do que existe e do que falta:**
+
+| Escopo | Situação |
+| ------ | -------- |
+| GR-37 (implementado na branch) | `MovimentoConta`, `MovimentoClassificacao`, constraints, sem exclusão, imutabilidade dos campos essenciais, `registrar_movimento()` com validação de papéis, pessoas, classificações, valor e idempotência |
+| GR-38 | **pendente**: `ParcelaConta`; soma das parcelas × `valor_total` (T-01); o status de pagamento pertence às parcelas |
+| GR-51 | **pendente**: quem gera o `analise_origem_id`; mapeamento nota → movimento (C-01), inclusive `numero_documento` e `data_emissao` (fora da GR-37); critério de duplicidade (T-03); armazenamento entre consulta e confirmação (T-04); edições (T-02); consentimento para pessoa incompleta; Q-06; Q-10; possível `analise_origem_id` NOT NULL para NOTA_FISCAL |
+| Cancelamento | **pendente**: operação de cancelamento e suas regras |
+| Homologação | **pendente**: aplicar `financeiro` `0001` manualmente no projeto de homologação (PT-06) |
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
