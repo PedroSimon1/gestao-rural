@@ -6,6 +6,8 @@
 >
 > **Atualização de 25/10/2026 (GR-33):** a conexão PostgreSQL foi configurada na branch `feature/gr-33-configurar-supabase`, ainda **não integrada** a `develop`. Não há models, migrations nem `migrate` na publicação. Detalhes na seção 13.1.
 >
+> **Atualização de 26/10/2026 (GR-34):** a equipe aprovou T-06 (bancos por ambiente) e PT-06 (migrations manuais, sem `migrate` na publicação). Detalhes na seção 13.2.
+>
 > Estado anterior (HISTÓRICO, 24/10/2026): ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO.
 
 ---
@@ -125,7 +127,7 @@ Quando a decisão for implementada, as seguintes mudanças serão necessárias (
 | Apps Django                | `config/settings.py`                                | incluir o(s) app(s) com os models da Etapa 2                           |
 | Dependências               | `requirements.txt`                                  | acrescentar o driver (Psycopg 3, se validado)                          |
 | Variáveis de ambiente      | `.env.example` (somente nomes)                      | documentar os nomes das variáveis de conexão; os valores nunca entram no Git |
-| Publicação                 | `build.sh` ou comando de pre-deploy do Render       | executar `migrate`                                                     |
+| Publicação                 | `build.sh` ou comando de pre-deploy do Render       | ~~executar `migrate`~~; substituído em 26/10/2026 pela decisão PT-06: migrations aplicadas manualmente, nunca na publicação (seção 13.2) |
 | Testes                     | `config/test_sem_banco.py`, `config/test_producao.py` | substituir as garantias de "sem banco" pelo novo contrato; testes com banco precisarão de `TestCase` e de um PostgreSQL de teste |
 | Fluxo da tela              | `documentos/views.py`, templates                    | consultas de existência, criação e confirmação do lançamento           |
 | Modelo de domínio          | novo(s) app(s)                                      | `PESSOAS`, `CLASSIFICACAO`, `MOVIMENTOCONTAS`, `PARCELACONTAS` — modelagem ainda **não definida** |
@@ -136,9 +138,10 @@ Os testes atuais vão **falhar de propósito** assim que qualquer item de banco 
 
 | Ambiente        | Aplicação                        | Banco (PLANEJADO)                 | Situação                                    |
 | --------------- | -------------------------------- | --------------------------------- | ------------------------------------------- |
-| Desenvolvimento | local, branch de tarefa          | PostgreSQL local ou projeto Supabase de desenvolvimento (a definir) | **não existe** banco de DEV separado; o único banco disponível para o ambiente local é o projeto de homologação. Proposta (não decidida, T-06): PostgreSQL local para DEV e testes |
+| Desenvolvimento | local, branch de tarefa          | projeto Supabase `gestao-rural-homologacao`, compartilhado com a homologação (T-06, aprovada em 26/10/2026) | sem banco de DEV separado por integrante nesta entrega (decisão T-06, seção 13.2). Antes de 26/10/2026: "PostgreSQL local ou projeto Supabase de desenvolvimento (a definir)" |
+| Testes automatizados | local, `manage.py test`     | PostgreSQL local de cada desenvolvedor (`DB_TEST_*`), bancos descartáveis `test_*` (T-06) | **implementado** na GR-34 (`config/banco_de_teste.py`); validado em 26/10/2026 no ambiente de Pedro Simon; ambiente de Gustavo Lopes não validado |
 | Homologação     | `develop` (homologação local; Render de homologação não definido) | projeto Supabase `gestao-rural-homologacao` (São Paulo) | **projeto criado** (Pedro Simon); conexão configurada na branch da GR-33 e validada localmente. Não há serviço Render de homologação comprovado. Antes de 24/10/2026: "Render QA / `qa`" (HISTÓRICO; `qa` excluída) |
-| Produção        | Render / `main`                  | projeto/banco Supabase de produção | **não existe**; Render sem as variáveis `DB_*` (GR-20). Proposta (não decidida, T-06): projeto Supabase separado para produção |
+| Produção        | Render / `main`                  | projeto Supabase de produção independente, com credenciais próprias (T-06) | **não existe** (a criar); Render sem as variáveis `DB_*` (GR-20) |
 
 Requisitos para a implementação:
 
@@ -183,12 +186,12 @@ Requisitos para a implementação:
 
 | ID     | Pendência                                                                      | Situação (25/10/2026, branch da GR-33) |
 | ------ | ------------------------------------------------------------------------------ | -------------------------------------- |
-| ADR1-P1 | Criar os projetos/bancos Supabase por ambiente (quem cria e quem tem acesso: a definir) | **PARCIAL**: só o projeto de homologação existe (Pedro Simon). DEV, testes e produção: proposta T-06, não decidida |
+| ADR1-P1 | Criar os projetos/bancos Supabase por ambiente (quem cria e quem tem acesso: a definir) | **PARCIAL**: só o projeto de homologação existe (Pedro Simon). T-06 aprovada em 26/10/2026 (seção 13.2): DEV usa o projeto de homologação; testes no PostgreSQL local; projeto de produção ainda a criar |
 | ADR1-P2 | Validar Psycopg 3 (versão, instalação no Render, Python 3.14)                 | **PARCIAL**: `psycopg[binary]==3.3.6` validado localmente; build no Render não validado |
 | ADR1-P3 | Definir os nomes das variáveis de conexão e o formato de configuração em `settings.py` | **RESOLVIDA**: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSLMODE`, `DB_SSLROOTCERT`, `DB_CONNECT_TIMEOUT` (seção 13.1) |
 | ADR1-P4 | Escolher conexão direta ou pooler, com os parâmetros correspondentes          | **RESOLVIDA**: Session Pooler, modo *session*, porta 5432, TLS obrigatório |
 | ADR1-P5 | Modelar as entidades da Etapa 2 (fase posterior; não faz parte deste ADR)     | pendente (GR-34/GR-35+) |
-| ADR1-P6 | Incluir `migrate` na publicação                                                | pendente (`build.sh` sem `migrate`) |
+| ADR1-P6 | Incluir `migrate` na publicação                                                | **SUBSTITUÍDA** em 26/10/2026 (PT-06, seção 13.2): migrations manuais; `build.sh` e `start.sh` sem `migrate`, verificado por teste |
 | ADR1-P7 | Substituir os testes que proíbem banco                                         | em andamento na GR-33 (testes de configuração); testes com banco: pendente |
 | ADR1-P8 | Atualizar `.env.example` (somente nomes) e o painel do Render                  | **PARCIAL**: `.env.example` atualizado; Render sem as variáveis `DB_*` (GR-20) |
 
@@ -214,12 +217,41 @@ Estado da branch `feature/gr-33-configurar-supabase` em 25/10/2026, ainda **não
 - Validação da conexão pelo Django ORM: validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado.
 - Fora da GR-33: models e migrations (GR-34/GR-35+), `migrate` na publicação e variáveis no Render (GR-20).
 
+### 13.2 Decisões T-06 e PT-06 (GR-34, aprovadas em 26/10/2026)
+
+Aprovadas em conjunto por Pedro Simon e Gustavo Lopes em 26/10/2026. Na aprovação, PT-06 foi chamada de "P06"; não confundir com o pacote P06 do [plano](../organizacao/Plano_Responsabilidades_N2_Etapa2.md) (interface de conferência).
+
+**T-06 — bancos por ambiente: APROVADA**
+
+| Ambiente | Decisão | Situação em 26/10/2026 |
+| -------- | ------- | ---------------------- |
+| TEST | Cada desenvolvedor usa o próprio PostgreSQL local. Os testes com banco usam exclusivamente `DB_TEST_*`, pelo executor `config/banco_de_teste.py`, com bancos descartáveis de prefixo `test_`. Nenhum teste automatizado cria, modifica ou exclui bancos de homologação ou produção | **implementado** na GR-34 (branch `feature/gr-34-testes-migrations`, não integrada). Validado no ambiente de Pedro Simon; **não validado** no de Gustavo Lopes |
+| DEV + QA | Pedro e Gustavo usam o projeto Supabase `gestao-rural-homologacao` como banco compartilhado de desenvolvimento e homologação manual. Não há banco de DEV separado por integrante nesta entrega. Alterações de esquema são coordenadas: só um integrante aplica migrations por vez, com conhecimento do outro. Só dados fictícios ou próprios para homologação | o projeto existe (GR-33). Nenhuma migration foi aplicada |
+| PROD | Projeto Supabase independente, com credenciais próprias, sem reutilizar as de homologação. Nenhuma alteração em produção sem validação e autorização | **não existe** (a criar); Render sem `DB_*` (GR-20) |
+
+**PT-06 — migrations manuais e controladas: APROVADA**
+
+`migrate` **não** entra em `build.sh` nem em `start.sh`; a ausência é verificada por `config/test_producao.py`. Fluxo aprovado:
+
+1. Criar ou modificar os models.
+2. Gerar as migrations versionadas com o Django (`makemigrations`).
+3. Revisar as migrations.
+4. Validar no PostgreSQL local de testes.
+5. Aplicar manualmente em homologação, após confirmar o destino e coordenar com a equipe.
+6. Homologar a funcionalidade.
+7. Aplicar manualmente em produção somente após autorização, preparação do banco e verificação da recuperação.
+8. Publicar a aplicação pelo fluxo Git aprovado ([`ContextoFluxoGit.md`](../../ContextoFluxoGit.md)).
+
+Até 26/10/2026 nenhuma migration existe e nenhuma foi aplicada em qualquer banco.
+
+**Validação do ambiente TEST (26/10/2026, ambiente de Pedro Simon):** PostgreSQL local 18.6 via `127.0.0.1`. O banco descartável `test_gestao_rural` foi criado, consultado (`SELECT 1` retornou `1`) e removido, e não existia depois da execução. A consulta usou um `TestCase` temporário, fora da suíte versionada. Resultados: suíte versionada `Ran 312 tests — OK`; combinada com o `TestCase` temporário, `Ran 313 tests — OK`. O Supabase não foi usado pelos testes. Pendente: a mesma validação no ambiente de Gustavo Lopes.
+
 ## 14. Critérios futuros de validação
 
 A decisão só passa para **IMPLEMENTADO** quando houver evidência de que:
 
 1. `python manage.py check` passa com a conexão configurada;
-2. `python manage.py migrate` aplica as migrations no banco Supabase do ambiente;
+2. `python manage.py migrate`, executado manualmente conforme PT-06 (seção 13.2), aplica as migrations no banco Supabase do ambiente;
 3. a suíte de testes atualizada passa, incluindo testes com banco;
 4. `python manage.py check --deploy` em modo produção mostra apenas os avisos aceitos;
 5. o fluxo nota → consulta → criação → movimento/parcela → confirmação grava e lê no Supabase pelo Render;

@@ -150,6 +150,10 @@ DATABASES = {
     }
 }
 
+# Testes com banco usam só o PostgreSQL local de DB_TEST_*, nunca o de DB_*
+# (config/banco_de_teste.py).
+TEST_RUNNER = "config.banco_de_teste.ExecutorDeTestes"
+
 
 # Sessão
 # Cookie assinado (sem banco). Guarda só o indicador do login da demonstração.

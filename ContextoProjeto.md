@@ -302,7 +302,7 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 
 - A Etapa 1 foi entregue com arquitetura **stateless**, que removeu deliberadamente o banco (PR #15).
 - A Etapa 2 exige persistência relacional. O plano inicial (Render + Neon PostgreSQL, `tecnologias.pdf`) foi substituído em 24/10/2026 por **Render + Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md), PLANEJADO). Em nenhum dos dois casos foi adicionada **qualquer linha** de código, dependência, variável ou migration até `f7786e8`. Em 25/10/2026, a GR-33 configurou a conexão na branch `feature/gr-33-configurar-supabase`, ainda não integrada (15.1.1).
-- Em `f7786e8`, os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco. Na branch da GR-33 (não integrada), essas garantias passaram a verificar a configuração PostgreSQL. Os testes com banco (`TestCase`) continuam pendentes (GR-34).
+- Em `f7786e8`, os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco. Na branch da GR-33 (não integrada), essas garantias passaram a verificar a configuração PostgreSQL. Na GR-34 (branch `feature/gr-34-testes-migrations`, não integrada), as proibições de models e migrations foram substituídas por garantias da Etapa 2, e os testes com banco passaram a exigir o PostgreSQL local de `DB_TEST_*` (21.3).
 - Em 24/10/2026 restam três dias para a entrega de 27/10/2026.
 
 ---
@@ -642,11 +642,18 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum (GR-34/GR-35+); `build.sh` sem `migrate`                                    |
+| Models / migrations      | nenhum (GR-35+); `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34) |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
 Não existe banco de desenvolvimento separado, de testes nem de produção. Proposta (não decidida, T-06 do [plano](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md)): PostgreSQL local para DEV e testes e projeto Supabase separado para produção.
+
+**Atualização de 26/10/2026 (GR-34):** T-06 foi **aprovada** pela equipe ([ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.2):
+- testes no PostgreSQL local de cada desenvolvedor (`DB_TEST_*`), já implementado;
+- DEV e QA no projeto de homologação compartilhado, sem banco de DEV por integrante;
+- produção em projeto Supabase independente, ainda **não criado**.
+
+PT-06 também foi aprovada: migrations manuais e controladas, sem `migrate` na publicação.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
@@ -809,7 +816,7 @@ flowchart TD
 
 **Decisão da equipe (24/10/2026, PLANEJADO):** a criação **exige confirmação manual do usuário**. Os registros são revalidados e gravados só depois da confirmação, e o sucesso é exibido após a persistência (Q-02 na [matriz](docs/requisitos/matriz-n2-etapa2.md), seção 8.1; fluxo no [plano de responsabilidades](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md), seção 1.2).
 
-Indefinido (PENDENTE DE CONFIRMAÇÃO): tratamento de classificação inconclusiva e de CPF/CNPJ ausente ou com DV inválido; prevenção de lançamento duplicado da mesma nota; onde preservar os dados entre a consulta e a confirmação (contrato C-01 a C-10 e questões T-01 a T-06 do plano).
+Indefinido (PENDENTE DE CONFIRMAÇÃO): tratamento de classificação inconclusiva e de CPF/CNPJ ausente ou com DV inválido; prevenção de lançamento duplicado da mesma nota; onde preservar os dados entre a consulta e a confirmação (contrato C-01 a C-10 e questões T-01 a T-05 do plano; T-06 foi decidida em 26/10/2026).
 
 ## 18.3 - Autenticação (IMPLEMENTADO / VALIDADO)
 
@@ -958,7 +965,22 @@ A tabela acima é a de `f7786e8`. Na branch da GR-33 (25/10/2026, não integrada
 - Todos são `SimpleTestCase`; **nenhuma chamada real ao Gemini** (clientes falsos ou SDK patchado); cenários de produção em subprocessos.
 - Lacunas: sem cobertura medida, sem E2E/navegador, sem medição da assertividade da classificação, sem lint nem CI (nenhum workflow no GitHub).
 - A suíte deve rodar em modo de desenvolvimento (`DJANGO_DEBUG=True`).
-- **Etapa 2:** na GR-33 (branch não integrada), os testes "sem banco" de `config/test_sem_banco.py` e `config/test_producao.py` foram substituídos pelo contrato da configuração PostgreSQL. Continuam pendentes (GR-34) os testes com banco, que exigirão `TestCase` e um PostgreSQL de teste isolado (T-06), nunca o Supabase de homologação ou de produção.
+- **Etapa 2:** na GR-33 (branch não integrada), os testes "sem banco" de `config/test_sem_banco.py` e `config/test_producao.py` foram substituídos pelo contrato da configuração PostgreSQL. Na GR-34 (branch `feature/gr-34-testes-migrations`, 26/10/2026, não integrada):
+  - `config/banco_de_teste.py` (`TEST_RUNNER`): testes com banco (`TestCase`, `TransactionTestCase`) usam só as variáveis `DB_TEST_*`, nunca `DB_*`. O host precisa ser local (socket Unix, `localhost`, `127.0.0.1` ou `::1`) e o nome precisa começar com `test_`, porque o Django apaga sem perguntar um banco de teste existente com `--noinput`. Também recusa host com vários endereços (vírgula ou espaço) e `PGHOSTADDR`, `PGSERVICE` ou `PGSERVICEFILE` no ambiente. Sem essas variáveis, a execução para antes de conectar. Testes sem banco não exigem nada. Limite: `--testrunner`, outro `--settings` ou executores externos contornam a proteção.
+  - `config/test_sem_banco.py` deixou de proibir models, migrations e `django.db`. Passou a verificar: models e migrations sem campos de arquivo ou bytes nem nomes de segredo; nenhuma alteração de model sem migration (autodetector, sem conexão); ausência de conflitos; pastas `migrations` com `__init__.py`; regras do banco de teste.
+  - `config/test_producao.py`: `build.sh` e `start.sh` sem `migrate`; `DB_TEST_*` no `.env.example` sem credenciais.
+  - Resultado da suíte versionada: `Ran 312 tests — OK`, com `DB_HOST` inalcançável. `manage.py check` e `git diff --check` sem problemas.
+  - **Validação real do banco de teste (26/10/2026, ambiente de Pedro Simon):**
+    - Ambiente: PostgreSQL local 18.6, conexão TCP por `127.0.0.1`, papel local com `LOGIN` e `CREATEDB`, sem superusuário.
+    - `DB_HOST` foi forçado para um host inalcançável (`.invalid`): o Supabase de homologação não foi usado.
+    - Antes da execução, `test_gestao_rural` não existia.
+    - Um `TestCase` **temporário**, fora do repositório e fora da suíte versionada, executou `SELECT 1` (retornou `1`). `current_database()` retornou `test_gestao_rural`, no servidor `127.0.0.1`, PostgreSQL 18.6.
+    - O Django criou e removeu o banco: `Creating test database ... ('test_gestao_rural')` e `Destroying test database ...`. Execução sem `--keepdb` e sem `--noinput`, sem pedido de confirmação de exclusão.
+    - Suíte combinada com esse `TestCase`: `Ran 313 tests — OK`.
+    - Depois da execução, `test_gestao_rural` não existia.
+  - **Não validado:** o ambiente de Gustavo Lopes (papel local próprio e a mesma verificação). Ainda não há testes com banco versionados: eles chegam com os models da GR-35/GR-36. Nenhuma migration foi criada nem aplicada.
+  - A restrição a PostgreSQL local segue T-06, **aprovada em 26/10/2026** (antes registrada aqui como proposta não aprovada).
+  - O conflito com J-22/PT-06 (`migrate` na publicação × migrations só manuais) foi **resolvido em 26/10/2026**: a equipe aprovou migrations manuais e controladas, sem `migrate` em `build.sh` ou `start.sh` ([ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.2).
 
 ---
 
@@ -1120,7 +1142,7 @@ hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
 | Telas CRUD "Manter/Registrar": a equipe priorizou o fluxo da nota (Q-01, 24/10/2026); os cadastros continuam requisitos não atendidos, no pacote P08 | priorização; obrigatoriedade sem resposta do professor |
 | Validar Psycopg 3 no build do Render (localmente validado e configuração da conexão definida na GR-33, branch não integrada) | técnico |
 | Substituir os testes que proíbem banco                                                          | técnico               |
-| Criar os bancos de DEV/testes e de produção (só o Supabase de homologação existe; proposta T-06 não decidida), configurar as variáveis `DB_*` no Render (GR-20) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
+| Criar o projeto Supabase de produção (T-06 aprovada em 26/10/2026: DEV usa o de homologação, testes no PostgreSQL local), configurar as variáveis `DB_*` no Render (GR-20) e, se decidido, um serviço Render de homologação da `develop` | infraestrutura |
 | Confirmar status do serviço Render de produção                                                  | verificação externa   |
 | Organizar o Jira (épico e tarefas da Etapa 2, responsáveis) **depois da consolidação documental** | gestão              |
 | Configurar a proteção de `main` e `develop` ([`ContextoFluxoGit.md`](ContextoFluxoGit.md), 11.2); limpar a `qa` local e `origin/qa` (3.4) | processo |
