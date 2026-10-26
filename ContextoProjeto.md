@@ -642,7 +642,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum (GR-35+); `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34) |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (branch não integrada): `Pessoa` e `PapelPessoa`, ver 15.1.2 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -654,6 +654,47 @@ Não existe banco de desenvolvimento separado, de testes nem de produção. Prop
 - produção em projeto Supabase independente, ainda **não criado**.
 
 PT-06 também foi aprovada: migrations manuais e controladas, sem `migrate` na publicação.
+
+## 15.1.2 - GR-35: Pessoa e PapelPessoa (branch `feature/gr-35-pessoa-papel-pessoa`, 26/10/2026, não integrada)
+
+Novo app `cadastros` (`cadastros/models.py`, `cadastros/validators.py`, migration `cadastros/migrations/0001_initial.py`).
+
+| Entidade | Tabela | Campos | Constraints no banco |
+| -------- | ------ | ------ | -------------------- |
+| `Pessoa` (ENT-01) | `pessoas` | `id` (BigAutoField), `tipo_documento` (CPF/CNPJ, derivado, anulável), `documento` (até 14, **único**, anulável), `situacao_documental` (COMPLETO, padrão / INCOMPLETO, "Pendente de correção"), `razao_social` (até 255), `status` (ATIVO/INATIVO), `criado_em`, `atualizado_em` | `documento` único (o índice do PostgreSQL ignora NULLs); `pessoa_documento_coerente_com_situacao` (COMPLETO exige CPF `^[0-9]{11}$` ou CNPJ `^[0-9A-Z]{12}[0-9]{2}$`, coerente com o tipo e com `IS NOT NULL` explícito, porque no PostgreSQL um CHECK com resultado NULL passa; INCOMPLETO exige `documento` e `tipo_documento` NULL); `pessoa_razao_social_preenchida`; `pessoa_status_valido` |
+| `PapelPessoa` | `papeis_pessoa` | `id`, `pessoa` (FK, `PROTECT`), `papel` (FORNECEDOR/CLIENTE/FATURADO), `status`, `criado_em`, `atualizado_em` | `papel_pessoa_unico` (`pessoa`, `papel`); `papel_pessoa_papel_valido`; `papel_pessoa_status_valido` |
+
+**Regras:**
+- **Normalização:** remove `.`, `-`, `/` e espaços e põe as letras em maiúsculas, com a mesma regra do Extrator. O CNPJ alfanumérico (IN RFB 2.229/2024) é suportado.
+- **Validação do DV:** `cpf_dv_valido` e `cnpj_dv_valido` do Extrator, reutilizados. Sequências repetidas são recusadas.
+- **Caminho normal (`save()` e `full_clean()`):** recusa documento inválido. Fixtures controladas de QA e testes (`loaddata`) não passam pelo `save()` e podem ter DV inválido. O banco exige só a estrutura. Esses registros só podem ser inativados e reativados.
+- **Papéis:** uma pessoa tem no máximo um registro por papel. A mesma pessoa pode ser FORNECEDOR, CLIENTE e FATURADO sem ser duplicada. `atribuir_papel()` usa `get_or_create` (seguro em concorrência com a constraint única) e não muda o status de um papel existente.
+- **Inativação e reativação:** `inativar()` e `reativar()` em `Pessoa` e em `PapelPessoa` são independentes. `PapelPessoa.objects.vigentes()` devolve papéis ativos de pessoas ativas.
+- **Exclusão:** `delete()` do model e do QuerySet levanta `ExclusaoNaoPermitida` (RN-01). A FK `PROTECT` e a FK do banco impedem apagar uma pessoa com papéis; os vínculos históricos ficam preservados.
+- **Dados pessoais:** o `__str__` mascara o CPF (só os 4 últimos dígitos).
+- **Mapeamento de ENT-01:** o `Tipo` (CLIENTE-FORNECEDOR / FATURADO) do professor virou `PapelPessoa`, com três papéis distintos, como definem os critérios da GR-35. A equipe confirmou o mapeamento em 26/10/2026 (Q-11, abaixo).
+
+**Decisões aprovadas em 26/10/2026** (Pedro Simon e Gustavo Lopes; matriz, seção 8.1, DQ-05 a DQ-07):
+
+| Decisão | Regra de negócio aprovada | Suporte no backend (GR-35, implementado) | Interface e integração (não implementado) |
+| ------- | ------------------------- | ---------------------------------------- | ----------------------------------------- |
+| **C-02** — cadastro incompleto permitido (DQ-05) | Pessoa sem CPF/CNPJ, ou com documento inválido, encontrada pelo Extrator: a interface pede a correção; se não for possível, oferece a opção explícita de continuar com cadastro incompleto, marcado como pendente de correção. Depois o usuário completa o cadastro no mesmo registro, com os vínculos preservados | `situacao_documental` INCOMPLETO, separado do `status`; `documento` e `tipo_documento` NULL só no incompleto; constraint `pessoa_documento_coerente_com_situacao`; nenhum documento fictício, e o documento inválido extraído **não** é guardado; `Pessoa.regularizar(documento)` completa o mesmo registro, revalida o DV e recusa duplicata com `ValidationError` (inclusive `IntegrityError` concorrente), sem mudar nada em caso de erro; `Pessoa.objects.incompletas()` e `documentacao_completa`. O padrão é COMPLETO: criar sem documento e sem INCOMPLETO explícito é recusado | o consentimento pertence ao fluxo de conferência (não implementado); interface não implementada; integração com o Extrator na GR-51 ou em P03/P04/P06 |
+| **Q-11** — papéis (DQ-06) | Papéis FORNECEDOR, CLIENTE e FATURADO; a mesma pessoa pode ter vários ao mesmo tempo (ex.: Agropecuária Silva, FORNECEDOR e CLIENTE); a interface pode exibir o rótulo CLIENTE-FORNECEDOR; não há quarto papel | já atendido por `PapelPessoa` (único por `pessoa` + `papel`); pessoa incompleta também pode ter papéis | rótulo na interface não implementado |
+| **T-05** — registro INATIVO encontrado na busca (DQ-07) | Pessoa ou papel inativo encontrado na busca é identificado como INATIVO e nunca reativado automaticamente; a interface exige confirmação explícita; a reativação preserva o mesmo registro e o histórico, sem criar duplicata | já atendido sem mudança de código: `por_documento()` devolve registros em qualquer status, `atribuir_papel()` não muda o status, `reativar()` é explícito e o documento único impede duplicata | confirmação na interface não implementada; uso na busca do fluxo (P03/P04) |
+
+**Migration e testes:**
+- **Migration:** `0001_initial` (nunca versionada) foi regenerada em 26/10/2026 com os novos campos. Foi gerada com `DB_HOST` inalcançável, sem acesso ao Supabase, e aplicada **só** no banco local descartável dos testes. **Não** foi aplicada em homologação nem em produção. `makemigrations --check` não acusa mudanças pendentes.
+- **Testes:** `cadastros/test_models.py`, com 52 `TestCase` no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`).
+- **Suíte completa:** `Ran 364 tests — OK`. O banco `test_gestao_rural` foi criado e removido, e não existia antes nem depois da execução.
+
+**Pendências e decisões em aberto** (não decididas pelo agente):
+- **Decididas em 26/10/2026:** C-02, Q-11 e T-05 (tabela acima).
+- **Pessoa incompleta em movimentos financeiros:** não definido se pode ser usada; nenhuma regra implementada (integração).
+- **Valor inválido extraído:** guardá-lo para correção posterior não foi implementado (o PDF não é armazenado).
+- **Papel novo em pessoa inativa:** continua não especificado; hoje `atribuir_papel()` permite.
+- **Rebaixar COMPLETO para INCOMPLETO** (apagar um documento válido): não especificado; o model não impede, e a regra deve ser decidida pela equipe.
+- **Integração:** ainda falta usar os models no fluxo (P03 e P04) e nos cadastros (P08).
+- **GR-36:** as FKs de `MovimentoContas` para Pessoa ou para PapelPessoa devem usar `PROTECT`.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 

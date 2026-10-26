@@ -213,6 +213,7 @@ gestao-rural/
 │   ├── gemini_client.py       #   cliente único do Google Gemini
 │   ├── extrator/              #   Agent Extrator: agent.py, schemas.py e testes
 │   └── classificador/         #   Agent Classificador: agent.py, schemas.py e testes
+├── cadastros/                 # Pessoa e PapelPessoa (models, validação de CPF/CNPJ, migrations e testes)
 ├── config/                    # projeto Django: settings, urls, wsgi e testes de configuração
 ├── documentos/                # upload, validação, orquestração e tela de processamento
 │   ├── forms.py · validators.py · processamento.py · views.py
@@ -366,12 +367,13 @@ Execute com `DJANGO_DEBUG=True` no `.env`.
 | `documentos/test_interface.py` | 64 | Acesso, validação do PDF, processamento, XSS/CSRF, não persistência |
 | `usuarios/tests.py` | 37 | Login, logout, sigilo das credenciais, configuração ausente, cookies |
 | `config/test_sem_banco.py` | 24 | PostgreSQL configurado, models sem PDF nem segredos, migrations sem pendências e banco de teste só local |
+| `cadastros/test_models.py` | 52 | Pessoa e PapelPessoa no PostgreSQL local: CPF/CNPJ (incluindo o alfanumérico), unicidade, papéis, inativação e reativação, cadastro incompleto e regularização, exclusão bloqueada, constraints |
 | `config/test_producao.py` | 25 | Hosts, HTTPS, cookies, estáticos, `check --deploy`, scripts sem `migrate` e variáveis `DB_*`/`DB_TEST_*` |
 
 - **Sem chamadas reais à API:** os Agents são testados com clientes falsos ou com o SDK do Gemini substituído por dublês. A suíte não consome cota nem precisa de chave.
-- **Sem acesso ao banco:** hoje todos os testes são `SimpleTestCase`, que recusam qualquer conexão; nenhum banco de teste é criado. Para garantir isolamento total do Supabase, rode com um host inalcançável, por exemplo `DB_HOST=db-teste.invalid DB_NAME=teste DB_USER=teste DB_PASSWORD=teste python manage.py test` (variáveis já definidas no ambiente não são sobrescritas pelo `.env`).
+- **Sem acesso ao banco remoto:** os testes da Etapa 1 são `SimpleTestCase`, que recusam qualquer conexão. Desde a GR-35, `cadastros/test_models.py` usa `TestCase` e exige as variáveis `DB_TEST_*` (PostgreSQL local, a seguir); sem elas, a execução para antes de conectar. Para garantir isolamento total do Supabase, rode com um host inalcançável, por exemplo `DB_HOST=db-teste.invalid DB_NAME=teste DB_USER=teste DB_PASSWORD=teste python manage.py test` (variáveis já definidas no ambiente não são sobrescritas pelo `.env`).
 - **Testes com banco (`TestCase`):** usam **só** o PostgreSQL local das variáveis `DB_TEST_*`, nunca o banco de `DB_*` (`config/banco_de_teste.py`). O host precisa ser local (socket Unix ou `localhost`/`127.0.0.1`/`::1`) e o nome precisa começar com `test_`, porque o banco é criado e apagado a cada execução. Sem essas variáveis, a execução para antes de abrir qualquer conexão. A proteção vale só para `python manage.py test`: não use `--testrunner`, outro `--settings` nem executores externos (IDE, `unittest`, `pytest`), que poderiam usar o banco de `DB_*`.
-- **Resultado registrado:** `Ran 291 tests — OK` no commit `f7786e8`, auditado em 24/10/2026 e reexecutado em 24/10/2026 (Python 3.14.8). Na GR-33 (25/10/2026): `Ran 295 tests — OK`. Na branch da GR-34 (26/10/2026): `Ran 312 tests — OK`, com banco inalcançável.
+- **Resultado registrado:** `Ran 291 tests — OK` no commit `f7786e8`, auditado em 24/10/2026 e reexecutado em 24/10/2026 (Python 3.14.8). Na GR-33 (25/10/2026): `Ran 295 tests — OK`. Na branch da GR-34 (26/10/2026): `Ran 312 tests — OK`, com banco inalcançável. Na branch da GR-35 (26/10/2026): `Ran 364 tests — OK`, com os testes de `cadastros` no PostgreSQL local de teste.
 - **Banco de teste validado (GR-34, 26/10/2026, ambiente de Pedro Simon):** no PostgreSQL local 18.6, via `127.0.0.1`, o Django criou o banco descartável `test_gestao_rural`, executou `SELECT 1` e o removeu ao final; o Supabase não foi usado. O `TestCase` dessa verificação foi temporário e não faz parte da suíte versionada. Junto com a suíte: `Ran 313 tests — OK`. Falta repetir a verificação no ambiente de Gustavo Lopes.
 - **Limites:** não há medição de cobertura nem integração contínua (CI) configurada.
 
@@ -379,7 +381,7 @@ Execute com `DJANGO_DEBUG=True` no `.env`.
 
 ### Migrations
 
-As migrations ficam versionadas na pasta `migrations/` de cada app e **nunca** são aplicadas na publicação (`build.sh` e `start.sh` não executam `migrate`). A equipe aprovou em 26/10/2026 o fluxo manual (PT-06): gerar → revisar → validar no PostgreSQL local → aplicar em homologação, com coordenação (um integrante por vez) → homologar → aplicar em produção só com autorização e recuperação verificada → publicar pelo fluxo Git. Nenhuma migration existe ainda.
+As migrations ficam versionadas na pasta `migrations/` de cada app e **nunca** são aplicadas na publicação (`build.sh` e `start.sh` não executam `migrate`). A equipe aprovou em 26/10/2026 o fluxo manual (PT-06): gerar → revisar → validar no PostgreSQL local → aplicar em homologação, com coordenação (um integrante por vez) → homologar → aplicar em produção só com autorização e recuperação verificada → publicar pelo fluxo Git. Nenhuma migration existia até a GR-34. A GR-35 criou `cadastros/migrations/0001_initial.py`, validada só no banco local de teste e ainda não aplicada em homologação nem em produção.
 
 - **Gerar:** `python manage.py makemigrations <app>` com as variáveis `DB_*` apontando para um banco local ou para um host inalcançável (ex.: `DB_HOST=db-teste.invalid`). O comando só lê o banco para conferir o histórico; um host inalcançável vira apenas um aviso. Não rode com o `.env` de homologação.
 - **Conferir:** `python manage.py test config.test_sem_banco` falha se algum model estiver sem migration.
