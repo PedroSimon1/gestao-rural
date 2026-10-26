@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Apps do projeto
+    'cadastros',
     'documentos',
     'usuarios',
 ]
