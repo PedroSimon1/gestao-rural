@@ -8,7 +8,7 @@ test_servicos.py. As categorias de despesa já existem pela migration
 """
 
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -20,7 +20,7 @@ from cadastros.models import Classificacao, ExclusaoNaoPermitida, Pessoa
 
 from .models import (
     AlteracaoNaoPermitida, ExclusaoDeMovimentoNaoPermitida, MovimentoClassificacao,
-    MovimentoConta, OrigemMovimento, StatusMovimento, TipoMovimento,
+    MovimentoConta, OrigemMovimento, ParcelaConta, StatusMovimento, TipoMovimento,
 )
 
 CNPJ = "11222333000181"
@@ -49,10 +49,21 @@ def criar_receita():
 
 
 def criar_movimento(contraparte, faturado=None, tipo=ARECEBER, **campos):
+    # Com uma parcela única: sem ela, o gatilho diferido da GR-38 recusaria o
+    # movimento no connection.check_constraints() que o TestCase faz ao terminar.
     campos.setdefault("origem", OrigemMovimento.MANUAL)
     campos.setdefault("valor_total", Decimal("150.00"))
-    return MovimentoConta.objects.create(
+    movimento = MovimentoConta.objects.create(
         tipo=tipo, contraparte=contraparte, faturado=faturado, **campos
+    )
+    criar_parcela_unica(movimento)
+    return movimento
+
+
+def criar_parcela_unica(movimento):
+    return ParcelaConta.objects.create(
+        movimento=movimento, numero=1, data_vencimento=date(2026, 11, 30),
+        valor=movimento.valor_total,
     )
 
 
@@ -520,12 +531,14 @@ class IntegridadeReferencialTests(MovimentoBaseTestCase):
             connection.check_constraints()
 
     def test_banco_recusa_movimento_com_contraparte_inexistente(self):
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            MovimentoConta.objects.create(
+        with self.assertRaises(IntegrityError) as contexto, transaction.atomic():
+            criar_parcela_unica(MovimentoConta.objects.create(
                 tipo=ARECEBER, origem=OrigemMovimento.MANUAL, contraparte_id=999999,
                 valor_total=Decimal("10.00"),
-            )
+            ))
             connection.check_constraints()
+        # 23503: a FK, e não o gatilho das parcelas (23514).
+        self.assertEqual(contexto.exception.__cause__.sqlstate, "23503")
 
 
 class MovimentoClassificacaoTests(MovimentoBaseTestCase):

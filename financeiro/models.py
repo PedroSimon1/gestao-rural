@@ -1,4 +1,4 @@
-"""Movimentos financeiros e suas classificações (ENT-03, GR-37).
+"""Movimentos financeiros, classificações (ENT-03, GR-37) e parcelas (ENT-04, GR-38).
 
 Um movimento só existe depois da confirmação do usuário (Q-02): nasce
 CONFIRMADO e não há rascunho. Tipo, origem, status, pessoas, valor e
@@ -9,7 +9,15 @@ excluídos, e as FKs são PROTECT, o que preserva o histórico.
 As regras entre entidades (papéis vigentes, pessoas completas e ativas,
 classificação compatível e exatamente uma principal) ficam em
 financeiro/servicos.py, que grava tudo em uma transação.
+
+Parcelas: um movimento CONFIRMADO tem pelo menos uma parcela ATIVA, e a soma
+das parcelas ATIVAS é igual ao valor_total. Uma parcela isolada não é um
+lançamento completo, então a regra não cabe numa constraint por linha: o
+serviço a valida antes de gravar, e um gatilho diferido do PostgreSQL
+(migration 0002) a confere de novo no COMMIT, para qualquer caminho de escrita.
 """
+
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -33,6 +41,11 @@ class OrigemMovimento(models.TextChoices):
 class StatusMovimento(models.TextChoices):
     CONFIRMADO = "CONFIRMADO", "Confirmado"
     CANCELADO = "CANCELADO", "Cancelado"
+
+
+class StatusParcela(models.TextChoices):
+    ATIVA = "ATIVA", "Ativa"
+    CANCELADA = "CANCELADA", "Cancelada"
 
 
 class ExclusaoDeMovimentoNaoPermitida(ExclusaoNaoPermitida):
@@ -288,3 +301,69 @@ class MovimentoClassificacao(RegistroFinanceiro):
     def __str__(self):
         marca = " (principal)" if self.principal else ""
         return f"Movimento #{self.movimento_id}: {self.classificacao}{marca}"
+
+
+class ParcelaContaQuerySet(SemExclusaoNemAlteracaoQuerySet):
+    def ativas(self):
+        return self.filter(status=StatusParcela.ATIVA)
+
+
+class ParcelaConta(RegistroFinanceiro):
+    """Parcela de um movimento (ENT-04, RN-06), com vencimento e valor próprios.
+
+    A "Identificacao" do professor ("ÚNICA" quando há uma só) é apresentação;
+    o registro guarda o número. A situação de pagamento e o cancelamento
+    ainda não têm contrato aprovado: o status nasce ATIVA e não muda.
+    """
+
+    # Status entra na lista até existir a operação de cancelamento.
+    campos_imutaveis = (
+        "identificador", "movimento", "numero", "data_vencimento", "valor", "status",
+        "criado_em",
+    )
+
+    identificador = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    movimento = models.ForeignKey(
+        MovimentoConta, on_delete=models.PROTECT, related_name="parcelas"
+    )
+    numero = models.PositiveSmallIntegerField()
+    data_vencimento = models.DateField()
+    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=9, choices=StatusParcela, default=StatusParcela.ATIVA
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    objects = SemExclusaoNemAlteracaoManager.from_queryset(ParcelaContaQuerySet)()
+
+    class Meta:
+        db_table = "parcelas_contas"
+        base_manager_name = "objects"
+        ordering = ["movimento_id", "numero"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["movimento", "numero"],
+                name="parcela_numero_unico_no_movimento",
+                violation_error_message="Este número de parcela já existe no movimento.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(numero__gte=1),
+                name="parcela_numero_positivo",
+                violation_error_message="O número da parcela deve ser maior que zero.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valor__gt=0, valor__lt=LIMITE_VALOR),
+                name="parcela_valor_positivo",
+                violation_error_message=(
+                    "O valor da parcela deve ser maior que zero e menor que R$ 10 bilhões."
+                ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=StatusParcela.values),
+                name="parcela_status_valido",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Parcela {self.numero} do movimento #{self.movimento_id} — R$ {self.valor}"
