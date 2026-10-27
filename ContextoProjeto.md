@@ -53,7 +53,8 @@ Toda afirmação relevante usa uma destas marcas:
 | Working tree           | apenas `ContextoProjeto.md` modificado (não commitado)                                        |
 | Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
 | Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
-| Atualização GR-33      | 25/10/2026, branch `feature/gr-33-configurar-supabase` (**não integrada** a `develop`): conexão PostgreSQL com o Supabase configurada em `config/settings.py`, `psycopg[binary]==3.3.6` e variáveis `DB_*` no `.env.example`. Sem models, migrations nem `migrate`. Ver 15.1.1 e [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.1 |
+| Estado da `develop` (27/10/2026) | `develop` = `origin/develop` em `69d21f9`: GR-33 a GR-38 e GR-40 integradas (PRs #22 a #28). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. GR-43 em `feature/gr-43-analise-pendente`, não integrada (15.1.7). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
+| Atualização GR-33      | 25/10/2026, branch `feature/gr-33-configurar-supabase` (integrada depois, PR #22; na data, **não integrada** a `develop`): conexão PostgreSQL com o Supabase configurada em `config/settings.py`, `psycopg[binary]==3.3.6` e variáveis `DB_*` no `.env.example`. Sem models, migrations nem `migrate`. Ver 15.1.1 e [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.1 |
 
 ## 1.3 - Fontes consultadas e limitações
 
@@ -100,7 +101,9 @@ Sistema de gestão financeira rural que processa documentos PDF com IA, identifi
 4. **classifica** o tipo de despesa com o Agent Classificador (Gemini);
 5. exibe **resumo**, **justificativa** e **JSON final**.
 
-Nada é persistido: **não há banco de dados**. É a entrega da **N2 Etapa 1**. Nenhuma funcionalidade da Etapa 2 (banco, consultas, cadastros, movimentos) existe no código.
+Na `main` (`f7786e8`, entrega da **N2 Etapa 1**, em produção) nada é persistido: **não há banco de dados** (HISTÓRICO da Etapa 1, ainda vigente na `main`).
+
+**Estado da `develop` em 27/10/2026 (IMPLEMENTADO, não publicado):** PostgreSQL configurado (GR-33), testes isolados no PostgreSQL local (GR-34), `Pessoa`/`PapelPessoa` (GR-35), `Classificacao` (GR-36), `MovimentoConta`/`MovimentoClassificacao` e `registrar_movimento()` (GR-37), `ParcelaConta` (GR-38) e consultas de existência (GR-40). As migrations foram validadas só no PostgreSQL local e **não** foram aplicadas em homologação nem em produção pelo Pedro Simon. A tela continua sendo a da Etapa 1: consultas, conferência, confirmação e gravação ainda não estão ligadas ao fluxo (GR-51). A GR-43 (análise pendente) está numa branch não integrada (15.1.7).
 
 ---
 
@@ -290,13 +293,13 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 | Login de demonstração                  | **VALIDADO**                                                 | `usuarios/demo.py`, `usuarios/tests.py`      |
 | Gemini API Key informada na tela       | **VALIDADO**                                                 | `documentos/forms.py`, testes de interface   |
 | Configuração de produção (Render)      | **VALIDADO** em testes; operação real registrada em 29/09    | `config/test_producao.py`                    |
-| Banco de dados                         | **inexistente** (`DATABASES = {}`) em `f7786e8`. Na branch da GR-33 (não integrada): conexão PostgreSQL configurada (15.1.1) | `config/settings.py`, `config/test_sem_banco.py` |
-| Models / migrations / admin            | **inexistentes**                                             | árvore do repositório                        |
-| Consultas de existência (Etapa 2)      | **PARCIAL** (GR-40, branch não integrada): serviço de backend, sem tela nem integração ao fluxo | `cadastros/consultas.py`, 15.1.6 |
-| Cadastros e inativação (Etapa 2)       | não implementado                                             | —                                            |
-| Movimento e parcelas (Etapa 2)         | não implementado                                             | —                                            |
+| Banco de dados                         | `main` (`f7786e8`): **inexistente** (`DATABASES = {}`). `develop`: PostgreSQL configurado por `DB_*` (GR-33, PR #22; 15.1.1); migrations só validadas no PostgreSQL local | `config/settings.py`, `config/test_sem_banco.py` |
+| Models / migrations / admin            | `main`: inexistentes. `develop`: apps `cadastros` e `financeiro` com 5 migrations (GR-35 a GR-38); sem admin. Branch da GR-43: `documentos` `0001` | 15.1.2 a 15.1.7 |
+| Consultas de existência (Etapa 2)      | **PARCIAL** (GR-40, integrada à `develop`, PR #28): serviço de backend, sem tela nem integração ao fluxo | `cadastros/consultas.py`, 15.1.6 |
+| Cadastros e inativação (Etapa 2)       | **PARCIAL** na `develop`: models e serviços (GR-35, GR-36), sem telas (P08) | 15.1.2, 15.1.3 |
+| Movimento e parcelas (Etapa 2)         | **PARCIAL** na `develop`: `registrar_movimento()` com parcelas (GR-37, GR-38), sem integração ao fluxo da nota (GR-51) | 15.1.4, 15.1.5 |
 | Versão/commit do GitHub na tela        | não implementado                                             | nenhuma ocorrência no código                 |
-| Trabalho da Etapa 2 em andamento       | **nenhum confirmado** no Git local ou remoto                 | `git ls-remote`, `gh pr list`                |
+| Trabalho da Etapa 2 em andamento       | GR-43 (Pedro Simon, branch local não integrada); GR-51 (Gustavo Lopes) sem branch no remoto em 27/10/2026 | `git ls-remote`, `gh pr list` |
 
 ## 8.2 - Diagnóstico da transição Etapa 1 → Etapa 2
 
@@ -304,6 +307,7 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 - A Etapa 2 exige persistência relacional. O plano inicial (Render + Neon PostgreSQL, `tecnologias.pdf`) foi substituído em 24/10/2026 por **Render + Supabase PostgreSQL** ([ADR-001](docs/arquitetura/ADR-001-supabase.md), PLANEJADO). Em nenhum dos dois casos foi adicionada **qualquer linha** de código, dependência, variável ou migration até `f7786e8`. Em 25/10/2026, a GR-33 configurou a conexão na branch `feature/gr-33-configurar-supabase`, ainda não integrada (15.1.1).
 - Em `f7786e8`, os testes `config/test_sem_banco.py` e partes de `config/test_producao.py` **proíbem** banco. Na branch da GR-33 (não integrada), essas garantias passaram a verificar a configuração PostgreSQL. Na GR-34 (branch `feature/gr-34-testes-migrations`, não integrada), as proibições de models e migrations foram substituídas por garantias da Etapa 2, e os testes com banco passaram a exigir o PostgreSQL local de `DB_TEST_*` (21.3).
 - Em 24/10/2026 restam três dias para a entrega de 27/10/2026.
+- **Atualização de 27/10/2026:** as branches citadas acima foram integradas à `develop` (GR-33 PR #22, GR-34 PR #23, GR-35 PR #24, GR-36 PR #25, GR-37 PR #26, GR-38 PR #27, GR-40 PR #28). Os parágrafos acima ficam como HISTÓRICO.
 
 ---
 
@@ -616,7 +620,9 @@ AgentClassificador(cliente=None).classificar(nota: NotaFiscalExtraida) -> Classi
 
 # 15 - Banco de Dados e Modelo de Domínio
 
-## 15.1 - Estado atual (IMPLEMENTADO / VALIDADO)
+## 15.1 - Estado da Etapa 1 em `f7786e8` (HISTÓRICO; ainda é o estado da `main`)
+
+O estado atual da `develop` está em 15.1.1 a 15.1.6; a GR-43, em 15.1.7.
 
 | Item                     | Situação                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------- |
@@ -631,7 +637,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 
 **Garantias automatizadas que impedem banco** (`config/test_sem_banco.py`, `config/test_producao.py`): falham se houver pasta `migrations`, app `financeiro`, `django.db`/`.objects.` em código de produção, `DB_*`/`postgresql`/`psycopg`/`sqlite`/`djangorestframework` em `settings.py`/`.env.example`/`requirements.txt`, `psycopg`/`dj-database-url` nos requisitos, `migrate` no `build.sh` ou `DATABASE_URL` no `.env.example`.
 
-## 15.1.1 - Estado na branch `feature/gr-33-configurar-supabase` (GR-33, 25/10/2026, não integrada)
+## 15.1.1 - Estado na branch `feature/gr-33-configurar-supabase` (GR-33, 25/10/2026, integrada à `develop`, PR #22; GR-34, PR #23)
 
 | Item                     | Situação                                                                           |
 | ------------------------ | ---------------------------------------------------------------------------------- |
@@ -642,7 +648,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (integrada à `develop`, PR #27): `ParcelaConta` e gatilho da soma, ver 15.1.5. GR-40 (branch não integrada): consultas de existência, só leitura e sem models, ver 15.1.6 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (integrada à `develop`, PR #27): `ParcelaConta` e gatilho da soma, ver 15.1.5. GR-40 (integrada à `develop`, PR #28): consultas de existência, só leitura e sem models, ver 15.1.6. GR-43 (branch não integrada): `AnalisePendente` (app `documentos`), armazenamento temporário da análise, ver 15.1.7 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -655,7 +661,7 @@ Não existe banco de desenvolvimento separado, de testes nem de produção. Prop
 
 PT-06 também foi aprovada: migrations manuais e controladas, sem `migrate` na publicação.
 
-## 15.1.2 - GR-35: Pessoa e PapelPessoa (branch `feature/gr-35-pessoa-papel-pessoa`, 26/10/2026, não integrada)
+## 15.1.2 - GR-35: Pessoa e PapelPessoa (branch `feature/gr-35-pessoa-papel-pessoa`, 26/10/2026, integrada à `develop`, PR #24)
 
 Novo app `cadastros` (`cadastros/models.py`, `cadastros/validators.py`, migration `cadastros/migrations/0001_initial.py`).
 
@@ -696,7 +702,7 @@ Novo app `cadastros` (`cadastros/models.py`, `cadastros/validators.py`, migratio
 - **Integração:** ainda falta usar os models no fluxo (P03 e P04) e nos cadastros (P08).
 - **GR-36:** as FKs de `MovimentoContas` para Pessoa ou para PapelPessoa devem usar `PROTECT`.
 
-## 15.1.3 - GR-36: Classificacao e categorias iniciais (branch `feature/gr-36-classificacoes`, 26/10/2026, não integrada)
+## 15.1.3 - GR-36: Classificacao e categorias iniciais (branch `feature/gr-36-classificacoes`, 26/10/2026, integrada à `develop`, PR #25)
 
 Model `Classificacao` no app `cadastros` (`cadastros/models.py`), com as migrations `0002_classificacao` (esquema) e `0003_categorias_iniciais` (dados). A `0001_initial` da GR-35 não foi alterada.
 
@@ -841,7 +847,7 @@ Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL 18.6 descartá
 | GR-51 | **pendente**: mapear as `parcelas` do Extrator (`numero` opcional, `data_vencimento` opcional, lista sem teto) para `ItemParcela`; tratar nota sem parcelas, sem vencimento ou com mais de 120 parcelas (T-01); exibir "ÚNICA"; traduzir os novos códigos de erro (`sem_parcela`, `parcela`, `parcela_quantidade`, `parcela_numero`, `parcela_vencimento`, `parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`, `parcela_repetida`, `parcela_numeracao`, `parcela_soma`) e os `IntegrityError` do gatilho |
 | Homologação | **pendente**: aplicar `financeiro` `0001` e `0002` manualmente (PT-06). Movimentos já existentes não são conferidos até serem alterados |
 
-## 15.1.6 - GR-40: consultas de existência (branch `feature/gr-40-consultas`, 27/10/2026, não integrada)
+## 15.1.6 - GR-40: consultas de existência (branch `feature/gr-40-consultas`, 27/10/2026, integrada à `develop`, PR #28)
 
 Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local descartável), **só no backend**. Não há model nem migration novos, e nada foi aplicado em homologação ou produção. Pacote P03 (FLU-01 a FLU-03). Branch criada a partir da `develop` em `ba63321`, que já contém a GR-38 (PR #27).
 
@@ -903,6 +909,167 @@ O banco `test_gestao_rural` foi criado e removido pelo executor de testes. O Sup
 - **Q-03 para cadastros incompletos:** sem busca pela razão social, uma pessoa INCOMPLETA nunca é encontrada pela consulta; a GR-51 precisa definir como evitar um segundo cadastro incompleto da mesma pessoa.
 
 **Git:** branch `feature/gr-40-consultas`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
+## 15.1.7 - GR-43: AnalisePendente, armazenamento temporário da análise (branch `feature/gr-43-analise-pendente`, 27/10/2026, não integrada)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local descartável); **não integrado** à `develop`; migration `documentos` `0001_initial` **não aplicada** em homologação nem em produção (PT-06); **não ligado** à tela (GR-51). Pacote P04. Branch a partir da `develop` em `69d21f9` (GR-40 integrada, PR #28).
+
+**Objetivo:** resolver T-04/C-10, ou seja, guardar no servidor, de forma segura, o resultado da análise da nota entre o processamento e a confirmação do usuário (Q-02/DQ-02), sem cookie com dados da nota, sem reprocessar com o Gemini e sem criar nada antes da confirmação.
+
+**Diagnóstico que orientou o desenho:** a sessão é um cookie assinado (`signed_cookies`), sem `django.contrib.sessions` nem `auth`, travada por `config/test_sem_banco.py`; não há `session_key` no servidor e o login de demonstração tem um único usuário. Alternativas descartadas: sessão no banco (muda `SESSION_ENGINE` e instala apps, quebrando as proteções atuais); cache (sem cache compartilhado entre os workers do Gunicorn no Render); dados reenviados pelo formulário com assinatura (expõe a nota ao navegador, tem limite de tamanho e permite replay).
+
+**Decisões aprovadas por Pedro Simon em 27/10/2026** (matriz, DQ-09):
+
+| Questão | Decisão |
+| ------- | ------- |
+| Armazenamento (T-04) | model `AnalisePendente` no PostgreSQL, app `documentos` |
+| Dados guardados | o JSON final completo de `montar_resultado` (17.3), conferido e versionado; apagado ao confirmar, cancelar ou expirar |
+| Validade | 30 minutos (constante `VALIDADE`; sem variável de ambiente nova) |
+| `analise_origem_id` (pendência da GR-37/GR-51) | o UUID da análise; confirmar a mesma análise duas vezes nunca cria dois movimentos |
+
+**Model** (`documentos/models.py`, tabela `analises_pendentes`, migration `documentos/migrations/0001_initial.py`, sem dependências e sem FK):
+
+| Campo | Regra |
+| ----- | ----- |
+| `id` | UUID (`uuid4`), chave primária; vira o `analise_origem_id` |
+| `dono_hash` | SHA-256 (hex) do código aleatório da sessão; o código fica só no cookie assinado |
+| `status` | PENDENTE, CONFIRMADA, CANCELADA ou EXPIRADA |
+| `versao_dados` | versão do formato de `dados` (1) |
+| `dados` | JSONB; NULL fora de PENDENTE |
+| `criado_em`, `expira_em`, `finalizado_em` | datas do ciclo de vida; `finalizado_em` só nos estados finais |
+
+Constraints: `analise_status_valido`, `analise_dono_hash_valido` (`^[0-9a-f]{64}$`), `analise_expira_depois_de_criada`, `analise_dados_coerentes_com_status` (PENDENTE com dados e sem `finalizado_em`; estado final sem dados e com `finalizado_em`). Índice `analise_status_expira_idx` (`status`, `expira_em`) para a limpeza. Nenhum campo guarda arquivo, bytes ou segredo (`config/test_sem_banco.py`).
+
+**Serviço** (`documentos/analises.py`):
+
+| Função | Comportamento |
+| ------ | ------------- |
+| `garantir_dono(session)` | grava um código aleatório novo na sessão (`secrets.token_urlsafe(32)`, chave `analise_dono`); chamado no login (comportamento final em 15.1.7.1) |
+| `criar_analise(session, resultado)` → `AnalisePendente` | confere as 10 chaves do JSON final, a serialização JSON (sem `Decimal`, bytes ou NaN) e o limite de 256 KB; guarda uma cópia; validade de 30 min; expira antes as vencidas de qualquer sessão. Não cria cadastros, movimentos nem parcelas |
+| `obter_analise(session, id)` | devolve a análise PENDENTE e no prazo, só para a sessão dona |
+| `cancelar_analise(session, id)` | CANCELADA e dados apagados; cancelar de novo não tem efeito |
+| `confirmar_analise(session, id, gravar)` | bloqueia a linha (`select_for_update`), confere dono, status e prazo e executa `gravar(dados, analise_id)` (o mapeamento da GR-51 para `registrar_movimento()`) e a marcação CONFIRMADA na **mesma transação**; devolve o retorno de `gravar`. Uma exceção de `gravar` desfaz tudo e a análise continua PENDENTE |
+| `descartar_analises(session)` | cancela as pendentes da sessão e apaga os dados; feito para o logout (ver pendências) |
+| `expirar_analises(agora=None)` e comando `python manage.py expirar_analises` | marcam EXPIRADA as pendentes vencidas e apagam os dados |
+
+- **Autorização:** a busca filtra `pk` e `dono_hash` juntos. Outra sessão, código forjado, sessão sem código, o próprio hash usado como código e UUID inválido recebem a mesma resposta (`analise_nao_encontrada`): não há como descobrir se uma análise existe.
+- **Erros:** `AnaliseError` com `codigo` (`dados_invalidos`, `analise_nao_encontrada`, `analise_expirada`, `analise_confirmada`, `analise_cancelada`) e `mensagem` fixa, segura para a tela, sem o id nem detalhes internos.
+- **Expiração:** preguiçosa (ao obter, cancelar ou confirmar uma vencida, a marcação EXPIRADA é gravada e o erro é levantado depois do commit), na criação de qualquer análise e pelo comando.
+- **Transação:** obter, cancelar e confirmar usam `transaction.atomic(durable=True)`: chamá-los dentro de outra transação levanta `RuntimeError`, porque um rollback externo desfaria a expiração. Com `ATOMIC_REQUESTS` desligado (padrão atual), a view pode chamá-los diretamente.
+- **Concorrência:** uma segunda confirmação simultânea espera o bloqueio e recebe `analise_confirmada`, sem chamar `gravar`; o cancelamento e a limpeza durante uma confirmação esperam e não desfazem o resultado (READ COMMITTED reavalia o `WHERE` do UPDATE).
+- **Dados pessoais:** CPF, CNPJ e nomes ficam no banco só enquanto a análise está PENDENTE (validade de 30 minutos; depois disso, até o próximo evento de limpeza, que não é imediato nem agendado: ver 15.1.7.1). Nos estados finais ficam só `dono_hash`, status e datas.
+- **Compatibilidade:** os schemas dos Agents, o JSON final, `documentos/views.py`, `config/settings.py`, `.env.example`, `usuarios/demo.py` e as migrations da GR-35 à GR-38 **não** foram alterados.
+
+**Arquivos:**
+
+| Arquivo | Alteração |
+| ------- | --------- |
+| `documentos/models.py` | novo: `AnalisePendente` e `StatusAnalise` |
+| `documentos/analises.py` | novo: serviço |
+| `documentos/migrations/__init__.py`, `documentos/migrations/0001_initial.py` | novos: migration da tabela `analises_pendentes` |
+| `documentos/management/__init__.py`, `documentos/management/commands/__init__.py`, `documentos/management/commands/expirar_analises.py` | novos: comando de limpeza |
+| `documentos/test_analises.py` | novo: 42 testes |
+| `ContextoProjeto.md`, `README.md`, `docs/requisitos/matriz-n2-etapa2.md`, `docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md` | registro da GR-43 e da DQ-09; GR-40 passa a constar como integrada (PR #28) |
+
+**Testes** (`documentos/test_analises.py`, 42, PostgreSQL local via `DB_TEST_*`): criação (validade, cópia, cookie só com o código, hash no banco, reuso do código, nada financeiro criado, entradas fora do contrato sem gravar nada, expiração das abandonadas); recuperação autorizada (UUID ou texto, cookie regravado, outra sessão, código forjado, hash como código, id inválido, mensagens); expiração (preguiçosa ao obter, confirmar e cancelar, limpeza só das pendentes vencidas, comando); cancelamento (idempotente, bloqueia obter e confirmar, outra sessão, descarte no logout com cookie antigo); confirmação (dados e UUID para `gravar`, reutilização recusada, outra sessão, falha mantém PENDENTE); transação externa recusada; integração com `registrar_movimento()` (movimento com `analise_origem_id` = id da análise; falha depois de gravar movimento e pessoa não deixa nada; recusa do serviço mantém PENDENTE); constraints do banco; concorrência com threads e `TransactionTestCase` (`serialized_rollback=True`): três confirmações simultâneas gravam um movimento, cancelamento e limpeza durante a confirmação, expiração preguiçosa com COMMIT real lida por outra conexão.
+
+Mutações de controle, todas detectadas: sem `select_for_update`; sem conferir o dono; expiração levantada dentro da transação; dados não apagados ao finalizar; sem `durable`; criação sem expirar as vencidas; descarte sem filtrar o dono.
+
+| Comando | Resultado |
+| ------- | --------- |
+| Conferência do banco de teste antes das execuções | host `127.0.0.1`, porta 5432, banco `test_gestao_rural` (inexistente antes), PostgreSQL 18.6, usuário com permissão de criar banco; sem `--keepdb` |
+| `python manage.py test documentos.test_analises` | `Ran 42 tests — OK` |
+| `DB_HOST=192.0.2.1 python manage.py check` | sem problemas |
+| `DB_HOST=192.0.2.1 python manage.py makemigrations --check --dry-run` | `No changes detected` (migration gerada da mesma forma, sem acesso a banco remoto) |
+| `DB_HOST=192.0.2.1 python manage.py test` (final) | `Ran 633 tests — OK` (591 + 42) |
+| `git diff --check` | sem problemas |
+
+O Supabase não foi usado. **Observação:** na GR-40 e na sincronização de 27/10/2026, `makemigrations --check` foi executado com as variáveis `DB_*` do `.env`; esse comando faz uma leitura de verificação do histórico de migrations no banco configurado (possivelmente o Supabase de homologação). Foi só leitura; a partir da GR-43 ele roda com `DB_HOST` inalcançável.
+
+**Auditoria independente** (subagente, só leitura): confirmou a autorização sem vazamento de existência, o cookie só com o código, a ausência de PDF e chave, a concorrência e a gravação de SQL NULL em `dados`. Correções aplicadas, com testes: (1) análise abandonada ficava com os dados indefinidamente, porque o comando de limpeza não está agendado → `criar_analise` expira as vencidas; (2) expiração preguiçosa podia ser desfeita por um `atomic()` externo → `durable=True`; (3) o código da sessão nascia na requisição de processamento, e o cookie regravado podia desfazer um logout feito em outra aba ou deixar órfã a análise de outra aba → `garantir_dono()`, para o login; (4) o logout não descartava as análises, e um cookie antigo reenviado as recuperava → `descartar_analises()`, para o logout. Os itens (3) e (4) dependem de ligação em `usuarios/demo.py` (pendência abaixo).
+
+**Integração:**
+- **Depende de:** JSON final da Etapa 1 (17.3); `registrar_movimento()` (GR-37/GR-38) só pela função `gravar` da GR-51.
+- **Usado por (GR-51, Gustavo Lopes):** depois de `processar_pdf()`, chamar `criar_analise(request.session, resultado)` e levar o `id` para a tela (URL ou campo oculto); na conferência, `obter_analise`; no cancelamento, `cancelar_analise`; na confirmação, `confirmar_analise(request.session, id, gravar)`, com `gravar` montando `DadosMovimento` (inclusive `analise_origem_id=analise_id`) e criando os cadastros ausentes; tratar `AnaliseError` (mensagem pronta) e `ValidationError` do serviço financeiro. No duplo clique, `analise_confirmada` só chega à sessão dona: a view pode exibir o movimento de `MovimentoConta(analise_origem_id=id)`.
+- **Efeito nos testes da GR-51:** quando a view gravar a análise, os `SimpleTestCase` de `documentos/test_interface.py` que processam com sucesso (inclusive os que conferem `session == {SESSAO_DEMO: True}` e o que proíbe conexão com o banco) precisarão virar `TestCase` ou simular `criar_analise`. Coordenar com Gustavo Lopes (arquivos sensíveis).
+
+**Pendências** (não decididas pelo agente):
+- **Login e logout:** **resolvido em 15.1.7.1** (ligação em `usuarios/demo.py`, autorizada por Pedro Simon em 27/10/2026).
+- **Agendamento da limpeza:** o comando `expirar_analises` não está agendado (Cron Job no Render exige autorização). Hoje a limpeza acontece na criação de análises e no uso preguiçoso.
+- **Retenção das linhas finalizadas:** ficam para sempre (só `dono_hash`, status e datas). Expurgo depois de N dias não foi definido.
+- **`versao_dados`:** gravado, mas ainda não conferido na leitura; ao surgir a versão 2, recusar versões diferentes.
+- **Mudança no JSON final pela GR-51:** `criar_analise` exige exatamente as 10 chaves de 17.3; se a GR-51 mudar o JSON, atualizar `CHAVES_DOS_DADOS` e `VERSAO_DADOS`.
+- **Homologação:** aplicar `documentos` `0001` manualmente no Supabase de homologação (PT-06), coordenando com Gustavo Lopes.
+- **Limites:** sem limite de análises pendentes por sessão (o processamento, que exige a chave Gemini, é o gargalo); cookie assinado não é revogável no servidor (risco do login de demonstração, anterior à GR-43).
+
+**Git:** branch `feature/gr-43-analise-pendente`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
+### 15.1.7.1 - GR-43: login, logout e segurança da sessão (27/10/2026, mesma branch, não integrada)
+
+**Objetivo:** fechar, antes do PR, as pendências de segurança da GR-43, ligando o ciclo de vida de `AnalisePendente` ao login e ao logout existentes, sem mudar os Agents nem antecipar a GR-51.
+
+**Implementação:**
+
+| Ponto | Comportamento |
+| ----- | ------------- |
+| Login (`usuarios/demo.py::iniciar_sessao_demo`) | cancela as análises pendentes de um código anterior, se houver, e grava um **código novo** (`garantir_dono`); depois grava o indicador de login. Um login nunca reaproveita o código de uma sessão não autenticada |
+| Logout (`encerrar_sessao_demo`) | `descartar_analises()` **antes** do `flush()`: as análises pendentes da sessão viram CANCELADA, sem dados |
+| Banco indisponível | login e logout capturam `django.db.Error` (inclusive `InterfaceError`), registram aviso fixo, sem detalhes, e seguem: o logout limpa a sessão e o login entra com código novo |
+| `criar_analise` | **não cria mais o código**. Sessão sem código (cookie emitido antes da GR-43, ou criado por `usuarios/testing.py::autenticar_demo`) recebe `AnaliseError("sessao_sem_codigo")` ("Sua sessão precisa ser renovada. Saia e entre novamente."), sem gravar nada e sem modificar a sessão. Assim nenhuma requisição longa de processamento regrava o cookie |
+| `garantir_dono` | só grava o código novo; o cancelamento das análises anteriores é feito pelo login |
+| Cookie de sessão | passa a conter `demo_autenticado` e `analise_dono` (código aleatório de 43 caracteres); nenhum dado da nota nem credencial |
+
+**Cookies assinados antigos (limite conhecido, não corrigido):** **não há revogação completa**. O cookie assinado não pode ser invalidado no servidor. Uma cópia guardada antes do logout:
+- continua autenticando até expirar (`SESSION_COOKIE_AGE`, 2 semanas por padrão);
+- encontra como CANCELADA, sem dados, as análises que estavam pendentes no logout;
+- **pode criar e usar análises novas** com o mesmo código (testado).
+
+Uma análise criada por um processamento ainda em andamento quando outra aba faz logout não é cancelada: fica PENDENTE até expirar. A troca do código no login **não** protege contra quem planta um cookie já autenticado (ele vai direto para `/documentos/` sem passar pelo login). Mitigações possíveis, não decididas: reduzir `SESSION_COOKIE_AGE`; sessão no servidor (exige ADR e muda as garantias de `config/test_sem_banco.py`); logout só por POST.
+
+**Expiração e retenção:** a validade de 30 minutos **não significa exclusão física**. Depois do prazo, a análise não pode mais ser obtida, cancelada nem confirmada, mas os dados (CPF, CNPJ, nomes, itens) só são apagados quando: a própria análise é acessada; **qualquer** análise é criada; o logout da sessão dona a cancela; ou o comando `python manage.py expirar_analises` roda. O comando **não está agendado**: com o sistema ocioso, os dados de uma análise vencida ficam no banco até um desses eventos. Nenhuma linha é excluída: nos estados finais ficam só `dono_hash`, status e datas, por tempo indeterminado (política de expurgo não definida).
+
+**Múltiplas abas:** abas do mesmo navegador compartilham o cookie e o código: veem as análises umas das outras, e o logout em qualquer aba cancela as pendentes de todas. Navegadores diferentes têm códigos diferentes e não se veem.
+
+**Arquivos alterados nesta etapa:**
+
+| Arquivo | Alteração |
+| ------- | --------- |
+| `usuarios/demo.py` | login e logout ligados ao ciclo da análise; captura de `django.db.Error`; docstring com o limite da revogação |
+| `usuarios/views.py` | docstring do login (não há mais "sem banco") |
+| `usuarios/tests.py` | `LogoutTests` virou `TestCase` (o logout consulta o banco); novo `LogoutSemBancoTests` (`SimpleTestCase`, sessão sem código não consulta o banco); teste do cookie ajustado para {indicador, código opaco}, sem credenciais; `test_sessao_guarda_somente_o_indicador` renomeado para `test_sessao_nao_guarda_credenciais`; nova classe `AnalisesNoLoginELogoutTests` |
+| `documentos/analises.py` | `criar_analise` exige o código; `garantir_dono` só troca o código; mensagem `sessao_sem_codigo`; docstring sobre expiração × exclusão |
+| `documentos/testing.py` | novo: `nova_sessao()` e `resultado_da_nota()` para os testes (antes dentro de `test_analises.py`) |
+| `documentos/test_analises.py` | sessões criadas com código; teste de sessão sem código; logout concorrente com a confirmação |
+
+`documentos/views.py`, `documentos/test_interface.py`, os templates, `config/settings.py` e as migrations não foram alterados. Os testes de `documentos/test_interface.py` continuam `SimpleTestCase` e passam: usam `autenticar_demo` (sem código) e não fazem login nem logout pela view.
+
+**Testes de regressão:**
+- `usuarios/tests.py` (51; 14 novos ou convertidos): login cria o código; criar análise não modifica a sessão do login; cada login recebe código novo; código de sessão não autenticada não é reaproveitado; logout cancela só as pendentes da sessão; navegadores diferentes não se veem; abas do mesmo navegador compartilham; cookie antigo reenviado autentica, mas encontra as análises canceladas; cookie antigo cria análises novas (limite documentado); cookie anterior à GR-43 não cria análise (`sessao_sem_codigo`); logout com `OperationalError` e `InterfaceError`; login com `InterfaceError`; logout sem código não consulta o banco.
+- `documentos/test_analises.py` (45): além dos anteriores, sessão sem código e logout durante uma confirmação (threads: a confirmação prevalece, a outra pendente é cancelada).
+- Mutações de controle, todas detectadas: login sem `garantir_dono`; login sem descartar; logout sem descartar; descarte depois do `flush`; captura só de `DatabaseError`; `criar_analise` criando o código.
+
+| Comando | Resultado |
+| ------- | --------- |
+| Conferência do banco de teste antes de cada execução | `127.0.0.1:5432`, `test_gestao_rural` inexistente, PostgreSQL 18.6, permissão de criar banco; sem `--keepdb` |
+| `python manage.py test usuarios documentos` | `Ran 186 tests — OK` |
+| `DB_HOST=192.0.2.1 python manage.py check` | sem problemas |
+| `DB_HOST=192.0.2.1 python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `DB_HOST=192.0.2.1 python manage.py test` (final) | `Ran 650 tests — OK` (591 da `develop` + 45 de `test_analises` + 14 novos em `usuarios`) |
+| `git diff --check` | sem problemas |
+
+O Supabase não foi acessado. `python manage.py test usuarios` passou a exigir `DB_TEST_*`, porque parte dos testes de logout usa o banco.
+
+**Auditoria independente** (subagente, só leitura): sem falha grave. Corrigido: (1) código criado numa requisição longa para cookies sem código → `criar_analise` exige o código; (3) `InterfaceError` no logout virava erro 500 → captura de `django.db.Error`; (4) erro de banco no login virava 500 → mesma captura; textos que prometiam revogação ou proteção contra fixação além do real → corrigidos. Registrado sem correção: (2) cookie antigo mantém acesso e cria análises novas, e análise criada durante o logout fica pendente; (5) a rotação não protege contra cookie autenticado plantado; (6) logout por GET (anterior à GR-43). Verificado sem problema: sem import circular (`usuarios.demo` → `documentos.analises` → `documentos.models`; `documentos.views` → `usuarios.demo`), sem vazamento em log, abas, logout durante a confirmação, compatibilidade de `config/test_sem_banco.py` e GR-35 a GR-40 intactas.
+
+**Pendências desta etapa:**
+- **GR-51 (Gustavo Lopes):** ao ligar `criar_analise` na view, tratar `sessao_sem_codigo`; `usuarios/testing.py::autenticar_demo` cria sessão sem código, então os testes de interface que processarem com sucesso precisarão gravar o código (por exemplo com `documentos/testing.py::nova_sessao`) e virar `TestCase`. Os testes de `documentos/test_interface.py` que conferem `session == {SESSAO_DEMO: True}` não mudam enquanto a view não chamar o serviço.
+- **Decisões da equipe:** agendar `expirar_analises` (Render Cron, exige autorização); política de expurgo das linhas finalizadas; reduzir `SESSION_COOKIE_AGE` ou adotar sessão no servidor; logout só por POST.
+- **Comentário desatualizado em arquivo sensível:** `config/settings.py` ("Guarda só o indicador do login da demonstração") e a docstring de `config/test_sem_banco.py` ("testes de fluxo ... todos `SimpleTestCase`") não foram alterados sem autorização.
+- **Homologação:** migration `documentos` `0001` ainda não aplicada (PT-06).
+
+**Situação da GR-43:** **IMPLEMENTADO** e **TESTADO LOCALMENTE**, **pronto para revisão e PR para `develop`**; **não integrado**, **não homologado** e **não ligado à tela** (GR-51).
+
+**Git:** branch `feature/gr-43-analise-pendente`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
@@ -1091,7 +1258,7 @@ Não existe. Etapa 2: ver 18.2 e 15.2.
 
 ## 18.7 - Inicialização da aplicação
 
-`start.sh` → Gunicorn `config.wsgi:application` → `config/settings.py` (lê `.env` via `load_dotenv`, sem sobrescrever o ambiente; monta hosts/CSRF; `DATABASES = {}` em `f7786e8`; na branch da GR-33, exige as variáveis `DB_*` — 15.1.1) → apps `staticfiles`, `documentos`, `usuarios`. `MAX_PDF_UPLOAD_SIZE_MB` é convertido com `int()` na importação (valor inválido impede a inicialização). `GEMINI_*` só são validados quando um `GeminiClient` é criado.
+`start.sh` → Gunicorn `config.wsgi:application` → `config/settings.py` (lê `.env` via `load_dotenv`, sem sobrescrever o ambiente; monta hosts/CSRF; `DATABASES = {}` em `f7786e8`; na `develop`, desde a GR-33, exige as variáveis `DB_*` — 15.1.1) → apps `staticfiles`, `documentos`, `usuarios` (na `develop`, também `cadastros` e `financeiro`). `MAX_PDF_UPLOAD_SIZE_MB` é convertido com `int()` na importação (valor inválido impede a inicialização). `GEMINI_*` só são validados quando um `GeminiClient` é criado.
 
 ## 18.8 - Publicação (registrada em 29/09/2026)
 
@@ -1116,7 +1283,8 @@ Não é um sistema de usuários: não há `django.contrib.auth`, `request.user`,
 | `credenciais_validas`      | `constant_time_compare` em login e senha, combinados com `&`                        |
 | `demo_autenticado`         | `session["demo_autenticado"] is True` **e** credenciais configuradas                |
 | `demo_login_required`      | sem sessão válida → `redirect("login")`                                             |
-| Sessão                     | `signed_cookies`: conteúdo `{"demo_autenticado": true}` assinado com `DJANGO_SECRET_KEY` (não criptografado), `HttpOnly`, `Secure` com `DEBUG=False`, `SameSite=Lax`, 2 semanas |
+| Sessão                     | `signed_cookies`: na `main` (Etapa 1), conteúdo `{"demo_autenticado": true}`; na branch da GR-43, também `analise_dono` (código aleatório das análises pendentes, criado a cada login; 15.1.7.1). Assinado com `DJANGO_SECRET_KEY` (não criptografado), `HttpOnly`, `Secure` com `DEBUG=False`, `SameSite=Lax`, 2 semanas |
+| Login e logout (GR-43)     | o login troca o código das análises e cancela as pendentes do anterior; o logout cancela as pendentes da sessão antes do `flush`; erro de banco não impede nenhum dos dois |
 
 ## 19.2 - Controles existentes (VALIDADO)
 
@@ -1140,7 +1308,8 @@ Não é um sistema de usuários: não há `django.contrib.auth`, `request.user`,
 | Alto  | **Repositório público** + exigência de `Readme.txt` com login, senha e Key (LLM): publicar esse arquivo no GitHub exporia credenciais e a chave (hoje está no `.gitignore`) |
 | Médio | Login sem limite de tentativas                                                         |
 | Médio | Dados pessoais (CPF, nomes, valores) enviados ao Gemini sem registro de base legal (tarefa GR-18 LGPD) |
-| Médio | Sessão em cookie sem revogação no servidor                                             |
+| Médio | Sessão em cookie sem revogação no servidor: uma cópia do cookie feita antes do logout autentica até expirar (2 semanas) e, desde a GR-43, pode criar análises novas; o logout só cancela as análises pendentes existentes (15.1.7.1) |
+| Médio | Dados de análises vencidas ficam no banco até a próxima limpeza (acesso, criação de análise, logout ou comando `expirar_analises`, não agendado) (15.1.7.1) |
 | Médio | Limite de tamanho do PDF só após o upload completo                                     |
 | Baixo | Logout por GET; Classificador sem instrução anti-injeção; validação de PDF superficial; sem `LOGGING`; HSTS/SSL redirect delegados ao Render; sem CSP |
 
@@ -1356,7 +1525,7 @@ hotfix/*  ──PR──▶  main  ──PR de sincronização──▶  develop
 | D2 | Django REST Framework + PostgreSQL desde o início                          | Mini Documentação; PRs #1–#14 | **HISTÓRICO** (removidos no PR #15)  |
 | D3 | Agents em pacote `agents/<agente>/` com cliente Gemini compartilhado       | PRs #9–#11              | vigente                                     |
 | D4 | Structured output com schemas Pydantic e `temperature=0`                   | PRs #10–#11             | vigente                                     |
-| D5 | Etapa 1 **stateless**: sem banco, sem models, login de demonstração        | PR #15, 29/09           | vigente no código; será revista na Etapa 2  |
+| D5 | Etapa 1 **stateless**: sem banco, sem models, login de demonstração        | PR #15, 29/09           | vigente na `main` (`f7786e8`); substituída na `develop` a partir da GR-33 (PostgreSQL); a sessão continua em cookie assinado |
 | D6 | Gemini API Key informada na tela a cada processamento, nunca armazenada    | PR #16, 29/09           | vigente                                     |
 | D7 | Render + Gunicorn + WhiteNoise; HSTS/redirect delegados à plataforma       | PRs #17–#18             | vigente                                     |
 | D8 | Etapa 2: manter Render e adicionar **PostgreSQL no Neon Free**             | `tecnologias.pdf`, out  | **HISTÓRICO** (substituída pela D10)        |
