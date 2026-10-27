@@ -2,6 +2,7 @@
 {% block titulo %}Contas — Gestão Rural{% endblock %}
 {% block conteudo %}
 <h1>Contas a pagar e a receber</h1>
+<p><a class="botao" href="{% url 'conta_manual_nova' %}">Registrar conta manual</a></p>
 <p>Consulte lançamentos de notas fiscais e manuais. Confirmado não significa pago ou recebido.</p>
 <form method="get" class="cartao formulario-cadastro">
   {{ form.as_p }}
