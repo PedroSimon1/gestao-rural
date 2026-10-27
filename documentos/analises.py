@@ -23,8 +23,17 @@ confirmar_analise() não grava nada financeiro: recebe `gravar(dados,
 analise_id)`, o mapeamento da GR-51 para registrar_movimento(), e o executa na
 mesma transação que finaliza a análise. Se `gravar` falhar, nada é gravado e a
 análise continua PENDENTE.
+
+Correções da conferência (GR-22, F-2; T-02, T-03 e G-03 aprovadas por Pedro
+Simon em 27/10/2026): registrar_correcoes() substitui o conjunto inteiro, com
+controle otimista por versao_correcoes, e guarda tudo separado de `dados`.
+`gravar` continua recebendo só os dados extraídos; dentro dele,
+correcoes_da_confirmacao(analise_id) devolve as correções da análise que está
+sendo confirmada. Na finalização as correções são apagadas e ficam só os nomes
+dos campos corrigidos.
 """
 
+import contextvars
 import hashlib
 import json
 import secrets
@@ -34,6 +43,7 @@ from uuid import UUID
 from django.db import transaction
 from django.utils import timezone
 
+from .correcoes import validar_correcoes
 from .models import AnalisePendente, StatusAnalise
 
 VALIDADE = timedelta(minutes=30)
@@ -54,6 +64,10 @@ MENSAGENS = {
     "analise_expirada": "O prazo para conferir esta análise terminou. Envie a nota novamente.",
     "analise_confirmada": "Esta análise já foi confirmada.",
     "analise_cancelada": "Esta análise foi cancelada. Envie a nota novamente.",
+    "correcao_invalida": "Revise os campos corrigidos: há valores inválidos.",
+    "correcoes_desatualizadas": (
+        "Os dados desta análise foram alterados em outra janela. Recarregue a conferência."
+    ),
 }
 CODIGO_DO_ESTADO_FINAL = {
     StatusAnalise.CONFIRMADA: "analise_confirmada",
@@ -62,12 +76,20 @@ CODIGO_DO_ESTADO_FINAL = {
 }
 
 
-class AnaliseError(Exception):
-    """Falha da análise pendente. `mensagem` é segura para exibir na tela."""
+# Análise cujo `gravar` está rodando agora (correcoes_da_confirmacao).
+_EM_CONFIRMACAO = contextvars.ContextVar("analise_em_confirmacao", default=None)
 
-    def __init__(self, codigo):
+
+class AnaliseError(Exception):
+    """Falha da análise pendente. `mensagem` é segura para exibir na tela.
+
+    `campos`: nomes dos campos com problema (correcao_invalida); nunca valores.
+    """
+
+    def __init__(self, codigo, campos=()):
         self.codigo = codigo
         self.mensagem = MENSAGENS[codigo]
+        self.campos = tuple(campos)
         super().__init__(self.mensagem)
 
 
@@ -105,11 +127,16 @@ def _uuid(analise_id):
         raise AnaliseError("analise_nao_encontrada") from None
 
 
+# Estado final: sem dados nem correções (campos_corrigidos fica, T-03).
+_LIMPEZA = {"dados": None, "correcoes": None}
+
+
 def _finalizar(analise, status, agora):
     analise.status = status
     analise.dados = None
+    analise.correcoes = None
     analise.finalizado_em = agora
-    analise.save(update_fields=["status", "dados", "finalizado_em"])
+    analise.save(update_fields=["status", "dados", "correcoes", "finalizado_em"])
 
 
 def _travar(session, analise_id):
@@ -204,16 +231,74 @@ def cancelar_analise(session, analise_id):
             raise
 
 
-def confirmar_analise(session, analise_id, gravar):
+def _conferir_versao(analise, versao):
+    if isinstance(versao, bool) or not isinstance(versao, int):
+        raise TypeError("A versão das correções deve ser um inteiro.")
+    if versao != analise.versao_correcoes:
+        raise AnaliseError("correcoes_desatualizadas")
+
+
+def registrar_correcoes(session, analise_id, correcoes, versao):
+    """Substitui as correções da análise e devolve a AnalisePendente atualizada.
+
+    `correcoes`: dicionário completo {campo: valor} da lista fechada de
+    documentos/correcoes.py ({} apaga as correções). `versao`: a
+    versao_correcoes que a tela leu; diferente → correcoes_desatualizadas, sem
+    gravar (outra janela já mudou). Mesmas regras de dono, prazo, estado e
+    transação de obter_analise. `dados` nunca muda.
+    """
+    if not isinstance(correcoes, dict):
+        raise AnaliseError("correcao_invalida")
+    normalizadas, invalidos = validar_correcoes(correcoes)
+    if invalidos:
+        raise AnaliseError("correcao_invalida", campos=invalidos)
+    texto = json.dumps(normalizadas, ensure_ascii=False)
+    if len(texto.encode()) > LIMITE_DOS_DADOS:
+        raise AnaliseError("correcao_invalida")
+
+    def registrar(analise, agora):
+        _conferir_versao(analise, versao)
+        analise.correcoes = normalizadas or None
+        analise.campos_corrigidos = sorted(normalizadas)
+        analise.versao_correcoes += 1
+        analise.save(update_fields=["correcoes", "campos_corrigidos", "versao_correcoes"])
+        return analise
+
+    return _executar_se_valida(session, analise_id, registrar)
+
+
+def correcoes_da_confirmacao(analise_id):
+    """Cópia das correções da análise que está sendo confirmada ({} sem correção).
+
+    Só funciona dentro do `gravar` de confirmar_analise() para essa mesma
+    análise (RuntimeError fora dele): a autorização e o bloqueio já foram
+    feitos pela confirmação.
+    """
+    analise = _EM_CONFIRMACAO.get()
+    if analise is None or analise.id != _uuid(analise_id):
+        raise RuntimeError("correcoes_da_confirmacao() só vale dentro do gravar da confirmação.")
+    return json.loads(json.dumps(analise.correcoes or {}))
+
+
+def confirmar_analise(session, analise_id, gravar, *, versao_correcoes=None):
     """Executa `gravar(dados, analise_id)` e marca a análise CONFIRMADA, na
     mesma transação. Devolve o que `gravar` devolver.
 
     A linha fica bloqueada durante a gravação: uma segunda confirmação
     concorrente espera e depois recebe "analise_confirmada". Qualquer exceção
     de `gravar` desfaz tudo e a análise continua PENDENTE.
+
+    `versao_correcoes` (opcional): a versão das correções que o usuário
+    conferiu; diferente → correcoes_desatualizadas, sem chamar `gravar`.
     """
     def confirmar(analise, agora):
-        resultado = gravar(analise.dados, analise.id)
+        if versao_correcoes is not None:
+            _conferir_versao(analise, versao_correcoes)
+        token = _EM_CONFIRMACAO.set(analise)
+        try:
+            resultado = gravar(analise.dados, analise.id)
+        finally:
+            _EM_CONFIRMACAO.reset(token)
         _finalizar(analise, StatusAnalise.CONFIRMADA, timezone.now())
         return resultado
 
@@ -232,7 +317,7 @@ def descartar_analises(session):
     agora = timezone.now()
     return AnalisePendente.objects.filter(
         dono_hash=dono, status=StatusAnalise.PENDENTE
-    ).update(status=StatusAnalise.CANCELADA, dados=None, finalizado_em=agora)
+    ).update(status=StatusAnalise.CANCELADA, finalizado_em=agora, **_LIMPEZA)
 
 
 def expirar_analises(agora=None):
@@ -245,4 +330,4 @@ def expirar_analises(agora=None):
     agora = agora or timezone.now()
     return AnalisePendente.objects.filter(
         status=StatusAnalise.PENDENTE, expira_em__lte=agora
-    ).update(status=StatusAnalise.EXPIRADA, dados=None, finalizado_em=agora)
+    ).update(status=StatusAnalise.EXPIRADA, finalizado_em=agora, **_LIMPEZA)
