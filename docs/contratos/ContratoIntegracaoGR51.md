@@ -2,7 +2,7 @@
 
 | Item | Valor |
 | ---- | ----- |
-| Versão | **MINUTA 0.4 — D-01 A D-05, T-01 A T-04, T-06, T-07 E G-03 APROVADAS; DEMAIS DECISÕES AGUARDANDO RATIFICAÇÃO** |
+| Versão | **MINUTA 0.5 — D-01 A D-05, T-01 A T-04, T-06, T-07 E G-03 APROVADAS; DEMAIS DECISÕES AGUARDANDO RATIFICAÇÃO** |
 | Data | 27/10/2026 |
 | Autores | Pedro Simon (redação), Gustavo Lopes (revisão) |
 | Finalidade | Definir como os serviços de backend (Pedro Simon) e a integração com Agents e interface (Gustavo Lopes) se conectam na GR-51, sem duplicar funções nem sobrescrever trabalho |
@@ -19,6 +19,7 @@
 | 0.2 (revisão documental) | 27/10/2026 | atualiza branch e estado de integração após o PR #29 (GR-43 integrada, merge `a6f929f`); B-01 resolvido; nenhuma decisão, alternativa ou recomendação alterada |
 | 0.3 | 27/10/2026 | T-01, T-04, T-06 e T-07 aprovadas por Pedro Simon (matriz DQ-15 a DQ-18); F-1 (identidade fiscal) implementada na branch `feature/gr-22-confirmacao-transacional`, não integrada (seção 4.6); B-03 resolvido no backend |
 | 0.4 | 27/10/2026 | T-02, T-03 e G-03 aprovadas por Pedro Simon (matriz DQ-19 a DQ-21); F-2 (correções em `AnalisePendente`) implementada na branch `feature/gr-22-confirmacao-transacional`, não integrada (seção 4.3.1); B-04 resolvido no backend; `confirmar_analise` ganha só um parâmetro nomeado opcional |
+| 0.5 | 27/10/2026 | F-1 e F-2 integradas à `develop` (PR #31, `fb18872`); F-3 (combinação e revalidação) implementada na branch `feature/gr-22-f3-revalidacao`, não integrada (seção 4.3.2); P-12 registrada; nenhuma decisão nova |
 | 1.0 | — | só depois da ratificação completa (seção 10) |
 
 **Como ler os estados:**
@@ -101,8 +102,8 @@ Registradas na matriz como DQ-10 a DQ-14. Cada cláusula mostra o que já existe
 | -------- | ------------------ | ----- |
 | Chave de acesso válida é a identificação prioritária | **parcial**: o Extrator não extrai chave de acesso e o JSON final não tem o campo; validação e persistência existem na F-1 (`NotaFiscalLancada`, não integrada) | extrair (Gustavo); validação (44 posições, NT 2025.001) e persistência feitas na F-1 (Pedro) |
 | Sem chave: CNPJ do emitente + modelo + série + número | **parcial**: o JSON tem `fornecedor.cnpj` e `numero_nota`, sem modelo nem série; `identificar_nota()` e a persistência da combinação existem na F-1 (não integrada) | extrair modelo e série (Gustavo) ou permitir informá-los (G-01) |
-| Dados insuficientes bloqueiam o lançamento | **implementado na F-1** (não integrada): `identidade_fiscal_insuficiente` | chamar no serviço de lançamento (F-5) |
-| Proteção contra duplicados, inclusive concorrentes | **implementado na F-1** (não integrada): índice único da combinação e da chave; testado com threads; hoje, na `develop`, só existe a proteção por `analise_origem_id` | integrar no serviço de lançamento (F-5) |
+| Dados insuficientes bloqueiam o lançamento | **implementado na F-1** (integrada, PR #31): `identidade_fiscal_insuficiente`; verificado também na conferência (F-3, 4.3.2) | chamar no serviço de lançamento (F-5) |
+| Proteção contra duplicados, inclusive concorrentes | **implementado na F-1** (integrada, PR #31): índice único da combinação e da chave; testado com threads; hoje, na `develop`, só existe a proteção por `analise_origem_id` | integrar no serviço de lançamento (F-5) |
 
 #### D-02 — Campos editáveis (resolve T-02)
 
@@ -312,9 +313,9 @@ def expirar_analises(agora=None) -> int             # e: python manage.py expira
 - **Limite em relação a D-01/D-03:** `criar_analise` recusa um JSON com chaves além das 10 da v1.
 - Sem revogação completa do cookie; expirar não é apagar (ver `ContextoProjeto.md` 15.1.7.1).
 
-#### 4.3.1 Correções da conferência (GR-22, F-2) — **IMPLEMENTADO, NÃO INTEGRADO** (branch `feature/gr-22-confirmacao-transacional`, sem commit)
+#### 4.3.1 Correções da conferência (GR-22, F-2) — **INTEGRADO** (PR #31, `fb18872`)
 
-Decisões: T-02 (DQ-19), T-03 (DQ-20) e G-03 (DQ-21). Migration `documentos` `0002_correcoes_da_conferencia` (só adiciona; a `0001` não muda). **Depende da F-1** (`documentos/correcoes.py` usa `NUMERO_MAXIMO` e `SERIE_MAXIMA` de `financeiro/models.py`): versionar a F-1 antes.
+Decisões: T-02 (DQ-19), T-03 (DQ-20) e G-03 (DQ-21). Migration `documentos` `0002_correcoes_da_conferencia` (só adiciona; a `0001` não muda; não aplicada em homologação). Depende da F-1 (`NUMERO_MAXIMO` e `SERIE_MAXIMA` de `financeiro/models.py`), integrada no mesmo PR.
 
 Campos novos de `AnalisePendente`: `correcoes` (JSON; `None` sem correção e sempre `None` fora de PENDENTE; constraint `analise_correcoes_so_pendente`), `versao_correcoes` (inteiro, começa em 0), `campos_corrigidos` (lista de nomes; **fica** depois da finalização). `dados` nunca muda.
 
@@ -349,6 +350,35 @@ def confirmar_analise(session, analise_id, gravar, *, versao_correcoes=None)   #
 - Mensagens, `erro.campos` e `repr` nunca trazem valores; nada é gravado na sessão.
 - Ciclo de vida: confirmar, cancelar, expirar (acesso, limpeza em massa) e logout apagam `correcoes` e mantêm `campos_corrigidos` e `versao_correcoes`.
 
+#### 4.3.2 Conferência: combinação e revalidação (GR-22, F-3) — **IMPLEMENTADO, NÃO INTEGRADO** (branch `feature/gr-22-f3-revalidacao`, sem commit)
+
+```python
+# documentos/conferencia.py — só leitura
+def conferir_nota(dados, correcoes=None) -> NotaConferida
+
+@dataclass(frozen=True)
+class Problema: campo: str; codigo: str          # nunca valores
+@dataclass(frozen=True)
+class ParteConferida: papel; documento: str | None; nome: str | None; consulta: ConsultaPessoa
+@dataclass(frozen=True)
+class NotaConferida:
+    fornecedor: ParteConferida; faturado: ParteConferida; classificacao: ConsultaClassificacao
+    numero_nota: int | None; serie: int | None; data_emissao: date | None
+    valor_total: Decimal | None; parcelas: tuple[ItemParcela, ...]
+    identidade_fiscal: IdentidadeFiscal | None
+    campos_alterados: tuple[str, ...]; problemas: tuple[Problema, ...]
+    sem_problemas: bool  # propriedade
+
+# financeiro/servicos.py — invólucro público das regras da GR-38
+def validar_parcelas(valor_total, parcelas) -> None   # ValidationError com os códigos de registrar_movimento
+```
+
+- `dados`: JSON final v1; `correcoes`: `analise.correcoes` ou `correcoes_da_confirmacao(...)`. Correção válida prevalece; correção inválida não volta ao extraído; o extraído é revalidado pelos mesmos validadores da F-2.
+- Códigos de `Problema`: `ausente`, `invalido`, `escolha_necessaria` (CPF e CNPJ para a mesma parte, D-03), `campo_nao_autorizado` (campo `campo_nao_autorizado`), `classificacao_inexistente`, os de `validar_parcelas` (campo `parcelas`) e os de `identificar_nota` + `nota_ja_lancada` (campo `identidade_fiscal`).
+- **Não são problemas** (ficam na consulta, para a F-4): pessoa ou papel INATIVO, papel AUSENTE, classificação INATIVA. Nome só é exigido para pessoa nova; data de emissão extraída inválida ou ausente não bloqueia.
+- Com o JSON v1 a nota **nunca** fica `sem_problemas`: falta o modelo para a identidade fiscal (D-01; depende do JSON v2 ou da G-01).
+- **Uso pela tela (GR-45):** `conferir_nota(analise.dados, analise.correcoes)` após `obter_analise`, a cada exibição (não guardar o resultado); marcar os campos de `problemas`. **Uso pela F-5:** dentro do `gravar`, `conferir_nota(dados, correcoes_da_confirmacao(analise_id))` e recusar se houver problemas.
+
 ### 4.4 Financeiro — **INTEGRADO** (GR-37 PR #26, GR-38 PR #27)
 
 `financeiro/servicos.py`:
@@ -374,7 +404,7 @@ def registrar_movimento(dados) -> tuple[MovimentoConta, bool]   # (movimento, cr
 - Códigos de `ValidationError`: entrada — `tipo`, `origem`, `valor_tipo`, `valor`, `valor_centavos`, `contraparte`, `faturado`, `analise_origem`, `sem_classificacao`, `classificacao`, `principal_tipo`, `classificacao_repetida`, `principal`, `sem_parcela`, `parcela`, `parcela_quantidade`, `parcela_numero`, `parcela_vencimento`, `parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`, `parcela_repetida`, `parcela_numeracao`, `parcela_soma`; banco — `pessoa_inexistente`, `pessoa_inativa`, `pessoa_incompleta`, `papel_ausente`, `papel_inativo`, `classificacao_inexistente`, `classificacao_inativa`, `classificacao_incompativel`; idempotência — `analise_ja_lancada`.
 - `MovimentoConta` **não** tem campos de identidade fiscal (chave, CNPJ do emitente, modelo, série, número) nem de data de emissão.
 
-### 4.6 Identidade fiscal (GR-22, F-1) — **IMPLEMENTADO, NÃO INTEGRADO** (branch `feature/gr-22-confirmacao-transacional`, sem commit)
+### 4.6 Identidade fiscal (GR-22, F-1) — **INTEGRADO** (PR #31, `fb18872`; migration `financeiro` `0003` não aplicada em homologação)
 
 `financeiro/identidade_fiscal.py` e `financeiro/models.py::NotaFiscalLancada` (tabela `notas_fiscais_lancadas`, migration `financeiro` `0003`):
 
@@ -541,6 +571,7 @@ Decisões da minuta 0.1 resolvidas por elas: item 1 (duplicidade) → D-01; item
 | P-09 | Versionamento do JSON | (a) `VERSAO_DADOS` + `CHAVES_DOS_DADOS` + `montar_resultado` juntos; v1 em andamento recusada | (b) sem versão | (a); **necessária** para D-01/D-03 |
 | P-10 | Sessão e logout | (a) como está; (b) reduzir `SESSION_COOKIE_AGE`; (c) sessão no servidor (ADR); (d) logout só por POST | cópia do cookie autentica até 2 semanas | (b) + (d) |
 | P-11 | Significado de `campos_corrigidos` (T-03) | (a) a tela envia só os campos diferentes do extraído; (b) o backend compara com `dados` (exige o mapeamento da F-3: `fornecedor.documento` ↔ `fornecedor.cnpj`; `serie` não existe no JSON v1); (c) aceitar como está (chaves enviadas) | (c) exagera a rastreabilidade se a tela mandar o formulário inteiro | (a) agora; (b) na F-3 |
+| P-12 | Número da nota impresso com separadores (ex.: `000.012.345`) | (a) recusar e exigir correção (comportamento atual da F-3); (b) remover pontos e espaços só do número extraído | (a) quase toda NF-e real exige correção manual do número; (b) aceita leituras que talvez não sejam o número | (b), por não haver ambiguidade como em valores |
 
 Herdadas: Q-05, Q-06, Q-10, C-06.
 
@@ -550,8 +581,8 @@ Herdadas: Q-05, Q-06, Q-10, C-06.
 | - | -------- | -------- | ---------------------- |
 | B-01 | ~~GR-43 sem commit e não integrada~~ **RESOLVIDO em 27/10/2026**: PR #29, merge `a6f929f` | — | — |
 | B-02 | Extrator e JSON sem chave de acesso, modelo, série e documentos sem tipo fixo | D-01, D-03 | JSON v2 (5.2) numa tarefa do Gustavo, antes da view; ou D-01 só com CNPJ + número até a v2 (contraria D-01: exige nova aprovação) |
-| B-03 | ~~Sem persistência da identidade fiscal~~ **RESOLVIDO no backend** (F-1, branch `feature/gr-22-confirmacao-transacional`, não integrada) | D-01 | falta a origem dos campos: JSON v2 (B-02) ou correções (B-04, G-01); uso no serviço de lançamento (B-06) |
-| B-04 | ~~Sem armazenamento de correções~~ **RESOLVIDO no backend** (F-2, migration `documentos` `0002`, branch `feature/gr-22-confirmacao-transacional`, não integrada) | D-02 | falta a tela (GR-45) e a combinação/revalidação entre campos (F-3) |
+| B-03 | ~~Sem persistência da identidade fiscal~~ **RESOLVIDO no backend** (F-1, integrada, PR #31) | D-01 | falta a origem dos campos: JSON v2 (B-02) ou correções (B-04, G-01); uso no serviço de lançamento (B-06) |
+| B-04 | ~~Sem armazenamento de correções~~ **RESOLVIDO no backend** (F-2, migration `documentos` `0002`, integrada, PR #31) | D-02 | falta a tela (GR-45) e a combinação/revalidação entre campos (F-3) |
 | B-05 | Sem serviço de cadastro pendente e listagem de incompletos | D-04 | serviço pequeno em `cadastros` (Pedro), após T-05 |
 | B-06 | Sem serviço de lançamento a partir da análise | confirmação | Pedro implementa (P-08 b) após B-03 e B-04 |
 | B-07 | Migrations da Etapa 2 não aplicadas em homologação | homologação | aplicar manualmente, uma pessoa por vez, depois do merge |
@@ -610,7 +641,7 @@ Antes de cada passo de código, cada integrante atualiza a própria `develop` lo
 
 | Item | Situação |
 | ---- | -------- |
-| Versão do contrato | **MINUTA 0.4** (27/10/2026). A 1.0 exige: T-05, P-11 e P-04 a P-10 decididos, aprovação dos dois, seção 5 revisada |
+| Versão do contrato | **MINUTA 0.5** (27/10/2026). A 1.0 exige: T-05, P-11, P-12 e P-04 a P-10 decididos, aprovação dos dois, seção 5 revisada |
 | Aprovação de Pedro Simon | decisões D-01 a D-05 aprovadas; contrato completo pendente |
 | Aprovação de Gustavo Lopes | decisões D-01 a D-05 aprovadas pela equipe (informado por Pedro Simon); revisão do contrato pendente |
 | Contratos verificados | seção 4 conferida no working tree da GR-43 antes do merge e reconferida em `develop` `a6f929f` (assinaturas idênticas); trabalho local do Gustavo **não** verificado |
