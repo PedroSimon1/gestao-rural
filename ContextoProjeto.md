@@ -55,6 +55,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Atualização posterior                   | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit                                                                                                                                                                                                                        |
 | Estado da `develop` (27/10/2026)        | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
 | Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35                                                                                                         |
+| GR-22, F-5 (27/10/2026)                 | branch `feature/gr-22-f5-lancamento` sobre `develop` `59a92d9` (F-1 a F-4, JSON v2 opt-in e campos fiscais do Lopes integrados): lançamento transacional implementado, sem commit; fluxo real **bloqueado** pela identidade fiscal (G-01/P-09 pendentes no backend); `python manage.py test` → **Ran 940 tests — OK** (local); seção 15.1.16 |
 | GR-22, F-4 (27/10/2026)                 | branch `feature/gr-22-f4-resolucao-pessoas` sobre `develop` `ea4b5f9` (F-1 a F-3, GR-41/42/44 e GR-45 com GR-43 integradas, PRs #31 a #40): resolução de pessoas implementada, sem commit; `python manage.py test` → **Ran 878 tests — OK** (local); seção 15.1.15                                                                                                                                                                                                         |
 | GR-22, F-3 (27/10/2026)                 | branch `feature/gr-22-f3-revalidacao` sobre `develop` `fb18872` (F-1 e F-2 integradas, PR #31): combinação e revalidação implementadas, sem commit; `python manage.py test` → **Ran 760 tests — OK** (local); seção 15.1.14                                                                                                                                                                                                                                                |
 | GR-22, F-2 (27/10/2026)                 | mesma branch: correções em `AnalisePendente` implementadas, sem commit; `python manage.py test` → **Ran 725 tests — OK** (local); seção 15.1.13                                                                                                                                                                                                                                                                                                                            |
@@ -1623,6 +1624,132 @@ O Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
 
 **Git:** branch `feature/gr-22-f4-resolucao-pessoas`, sem commit. Arquivos para o commit: `cadastros/resolucao.py`, `cadastros/test_resolucao.py`, `ContextoProjeto.md`. Commit, push e PR para `develop` ficam com o usuário.
 
+## 15.1.16 - GR-22, etapa F-5: lançamento transacional da nota (27/10/2026, branch `feature/gr-22-f5-lancamento`, sem commit)
+
+Situação: serviço **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_TEST_*`, banco descartável); **não integrado**; **sem migration**; **sem rota nem tela**. **O fluxo real continua BLOQUEADO**: com os dados que a análise guarda hoje (JSON v1), toda nota é recusada com `identidade_fiscal_insuficiente` até a G-01 entrar nas correções ou o JSON fiscal v2 ser aceito pela GR-43 e pela F-3. Branch criada a partir da `develop` em `59a92d9` (merge do PR #44, com a F-4).
+
+**Estado verificado da base `59a92d9`:** F-1 e F-2 (PR #31), F-3 (PR #34), F-4 (PR #44) integradas, sem alteração posterior em `documentos/analises.py`, `conferencia.py`, `correcoes.py`, `financeiro/servicos.py`, `identidade_fiscal.py` nem `cadastros/resolucao.py`. Do Lopes: GR-45 campos fiscais (PR #41, `forms_fiscais.py`, componente sem rota) e JSON fiscal v2 (PR #42).
+
+**JSON fiscal v2: três estados distintos**
+
+| Estado | Situação em `59a92d9` | Evidência |
+| ------ | --------------------- | --------- |
+| Schema disponível | **sim** | `agents/extrator/schemas_v2.py` (`VERSAO_SCHEMA = 3`), `docs/contratos/JSONFiscalV2.schema.json`; `documento_fiscal = {chave_acesso, modelo, serie}`, `fornecedor.cpf` |
+| Emissão | **só por opção** | `processar_pdf(..., versao_dados=2)`; as rotas continuam em v1 |
+| Consumo pelo backend | **não** | `criar_analise` aceita só as 10 chaves da v1 (`VERSAO_DADOS = 1`) → `dados_invalidos` com `documento_fiscal`; `conferir_nota` não lê `documento_fiscal` e chama `identificar_nota(modelo=None)`; `CAMPOS_CORRIGIVEIS` não tem `chave_acesso` nem `modelo` |
+| Ativação efetiva | **não** | depende de P-09/G-01 no backend (Simon) e da troca das rotas (Lopes) |
+
+G-01 e P-09 estão **aprovadas** (adendo de 27/10/2026 do contrato GR-51), mas a parte do backend (correções `chave_acesso`/`modelo`, F-3 combinando o bloco fiscal, GR-43 aceitando v1 e v2) **não foi implementada** e ficou fora desta tarefa (é a F-2/F-3/GR-43, não a F-5).
+
+**Objetivo:** transformar uma `AnalisePendente` conferida em movimento financeiro com classificação, parcelas e identidade fiscal, numa transação única, com rollback total e sem duplicidade, reaproveitando F-1 a F-4.
+
+**Decisões:** nenhuma decisão aprovada foi reaberta. Aplicadas: DQ-02 (só após confirmação humana), D-01 (identidade fiscal suficiente obrigatória, `nota_ja_lancada`), D-02/G-03 (correções lidas dentro do `gravar`, assinatura inalterada), D-03/D-04/DQ-07 (pela F-4), D-05/DQ-14 (`confirmar_analise`, `analise_origem_id` = id da análise). **Proposta registrada, não aprovada:** o contrato de envio das decisões (abaixo).
+
+**Implementação** (novo `financeiro/lancamento_nota.py`, nome previsto na seção 5.7 do contrato):
+
+```python
+@dataclass(frozen=True)
+class DecisoesDaParte:
+    decisoes: frozenset = frozenset()          # Decisao da F-4
+    pessoa_incompleta_id: int | None = None    # seleção manual (D-04)
+
+@dataclass(frozen=True)
+class SolicitacaoLancamento:
+    versao_correcoes: int                      # obrigatória
+    fornecedor: DecisoesDaParte = DecisoesDaParte()
+    faturado: DecisoesDaParte = DecisoesDaParte()
+
+@dataclass(frozen=True)
+class LancamentoNota:
+    movimento: MovimentoConta
+    nota_fiscal: NotaFiscalLancada
+    fornecedor: PessoaResolvida
+    faturado: PessoaResolvida
+
+def lancar_nota(session, analise_id, solicitacao) -> LancamentoNota
+```
+
+Sequência, toda dentro de `confirmar_analise(session, analise_id, gravar, versao_correcoes=...)` (`atomic(durable=True)`, sem transação externa):
+
+1. `conferir_nota(dados, correcoes_da_confirmacao(analise_id))` (F-3); qualquer `Problema` recusa;
+2. `resolver_partes([fornecedor, faturado])` (F-4) com as decisões da solicitação;
+3. `registrar_movimento(DadosMovimento(APAGAR, NOTA_FISCAL, ..., analise_origem_id=analise_id))`, classificação única e principal pelo `id` da consulta da F-3 (status e tipo revalidados com bloqueio; nada reativado);
+4. `registrar_identidade_fiscal(movimento, nota.identidade_fiscal)` (F-1);
+5. `confirmar_analise` marca CONFIRMADA e faz o COMMIT; só então o `LancamentoNota` é devolvido.
+
+**Erros** (em todos, nada gravado; a análise continua PENDENTE, salvo os estados finais da GR-43):
+
+| Origem | Exceção | Códigos |
+| ------ | ------- | ------- |
+| Análise (GR-43) | `AnaliseError` (`codigo`, `mensagem`) | `analise_nao_encontrada`, `analise_expirada`, `analise_cancelada`, `analise_confirmada`, `correcoes_desatualizadas` |
+| Conferência (F-3) | `ValidationError` com **um item por problema** em `error_list`; `params={"campo", "codigo"}` | `ausente`, `invalido`, `escolha_necessaria`, `classificacao_inexistente`, códigos de parcelas (`parcela_soma`...) e da identidade (`identidade_fiscal_insuficiente`, `_divergente`, `_nao_suportada`, `nota_ja_lancada`...) |
+| Pessoas (F-4) | `ValidationError`, `params={"papel"}` | `pessoa_inexistente`, `pessoa_inativa`, `pessoa_incompleta`, `papel_ausente`, `papel_inativo`, bloqueios da F-4 |
+| Movimento e identidade | `ValidationError` | `classificacao_inativa`, `nota_ja_lancada` (corrida entre análises) e os demais de `registrar_movimento` |
+| Solicitação mal formada | `TypeError`/`ValueError`, antes de abrir a transação | — |
+| Chamada dentro de outra transação | `RuntimeError` (GR-43) | — |
+
+Regra para a tela: ler sempre `erro.error_list` (uniforme para um ou vários problemas). Mensagens com nome de campo e código, nunca com valores.
+
+**Atomicidade e idempotência:**
+
+- Um COMMIT só (o da GR-43): pessoas criadas, papéis atribuídos ou reativados, regularização, movimento, classificação, parcelas, identidade fiscal e a marcação CONFIRMADA entram juntos ou nenhum entra (testado com falha simulada depois dos cadastros, depois do movimento e na finalização da análise).
+- Dupla confirmação: a segunda espera o bloqueio da análise e recebe `analise_confirmada` sem chamar o `gravar`.
+- Mesma nota em análises diferentes: `nota_ja_lancada` na F-3 (já lançada) ou em `registrar_identidade_fiscal` (corrida; índice único); a perdedora desfaz tudo, inclusive cadastros.
+- Correções mudadas depois da conferência: `correcoes_desatualizadas`, sem chamar o `gravar`.
+- Decisões nunca são gravadas na análise nem nas correções.
+
+**Contrato proposto para o envio das decisões** (pendente de aprovação de Simon e Lopes): o POST de confirmação envia `versao_correcoes` e, por parte, as decisões marcadas pelo usuário (`CRIAR_PESSOA`, `ATRIBUIR_PAPEL`, `REATIVAR_PESSOA`, `REATIVAR_PAPEL`, `REGULARIZAR`) e o `pessoa_incompleta_id` selecionado. A view converte para `SolicitacaoLancamento` (validada aqui de novo) e chama `lancar_nota`. Nada é persistido: se a confirmação falhar, a tela pede as decisões outra vez (com `avaliar_partes`, F-4). Alternativas descartadas: ampliar a lista de correções (proibido pela tarefa, mistura decisão administrativa com dado fiscal) e campo na análise (migration e autorização persistida).
+
+**Arquivos:**
+
+| Arquivo | Alteração |
+| ------- | --------- |
+| `financeiro/lancamento_nota.py` | novo: serviço da F-5 |
+| `financeiro/test_lancamento_nota.py` | novo: 40 testes |
+| `ContextoProjeto.md` | esta seção; linha em 1.2; resultado em 21.1 |
+
+Não alterados: F-1 a F-4, `documentos/analises.py`, `correcoes.py`, `conferencia.py`, models, migrations, `agents/*`, views, templates, formulários, contrato GR-51 e matriz.
+
+**Testes** (`financeiro/test_lancamento_nota.py`, 40; os de lançamento simulam a origem do modelo com `com_modelo()`, injetando-o na chamada de `identificar_nota` feita pela F-3, e `registrar_identidade_fiscal` revalida com o serviço real):
+
+- válidos: reutilização (movimento, classificação, parcelas, identidade, análise CONFIRMADA com dados apagados e `campos_corrigidos`); criação autorizada; correções de classificação, total e parcelas prevalecendo; faturado com CNPJ escolhido;
+- decisões: pessoa inexistente sem decisão; decisão de uma parte não vale para a outra; inativa; papel ausente; incompleto sem e com regularização; decisões não gravadas na análise;
+- conferência: identidade insuficiente com o JSON v1 (estado real), divergente, modelo não suportado; todos os problemas informados juntos e sem valores; parcelas com soma e numeração erradas; parcela sem vencimento; classificação ausente; documento inválido; classificação inativa recusada e não reativada;
+- duplicidade: mesma nota em outra análise; recusa antes dos cadastros; dupla confirmação;
+- rollback: falha depois dos cadastros, depois do movimento e ao finalizar a análise; reativação desfeita;
+- análise: correções alteradas depois da conferência, expirada (marcada EXPIRADA), cancelada, de outra sessão, chamada dentro de outra transação;
+- solicitação mal formada (7 casos) e decisões em texto;
+- versões: v1 é a única armazenada; v2 recusada por `criar_analise`; F-3 não lê `documento_fiscal` (bloqueio registrado);
+- concorrência real com threads: mesma nota em duas análises (a segunda passa pela F-3 e pela F-4 e é barrada na identidade fiscal, conferido pelo número de chamadas); a mesma análise confirmada duas vezes; resultado visível a outra conexão ao retornar (COMMIT); quatro análises simultâneas → um movimento, uma identidade e uma pessoa por documento.
+
+Mutações de controle, todas detectadas (9): sem recusar problemas; `analise_origem_id` nulo; sem identidade fiscal; decisões descartadas; sem `versao_correcoes`; decisões trocadas entre as partes; correções ignoradas; seleção de incompleto descartada; sem validar a solicitação.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python manage.py test financeiro.test_lancamento_nota` (5 execuções após os ajustes) | `Ran 40 tests — OK` em todas |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final) | `Ran 940 tests — OK` (900 da base + 40) |
+| `git diff --check` | sem problemas |
+
+Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
+
+**Auditoria** (revisão própria, sem subagente): um defeito corrigido com teste: `pessoa_incompleta_id` mal formado só era recusado dentro da transação (pela F-4); agora é recusado antes, como o resto da solicitação. Sem outros defeitos encontrados; riscos em "Pendências".
+
+**Pendências (não decididas pelo agente):**
+
+1. **Bloqueio fiscal (crítico):** implementar G-01 (correções `chave_acesso` e `modelo` + F-3 combinando-as) e P-09 (GR-43 aceitando v1 e v2 com `versao_dados`; F-3 lendo `documento_fiscal`). Sem isso, `lancar_nota` recusa toda nota real. Dono: Simon (backend), conforme o adendo do contrato.
+2. **Contrato de envio das decisões** (proposta acima): aprovar com o Lopes antes da rota.
+3. **Rota de confirmação e tela** (GR-45, Lopes): POST com CSRF, `versao_correcoes`, decisões; tradução de `AnaliseError` e de `error_list` por código.
+4. **Classificação inativa:** hoje é recusada (`classificacao_inativa`); reativá-la por decisão explícita não está aprovado.
+5. **Uma classificação por nota**, sempre a principal: rateio entre classificações não tem contrato.
+6. **Contrato GR-51 (seção 5.7) e matriz:** atualizar numa revisão documental conjunta (`obter_ou_criar_pessoa` → `resolver_partes`; `lancar_nota(dados, correcoes, analise_id)` → `lancar_nota(session, analise_id, solicitacao)`).
+7. **F-6** (salvar cadastro pendente e listar incompletos): não implementada.
+
+**Próximos passos para a integração:** (1) G-01/P-09 no backend com testes v1 e v2; (2) aprovar o contrato das decisões; (3) rota de confirmação do Lopes chamando `lancar_nota`; (4) teste ponta a ponta sem `com_modelo()`; (5) só então homologação e migrations em ambiente remoto, coordenadas.
+
+**Git:** branch `feature/gr-22-f5-lancamento`, sem commit. Arquivos para o commit: `financeiro/lancamento_nota.py`, `financeiro/test_lancamento_nota.py`, `ContextoProjeto.md`. Commit, push e PR para `develop` ficam com o usuário.
+
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
 Diagrama conceitual derivado **somente** das entidades e atributos citados pelo professor (ENT-01 a ENT-04 na [matriz](docs/requisitos/matriz-n2-etapa2.md)); nomes de campos adicionais, chaves e cardinalidades exatas ainda precisam ser decididos. Banco previsto: Supabase PostgreSQL ([ADR-001](docs/arquitetura/ADR-001-supabase.md)).
@@ -1926,7 +2053,7 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 
-**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44).
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40).
 
 ## 21.2 - Distribuição
 
