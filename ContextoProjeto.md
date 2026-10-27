@@ -55,6 +55,9 @@ Toda afirmação relevante usa uma destas marcas:
 | Atualização posterior                   | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit                                                                                                                                                                                                                        |
 | Estado da `develop` (27/10/2026)        | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
 | Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35                                                                                                         |
+| Proteção do executor (27/10/2026)       | mesma branch: `ExecutorDeTestes.setup_databases()` sem `aliases` troca todas as conexões para o banco local ou para com `ImproperlyConfigured` antes de conectar; `python manage.py test` → **Ran 1067 tests — OK** (local); seção 15.1.21 |
+| P08 chave de idempotência (27/10/2026)  | mesma branch: `chave_idempotencia` UUID único em `MovimentoConta` (migration `financeiro` `0004`, não aplicada em homologação nem em produção), obrigatória nas contas manuais e opcional no serviço; `python manage.py test` → **Ran 1065 tests — OK** (local); **incidente:** banco `test_postgres` criado por engano no servidor remoto, pendente de remoção pelo usuário; seção 15.1.20 |
+| P08 contas manuais (27/10/2026)         | branch `feature/p08-financeiro-manual` sobre `develop` `a442e0e` (GR-46 integrada, PR #49): `financeiro/manual.py` com registro manual a pagar/receber, listagem e consulta, sem rota nem tela e sem migration; idempotência manual proposta, não implementada; sem commit; `python manage.py test` → **Ran 1050 tests — OK** (local); seção 15.1.19 |
 | GR-22, F-6 (27/10/2026)                 | branch `feature/gr-22-f6-cadastro-pendente` sobre `develop` `b70ee9a` (G-01/P-09 integradas, PR #46): salvar, listar e regularizar cadastro pendente, sem rota nem tela; sem commit; `python manage.py test` → **Ran 985 tests — OK** (local); seção 15.1.18 |
 | GR-51 G-01/P-09 backend (27/10/2026)    | branch `feature/gr-51-fiscal-v2-backend` sobre `develop` `37b41e7` (F-5 integrada, PR #45): análise aceita JSON v1 e v2, chave de acesso e modelo corrigíveis, F-3 lendo o bloco fiscal; notas válidas deixam de ficar em `identidade_fiscal_insuficiente` no backend; tela ainda não ligada; sem commit; `python manage.py test` → **Ran 963 tests — OK** (local); seção 15.1.17 |
 | GR-22, F-5 (27/10/2026)                 | branch `feature/gr-22-f5-lancamento` sobre `develop` `59a92d9` (F-1 a F-4, JSON v2 opt-in e campos fiscais do Lopes integrados): lançamento transacional implementado, sem commit; fluxo real **bloqueado** pela identidade fiscal (G-01/P-09 pendentes no backend); `python manage.py test` → **Ran 940 tests — OK** (local); seção 15.1.16 |
@@ -1880,6 +1883,170 @@ Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
 
 **Git:** branch `feature/gr-22-f6-cadastro-pendente`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
+## 15.1.19 - P08: backend de contas manuais a pagar e a receber (27/10/2026, branch `feature/p08-financeiro-manual`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_TEST_*`, banco descartável); **não integrado**; **sem migration**; **sem rota nem tela**. Branch criada a partir da `develop` em `a442e0e` (merge do PR #49, GR-46 do Lopes).
+
+**Objetivo:** contratos de serviço para a futura tela de FUN-06/FUN-07: registrar conta manual a pagar ou a receber, listar movimentos com filtros e consultar um movimento com classificações e parcelas, com erros estáveis. Sem model novo e sem duplicar `registrar_movimento()`.
+
+**O que foi reutilizado (sem mudança):** `registrar_movimento()`, `DadosMovimento`, `ItemClassificacao` e `ItemParcela` (GR-37/GR-38), com todas as regras e códigos: papéis vigentes (fornecedor e faturado no APAGAR; cliente no ARECEBER, faturado opcional com o papel vigente), pessoa incompleta ou inativa recusada, classificação ativa do tipo do movimento, exatamente uma principal, 1 a 120 parcelas com soma exata (e o gatilho no COMMIT), bloqueio ordenado das linhas. A GR-46 (telas de Pessoas e Papéis) já cobre a manutenção de pessoas: nenhum serviço genérico de pessoas foi criado.
+
+**Contrato** (`financeiro/manual.py`):
+
+```python
+registrar_conta_manual(conta: ContaManual) -> DetalheMovimento
+listar_movimentos(*, tipo=None, origem=None, status=None, contraparte_id=None,
+                  classificacao_id=None, pagina=1, por_pagina=30) -> PaginaDeMovimentos
+consultar_movimento(movimento_id: int) -> DetalheMovimento
+
+ContaManual(tipo, contraparte_id, valor_total, classificacoes, parcelas, faturado_id=None)
+ClassificacaoManual(classificacao_id, principal=False)
+ParcelaManual(data_vencimento, valor)                      # numeradas 1..n pela ordem
+DetalheMovimento(id, tipo, origem, status, contraparte_id, contraparte_nome, faturado_id,
+                 faturado_nome, valor_total, criado_em, classificacoes, parcelas)
+ClassificacaoDoMovimento(id, codigo, descricao, principal)  # principal primeiro
+ParcelaDoMovimento(numero, data_vencimento, valor, status)
+PaginaDeMovimentos(itens, pagina, total_paginas, total)
+ResumoMovimento(id, tipo, origem, status, contraparte_id, contraparte_nome, faturado_id,
+                faturado_nome, valor_total, criado_em, quantidade_parcelas, proximo_vencimento)
+```
+
+| Função | Regras | Erros |
+| ------ | ------ | ----- |
+| `registrar_conta_manual` | origem sempre `MANUAL`, `analise_origem_id` nulo; lê pessoas e classificações pelo id e delega a `registrar_movimento()`, que relê com bloqueio; nada é criado, reativado ou deduzido; devolve o detalhe relido do banco | `ValidationError.code`: `tipo`, `valor_tipo`, `valor`, `valor_centavos`, `faturado` (APAGAR sem faturado), `pessoa_inexistente`, `pessoa_inativa`, `pessoa_incompleta`, `papel_ausente`, `papel_inativo`, `sem_classificacao`, `classificacao`, `classificacao_inexistente`, `classificacao_inativa`, `classificacao_incompativel`, `classificacao_repetida`, `principal`, `principal_tipo`, `sem_parcela`, `parcela`, `parcela_quantidade`, `parcela_vencimento`, `parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`, `parcela_soma` |
+| `listar_movimentos` | qualquer origem; do mais recente ao mais antigo; filtros opcionais e combináveis; até 100 por página; página fora do intervalo vira a mais próxima; quantidade e próximo vencimento contam só parcelas ATIVAS; 2 consultas para qualquer tamanho; só leitura | — |
+| `consultar_movimento` | classificações (principal primeiro) e todas as parcelas, com o status; só leitura | `movimento_inexistente` |
+
+Uso indevido (erro de programação, não do usuário): `TypeError` para identificadores que não são `int` (inclusive `bool`) e para entrada que não é `ContaManual`; `ValueError` para filtro fora das opções ou `por_pagina` fora de 1..100.
+
+**Idempotência (proposta, não implementada; decisão necessária; aprovada e implementada depois, ver 15.1.20):** o banco só garante unicidade por `analise_origem_id` (nota fiscal). Num lançamento manual não há chave natural: duas contas iguais podem ser legítimas (duas compras iguais no mesmo dia), então comparar conteúdo ou janela de tempo uniria lançamentos distintos. Uma marca na sessão também não serve, porque duas requisições simultâneas leem a sessão antes de qualquer gravação. A menor proteção segura no servidor exige guardar uma chave da solicitação:
+
+- **Solução proposta:** campo `chave_idempotencia = UUIDField(null=True, unique=True)` em `MovimentoConta` (migration `financeiro` `0004`, só aditiva: coluna nula e índice único, sem reescrever dados) e imutável como os demais campos essenciais. A tela gera um UUID ao abrir o formulário (campo oculto) e o envia; o serviço repete o caminho de `analise_origem_id`: mesmo pedido devolve o movimento existente, pedido diferente com a mesma chave é recusado (`solicitacao_ja_registrada`); o índice único decide a corrida.
+- **Impacto:** uma migration nova, que entra na fila manual de homologação e produção (DQ-04, junto das 8 da Etapa 2); `registrar_movimento()` ganha um campo opcional em `DadosMovimento` (compatível); `ContaManual` ganha `chave_idempotencia`; a tela do Lopes precisa do campo oculto. Sem a migration, o contrato atual vale: repetir grava de novo (teste `RepeticaoTests` documenta), e a tela deve usar POST com redirecionamento e desabilitar o botão.
+
+**Arquivos:** `financeiro/manual.py` (novo), `financeiro/test_manual.py` (novo, 30 testes), `ContextoProjeto.md` (esta seção, linha em 1.2 e resultado em 21.1). Models, migrations, `servicos.py`, F-1 a F-6, views, templates, rotas e Agents **não** foram alterados.
+
+**Testes** (`financeiro/test_manual.py`, 30): conta a pagar; conta a receber sem e com faturado; várias classificações com principal e parcelas numeradas pela ordem; mesma pessoa fornecedora e faturada; listas e geradores; classificação incompatível nos dois sentidos; principal ausente, repetida, vazia e não booleana; classificação inexistente ou inativa (nem criada nem reativada); papel errado ou ausente nos dois tipos; APAGAR sem faturado; pessoa inexistente; pessoa e papel inativos (não reativados); cadastro incompleto; nenhuma pessoa ou papel criado; soma das parcelas e sem parcela; valores inválidos; entrada mal formada; falha na gravação das parcelas desfaz tudo; consulta e consulta inexistente; listagem com resumo, filtros, paginação, filtros inválidos, consultas constantes, sem escrita e só parcelas ativas no resumo; repetição sem chave (contrato atual); concorrência real (papéis cruzados sem deadlock, 6 lançamentos simultâneos; inativação concorrente do papel nunca deixa movimento com papel inativo).
+
+Mutações de controle, todas detectadas (8): origem `NOTA_FISCAL`; numeração a partir de 0; quantidade contando parcelas canceladas (detectada depois do teste de parcelas ativas); classificações sem a principal primeiro; `bool` aceito como id; filtro de contraparte ignorado; ordem da listagem; filtro desconhecido aceito.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python manage.py test financeiro.test_manual` | `Ran 30 tests — OK` |
+| `python manage.py test financeiro.test_manual.ConcorrenciaManualTests` (3 vezes) | OK nas 3 |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final) | `Ran 1050 tests — OK` (1020 da `develop` `a442e0e` + 30) |
+| `git diff --check` | sem problemas |
+
+Supabase, QA e PROD não foram acessados; nenhuma migration criada ou aplicada.
+
+**Contrato para o Lopes (telas FUN-06/FUN-07):**
+
+- Formulário: tipo (APAGAR/ARECEBER), contraparte (fornecedor vigente no APAGAR, cliente vigente no ARECEBER), faturado (obrigatório no APAGAR, opcional no ARECEBER), valor total (`DecimalField`, 2 casas), classificações (uma ou mais, do tipo DESPESA no APAGAR e RECEITA no ARECEBER, uma marcada como principal) e parcelas (formset com vencimento e valor; numeração pela ordem). As listas de opções vêm de `PapelPessoa.objects.vigentes().filter(papel=...)` e `Classificacao.objects.ativos().filter(tipo=...)`, mas a validação final é sempre do serviço.
+- Converter os campos limpos em `ContaManual` com `int`, `Decimal` e `date`; mostrar mensagem fixa por código; POST com redirecionamento para o detalhe (`consultar_movimento`) e botão desabilitado depois do clique.
+- Listagem: `listar_movimentos(...)` com os filtros validados por um form de escolhas; detalhe: `consultar_movimento(id)` (`movimento_inexistente` → 404).
+
+**Dependências da GR-47 (tela de classificações):** a conta a receber só é utilizável quando existir ao menos uma classificação RECEITA ativa, e hoje nenhuma vem da carga inicial (Q-05 em aberto). Até a GR-47 permitir criar e manter classificações (ou a equipe aprovar uma carga de RECEITA), a tela de ARECEBER fica sem opções. A GR-47 não precisa de nada deste módulo: `Classificacao` já faz criar, editar a descrição, inativar e reativar, com tipo e código imutáveis.
+
+**Pendências (não decididas pelo agente):**
+
+1. **Idempotência manual:** aprovar (ou não) a chave de idempotência com migration `0004` descrita acima.
+2. **Q-05:** categorias de RECEITA (e de DESPESA do cliente).
+3. **Q-01/Q-10:** obrigatoriedade das telas completas e das contas a receber nesta etapa (confirmar com o professor).
+4. Cancelamento de movimento e baixa de parcela continuam sem contrato aprovado (fora deste escopo).
+
+**Git:** branch `feature/p08-financeiro-manual`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
+## 15.1.20 - P08: chave de idempotência das contas manuais (27/10/2026, branch `feature/p08-financeiro-manual`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (suíte pelo `manage.py test`, PostgreSQL local de `DB_TEST_*`); **não integrado**; **migration nova `financeiro` `0004`, não aplicada em homologação nem em produção**; sem rota nem tela. Mesma branch da 15.1.19. Aprovação da equipe em 27/10/2026: `chave_idempotencia` como UUID único e opcional em `MovimentoConta`, por migration aditiva.
+
+**Objetivo:** impedir no servidor, inclusive sob concorrência, que a mesma solicitação manual grave dois movimentos, sem reutilizar `analise_origem_id` e sem exigir nada do fluxo de notas.
+
+**Implementação:**
+
+- `MovimentoConta.chave_idempotencia`: `UUIDField(null=True, blank=True, unique=True)`, incluído em `campos_imutaveis`; nova `CheckConstraint` `movimento_chave_idempotencia_so_manual` (chave só com origem `MANUAL`).
+- `DadosMovimento.chave_idempotencia: UUID | None = None`: último campo, com padrão, o que mantém compatíveis todos os chamadores (F-5, GR-51, testes). `registrar_movimento()` usa a chave pelo mesmo caminho da análise: busca antes de gravar, grava a chave junto, e no `IntegrityError` do índice único relê e compara. Mesma chave e mesmos dados (status, tipo, origem, pessoas, valor, classificações, principal, parcelas ativas) → devolve o existente com `criado=False`; dados diferentes → `solicitacao_ja_registrada`. A comparação é a mesma de `analise_ja_lancada` (função renomeada para `_mesmo_lancamento`, sem mudar a regra). Chave que não é `UUID`, com origem diferente de `MANUAL` ou junto de `analise_origem_id` → `chave_idempotencia`.
+- `ContaManual.chave_idempotencia: UUID`: **obrigatória e só nomeada** (`kw_only`); ausente ou inválida → `chave_idempotencia` antes de qualquer leitura do banco; propagada para `DadosMovimento`. `registrar_conta_manual` mantém o retorno (`DetalheMovimento`): a repetição devolve o mesmo detalhe.
+- Fluxo de notas fiscais (F-1 a F-6, GR-51): sem chave, inalterado; `analise_origem_id` continua só para a análise.
+
+**Migration** `financeiro/migrations/0004_chave_idempotencia.py` (gerada pelo `makemigrations`): `AddField` (coluna nula com índice único) e `AddConstraint` (CHECK). Só aditiva: não reescreve linhas existentes, que ficam com a chave nula e satisfazem o CHECK. Depende de `financeiro` `0003` e `cadastros` `0003`. Entra na fila manual (DQ-04), depois das 8 migrations da Etapa 2.
+
+**Arquivos:** `financeiro/models.py` (campo, imutabilidade, CHECK), `financeiro/migrations/0004_chave_idempotencia.py` (nova), `financeiro/servicos.py` (campo opcional e idempotência pela chave), `financeiro/manual.py` (chave obrigatória na solicitação), `financeiro/test_manual.py` (testes novos e adaptados), `ContextoProjeto.md`. Views, templates, rotas e Agents não foram alterados.
+
+**Testes** (`financeiro/test_manual.py`, 45; 30 da 15.1.19, adaptados para gerar uma chave por solicitação, e 15 novos): mesma chave e mesmos dados devolve o existente; mesma chave com outro valor, parcelas, vencimento, contraparte, classificação, principal ou tipo → conflito; chaves diferentes com dados idênticos gravam duas contas; chave ausente, texto ou inteiro recusada; recusa não consome a chave; mesmo UUID como análise e como chave manual são independentes; movimento cancelado não é devolvido; nota fiscal continua sem chave; `registrar_movimento` manual sem chave continua aceito; chave recusada em nota fiscal, junto de análise ou como texto; chave imutável (`save` e `update`); o banco recusa chave em nota fiscal (CHECK); coluna nula, índice único e CHECK criados pela migration; concorrência real: 4 envios simultâneos com a mesma chave gravam um movimento, 2 simultâneos com a mesma chave e dados diferentes gravam um e recusam o outro, 4 com chaves diferentes gravam 4, papéis cruzados (6 contas) sem deadlock.
+
+Mutações de controle, todas detectadas (11): busca sem a chave; `IntegrityError` sem releitura pela chave (duas formas); gravação sem a chave; validação sem exigir `MANUAL` (duas formas); validação aceitando chave junto de análise; conflito com o código da análise; comparação sem o status (detectada depois de ajustar o teste do cancelado para manter as parcelas ativas); `ContaManual` sem propagar a chave; chave ausente aceita.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python manage.py test financeiro.test_manual` | `Ran 45 tests — OK` |
+| `python manage.py test financeiro.test_manual.ConcorrenciaManualTests` (5 vezes) | OK nas 5 |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` (depois de gerar a 0004) |
+| `python manage.py test` (final) | `Ran 1065 tests — OK` (1050 da 15.1.19 + 15) |
+| `git diff --check` | sem problemas |
+
+A reversão da `0004` **não foi verificada no banco local** (ver o incidente abaixo).
+
+**Incidente (27/10/2026): acesso indevido ao banco remoto.** Para verificar a reversão da `0004`, o agente rodou um script avulso que chamou `ExecutorDeTestes.setup_databases()` **sem** `aliases`. O executor só troca a conexão para o banco local (`DB_TEST_*`) quando recebe `aliases`. Sem eles, o Django usou a configuração `DB_*` (Supabase, conexão pelo pooler Supavisor) e:
+
+1. criou nesse servidor um banco **separado** chamado `test_postgres` e aplicou nele todas as migrations;
+2. executou `sqlmigrate financeiro 0004`, `migrate financeiro 0003` e, provavelmente, `migrate financeiro 0004`, sempre em `test_postgres`;
+3. não conseguiu apagar `test_postgres` no final (`database "test_postgres" is being accessed by other users`): o pooler mantinha uma sessão aberta;
+4. numa segunda tentativa, a recriação falhou pelo mesmo motivo;
+5. o agente percebeu o erro numa terceira execução, uma consulta só de leitura em `pg_stat_activity` no mesmo servidor, que mostrou uma sessão `Supavisor` ociosa em `test_postgres`.
+
+O banco da aplicação **não** recebeu migrations. Nele só passaram o `CREATE DATABASE` (via conexão de manutenção) e a consulta em `pg_stat_activity`. O banco `test_postgres` **continua no servidor remoto**. O agente não executou limpeza nem nenhuma outra ação remota. A remoção cabe ao usuário, depois de conferir no painel do Supabase de qual projeto se trata. As execuções da suíte pelo `manage.py test` (`run_tests` passa os aliases) usaram o banco local, como o executor exige. Medida para o futuro: verificações de migration só pelo `manage.py test`, nunca chamando o executor fora dele. Uma proteção em `config/banco_de_teste.py` foi implementada depois (15.1.21).
+
+**Contrato atualizado para o Lopes** (complementa a 15.1.19):
+
+- `ContaManual(..., chave_idempotencia=UUID)`: a tela gera `uuid.uuid4()` ao **abrir** o formulário (GET) e o guarda num campo oculto (`forms.UUIDField(widget=HiddenInput)`); reexibir o formulário com erro mantém a mesma chave; um formulário novo (depois do sucesso) gera outra.
+- Códigos novos: `chave_idempotencia` (chave ausente ou inválida: pedir para recarregar o formulário) e `solicitacao_ja_registrada` (mesma chave com outros dados: recarregar e conferir a lista). Repetição com os mesmos dados não é erro: devolve o mesmo `DetalheMovimento`, e a tela redireciona para o detalhe.
+- Botão desabilitado e POST com redirecionamento continuam recomendados, mas a garantia é do servidor.
+
+**Pendências:**
+
+1. **Remover o banco `test_postgres` criado por engano no servidor remoto** (ação do usuário; ver incidente).
+2. Aplicar a `0004` em homologação e produção junto das demais migrations da Etapa 2 (DQ-04, manual).
+3. Verificar a reversão da `0004` no PostgreSQL local, por um caminho que passe os aliases ao executor.
+4. Q-05, Q-01 e Q-10, como na 15.1.19.
+
+**Git:** branch `feature/p08-financeiro-manual`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
+## 15.1.21 - Proteção do executor de testes contra o banco de DB_* (27/10/2026, branch `feature/p08-financeiro-manual`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE**; sem migration; a aplicação Django não muda.
+
+**Objetivo:** corrigir a causa do incidente da 15.1.20. `ExecutorDeTestes.setup_databases()` só trocava as conexões para o PostgreSQL local (`DB_TEST_*`) quando recebia `aliases` não vazio. Chamado sem `aliases`, como fez o script auxiliar, o Django preparava todas as conexões com as `DB_*`, que podem ser o Supabase de homologação ou de produção.
+
+**Proteção adotada (mínima):** em `config/banco_de_teste.py`, `aliases` ausente (`None`) passa a significar todas as conexões (`set(connections)`), que é o que o Django faria. Todas passam pela mesma validação e troca: `DB_TEST_HOST` local, nome com `test_` e diferente de `DB_NAME`, sem variáveis do libpq que redirecionam. Sem configuração válida, `ImproperlyConfigured` é levantado **antes** de fechar, alterar ou abrir qualquer conexão, e não há banco substituto. Continuam iguais: `aliases` vazio (execução só com `SimpleTestCase`, que não exige `DB_TEST_*`), o caminho do `manage.py test` (que já passa os aliases) e `config/settings.py`. Limite conhecido: um script que chama `django.setup()` e usa o ORM diretamente, sem o executor, continua usando `DB_*`, porque esse é o funcionamento normal da aplicação. A regra operacional é verificar banco só pelo `manage.py test`.
+
+**Arquivos:** `config/banco_de_teste.py` (regra acima e docstring), `config/test_sem_banco.py` (2 testes novos), `ContextoProjeto.md`.
+
+**Testes** (`SimpleTestCase`, com conexões simuladas de destino remoto, sem fechar nem alterar as conexões reais):
+
+- sem `aliases` e sem `DB_TEST_*`: `ImproperlyConfigured`; o `setup_databases` do Django não é chamado e a conexão não é fechada nem alterada;
+- sem `aliases` e com `DB_TEST_*` válidas: o Django recebe `aliases={"default"}`, e a conexão já aponta para `127.0.0.1`/`test_gestao_rural` e foi fechada antes.
+
+Mutação de controle (voltar ao comportamento anterior): os 2 testes falham.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python -m py_compile config/banco_de_teste.py config/test_sem_banco.py` | sem erros |
+| `python manage.py test config.test_sem_banco -v 2` | `Ran 27 tests — OK`; nenhum banco criado (só `SimpleTestCase`) |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final; `run_tests` passa os aliases e o executor exige host local antes de conectar) | `Ran 1067 tests — OK` (1065 + 2) |
+| `git diff --check` | sem problemas |
+
+Nenhum script experimental foi executado, nenhuma conexão remota foi aberta e nenhuma migration remota foi aplicada nesta tarefa.
+
+**Pendências:** continua com o usuário remover o banco `test_postgres` criado no servidor remoto (15.1.20). A verificação da reversão da `0004` pode agora ser feita por um teste rodado pelo `manage.py test`.
+
+**Git:** branch `feature/p08-financeiro-manual`, sem commit. Commit, push e PR ficam com o usuário.
+
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
 Diagrama conceitual derivado **somente** das entidades e atributos citados pelo professor (ENT-01 a ENT-04 na [matriz](docs/requisitos/matriz-n2-etapa2.md)); nomes de campos adicionais, chaves e cardinalidades exatas ainda precisam ser decididos. Banco previsto: Supabase PostgreSQL ([ADR-001](docs/arquitetura/ADR-001-supabase.md)).
@@ -2183,7 +2350,7 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 
-**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40); com G-01/P-09 sobre `develop` `37b41e7` (15.1.17): **Ran 963 tests — OK** (940 + 23); com a F-6 sobre `develop` `b70ee9a` (15.1.18): **Ran 985 tests — OK** (963 + 22).
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40); com G-01/P-09 sobre `develop` `37b41e7` (15.1.17): **Ran 963 tests — OK** (940 + 23); com a F-6 sobre `develop` `b70ee9a` (15.1.18): **Ran 985 tests — OK** (963 + 22). Com as contas manuais (P08) sobre `develop` `a442e0e` (15.1.19): **Ran 1050 tests — OK** (1020 + 30). Com a chave de idempotência (15.1.20): **Ran 1065 tests — OK** (1050 + 15). Com a proteção do executor (15.1.21): **Ran 1067 tests — OK** (1065 + 2).
 
 ## 21.2 - Distribuição
 
