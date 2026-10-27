@@ -7,7 +7,7 @@
     <h1>Processar nota fiscal</h1>
     <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB). O arquivo é usado só neste processamento e não é guardado.</p>
 
-    <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
+    <form method="post" action="{% url 'analise_criar' %}" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
       {% csrf_token %}
 
       <label for="{{ form.gemini_api_key.id_for_label }}" class="formulario__rotulo">{{ form.gemini_api_key.label }}</label>

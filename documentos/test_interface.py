@@ -163,7 +163,7 @@ class TelaTests(InterfaceTestBase):
         self.assertTemplateUsed(resposta, "documentos/inicio.html")
         self.assertContains(
             resposta,
-            '<form method="post" enctype="multipart/form-data" class="formulario" '
+            f'<form method="post" action="{reverse("analise_criar")}" enctype="multipart/form-data" class="formulario" '
             'data-submit-lock data-submit-texto="Processando...">',
             html=False,
         )

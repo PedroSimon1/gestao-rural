@@ -5,10 +5,18 @@
   <h1>Conferir e corrigir a nota</h1>
   <p>Revise os documentos, a classificação e as parcelas. As correções não alteram os dados originalmente extraídos.</p>
   <p class="aviso" role="status">Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado.</p>
+  {% if expira_em %}<p>Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}.</p>{% endif %}
+  {% if correcoes_salvas %}<p role="status">Correções salvas. Nenhum lançamento financeiro foi realizado.</p>{% endif %}
+  {% if erro_tela %}<p class="aviso" role="alert">{{ erro_tela }}</p>{% endif %}
+  {% if analise_id %}<p><a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a></p>{% endif %}
   {% if revisao.nota.problemas %}
     <p class="aviso" role="alert">Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal.</p>
   {% endif %}
-  <div class="formulario" aria-label="Conferência da nota">
+  {% if analise_id %}
+  <form method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota">
+    {% csrf_token %}
+    <input type="hidden" name="versao_correcoes" value="{{ versao_correcoes }}">
+  {% else %}<div class="formulario" aria-label="Conferência da nota">{% endif %}
     <fieldset>
       <legend>Dados para conferência</legend>
       {{ form.non_field_errors }}
@@ -30,8 +38,25 @@
         </fieldset>
       {% endfor %}
     </fieldset>
-  </div>
+  {% if analise_id %}
+    <button type="submit" class="botao">Salvar correções</button>
+  </form>
+  <form method="post" action="{% url 'analise_cancelar' analise_id=analise_id %}">
+    {% csrf_token %}
+    <button type="submit" class="botao">Cancelar análise</button>
+  </form>
+  {% else %}</div>{% endif %}
 </section>
+{% if consultas %}
+<section class="cartao">
+  <h2>Consulta aos cadastros</h2>
+  {% for consulta in consultas %}
+    <h3>{{ consulta.rotulo }}</h3>
+    <p>{{ consulta.situacao }}{% if consulta.id %} — ID: {{ consulta.id }}{% endif %}</p>
+    <p>{{ consulta.nome|default:"—" }}{% if consulta.status %} — {{ consulta.status }}{% endif %}{% if consulta.status_papel %} — Papel: {{ consulta.status_papel }}{% endif %}</p>
+  {% endfor %}
+</section>
+{% endif %}
 <section class="cartao">
   <h2>Dados extraídos originalmente</h2>
   <pre class="bloco-json"><code>{{ json_original }}</code></pre>
