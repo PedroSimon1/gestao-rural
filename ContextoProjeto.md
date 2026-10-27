@@ -53,7 +53,8 @@ Toda afirmação relevante usa uma destas marcas:
 | Working tree           | apenas `ContextoProjeto.md` modificado (não commitado)                                        |
 | Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
 | Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
-| Estado da `develop` (27/10/2026) | `develop` = `origin/develop` em `69d21f9`: GR-33 a GR-38 e GR-40 integradas (PRs #22 a #28). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. GR-43 em `feature/gr-43-analise-pendente`, não integrada (15.1.7). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
+| Estado da `develop` (27/10/2026) | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
+| Revisão de 27/10/2026 (handoff) | branch `docs/gr-51-contrato-integracao` sobre `develop` `a6f929f`; código idêntico ao da `develop`; `python manage.py test` → **Ran 650 tests — OK** (PostgreSQL local, `DB_HOST` inalcançável); seção 34 |
 | Atualização GR-33      | 25/10/2026, branch `feature/gr-33-configurar-supabase` (integrada depois, PR #22; na data, **não integrada** a `develop`): conexão PostgreSQL com o Supabase configurada em `config/settings.py`, `psycopg[binary]==3.3.6` e variáveis `DB_*` no `.env.example`. Sem models, migrations nem `migrate`. Ver 15.1.1 e [ADR-001](docs/arquitetura/ADR-001-supabase.md), seção 13.1 |
 
 ## 1.3 - Fontes consultadas e limitações
@@ -103,7 +104,7 @@ Sistema de gestão financeira rural que processa documentos PDF com IA, identifi
 
 Na `main` (`f7786e8`, entrega da **N2 Etapa 1**, em produção) nada é persistido: **não há banco de dados** (HISTÓRICO da Etapa 1, ainda vigente na `main`).
 
-**Estado da `develop` em 27/10/2026 (IMPLEMENTADO, não publicado):** PostgreSQL configurado (GR-33), testes isolados no PostgreSQL local (GR-34), `Pessoa`/`PapelPessoa` (GR-35), `Classificacao` (GR-36), `MovimentoConta`/`MovimentoClassificacao` e `registrar_movimento()` (GR-37), `ParcelaConta` (GR-38) e consultas de existência (GR-40). As migrations foram validadas só no PostgreSQL local e **não** foram aplicadas em homologação nem em produção pelo Pedro Simon. A tela continua sendo a da Etapa 1: consultas, conferência, confirmação e gravação ainda não estão ligadas ao fluxo (GR-51). A GR-43 (análise pendente) está numa branch não integrada (15.1.7).
+**Estado da `develop` em 27/10/2026 (IMPLEMENTADO, não publicado):** PostgreSQL configurado (GR-33), testes isolados no PostgreSQL local (GR-34), `Pessoa`/`PapelPessoa` (GR-35), `Classificacao` (GR-36), `MovimentoConta`/`MovimentoClassificacao` e `registrar_movimento()` (GR-37), `ParcelaConta` (GR-38) consultas de existência (GR-40) e `AnalisePendente`, com o ciclo de vida ligado ao login e ao logout (GR-43, PR #29). As migrations foram validadas só no PostgreSQL local e **não** foram aplicadas em homologação nem em produção pelo Pedro Simon. A tela continua sendo a da Etapa 1: consultas, conferência, confirmação e gravação ainda não estão ligadas ao fluxo (GR-51).
 
 ---
 
@@ -294,12 +295,12 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 | Gemini API Key informada na tela       | **VALIDADO**                                                 | `documentos/forms.py`, testes de interface   |
 | Configuração de produção (Render)      | **VALIDADO** em testes; operação real registrada em 29/09    | `config/test_producao.py`                    |
 | Banco de dados                         | `main` (`f7786e8`): **inexistente** (`DATABASES = {}`). `develop`: PostgreSQL configurado por `DB_*` (GR-33, PR #22; 15.1.1); migrations só validadas no PostgreSQL local | `config/settings.py`, `config/test_sem_banco.py` |
-| Models / migrations / admin            | `main`: inexistentes. `develop`: apps `cadastros` e `financeiro` com 5 migrations (GR-35 a GR-38); sem admin. Branch da GR-43: `documentos` `0001` | 15.1.2 a 15.1.7 |
+| Models / migrations / admin            | `main`: inexistentes. `develop`: apps `cadastros` e `financeiro` com 5 migrations (GR-35 a GR-38) e `documentos` com 1 migration (GR-43, PR #29); sem admin | 15.1.2 a 15.1.7 |
 | Consultas de existência (Etapa 2)      | **PARCIAL** (GR-40, integrada à `develop`, PR #28): serviço de backend, sem tela nem integração ao fluxo | `cadastros/consultas.py`, 15.1.6 |
 | Cadastros e inativação (Etapa 2)       | **PARCIAL** na `develop`: models e serviços (GR-35, GR-36), sem telas (P08) | 15.1.2, 15.1.3 |
 | Movimento e parcelas (Etapa 2)         | **PARCIAL** na `develop`: `registrar_movimento()` com parcelas (GR-37, GR-38), sem integração ao fluxo da nota (GR-51) | 15.1.4, 15.1.5 |
 | Versão/commit do GitHub na tela        | não implementado                                             | nenhuma ocorrência no código                 |
-| Trabalho da Etapa 2 em andamento       | GR-43 (Pedro Simon, branch local não integrada); GR-51 (Gustavo Lopes) sem branch no remoto em 27/10/2026 | `git ls-remote`, `gh pr list` |
+| Trabalho da Etapa 2 em andamento       | GR-43 integrada (PR #29, `a6f929f`); contrato GR-51 em `docs/gr-51-contrato-integracao` (Pedro Simon, sem commit); GR-51 (Gustavo Lopes) sem branch no remoto em 27/10/2026 | `git ls-remote`, `gh pr list` |
 
 ## 8.2 - Diagnóstico da transição Etapa 1 → Etapa 2
 
@@ -648,7 +649,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (integrada à `develop`, PR #27): `ParcelaConta` e gatilho da soma, ver 15.1.5. GR-40 (integrada à `develop`, PR #28): consultas de existência, só leitura e sem models, ver 15.1.6. GR-43 (branch não integrada): `AnalisePendente` (app `documentos`), armazenamento temporário da análise, ver 15.1.7 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (integrada à `develop`, PR #27): `ParcelaConta` e gatilho da soma, ver 15.1.5. GR-40 (integrada à `develop`, PR #28): consultas de existência, só leitura e sem models, ver 15.1.6. GR-43 (integrada à `develop`, PR #29): `AnalisePendente` (app `documentos`), armazenamento temporário da análise, ver 15.1.7 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -910,9 +911,11 @@ O banco `test_gestao_rural` foi criado e removido pelo executor de testes. O Sup
 
 **Git:** branch `feature/gr-40-consultas`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
-## 15.1.7 - GR-43: AnalisePendente, armazenamento temporário da análise (branch `feature/gr-43-analise-pendente`, 27/10/2026, não integrada)
+## 15.1.7 - GR-43: AnalisePendente, armazenamento temporário da análise (branch `feature/gr-43-analise-pendente`, 27/10/2026, integrada à `develop`, PR #29)
 
 Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local descartável); **não integrado** à `develop`; migration `documentos` `0001_initial` **não aplicada** em homologação nem em produção (PT-06); **não ligado** à tela (GR-51). Pacote P04. Branch a partir da `develop` em `69d21f9` (GR-40 integrada, PR #28).
+
+**Atualização de 27/10/2026:** integrada à `develop` (PR #29, commit `54897d5`, merge `a6f929f`). Os registros abaixo descrevem o estado antes do commit; a migration continua **não aplicada** em homologação e nada está ligado à tela.
 
 **Objetivo:** resolver T-04/C-10, ou seja, guardar no servidor, de forma segura, o resultado da análise da nota entre o processamento e a confirmação do usuário (Q-02/DQ-02), sem cookie com dados da nota, sem reprocessar com o Gemini e sem criar nada antes da confirmação.
 
@@ -1004,7 +1007,7 @@ O Supabase não foi usado. **Observação:** na GR-40 e na sincronização de 27
 
 **Git:** branch `feature/gr-43-analise-pendente`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
-### 15.1.7.1 - GR-43: login, logout e segurança da sessão (27/10/2026, mesma branch, não integrada)
+### 15.1.7.1 - GR-43: login, logout e segurança da sessão (27/10/2026, mesma branch, integrada à `develop`, PR #29)
 
 **Objetivo:** fechar, antes do PR, as pendências de segurança da GR-43, ligando o ciclo de vida de `AnalisePendente` ao login e ao logout existentes, sem mudar os Agents nem antecipar a GR-51.
 
@@ -1067,9 +1070,99 @@ O Supabase não foi acessado. `python manage.py test usuarios` passou a exigir `
 - **Comentário desatualizado em arquivo sensível:** `config/settings.py` ("Guarda só o indicador do login da demonstração") e a docstring de `config/test_sem_banco.py` ("testes de fluxo ... todos `SimpleTestCase`") não foram alterados sem autorização.
 - **Homologação:** migration `documentos` `0001` ainda não aplicada (PT-06).
 
-**Situação da GR-43:** **IMPLEMENTADO** e **TESTADO LOCALMENTE**, **pronto para revisão e PR para `develop`**; **não integrado**, **não homologado** e **não ligado à tela** (GR-51).
+**Situação da GR-43:** **IMPLEMENTADO** e **TESTADO LOCALMENTE**; **integrado à `develop`** em 27/10/2026 (PR #29, commit `54897d5`, merge `a6f929f`); **não homologado** e **não ligado à tela** (GR-51).
 
 **Git:** branch `feature/gr-43-analise-pendente`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
+## 15.1.8 - Contrato de integração GR-51, minuta 0.1 (27/10/2026; redigido em `feature/gr-43-analise-pendente`, hoje em `docs/gr-51-contrato-integracao`, sem commit)
+
+**Documento:** [`docs/contratos/ContratoIntegracaoGR51.md`](docs/contratos/ContratoIntegracaoGR51.md). **Estado:** MINUTA 0.1, AGUARDANDO REVISÃO CONJUNTA (substituída pela minuta 0.2, ver 15.1.9). Não aprova nenhuma decisão e **não** conclui a GR-51.
+
+**Objetivo:** contrato técnico entre Pedro Simon e Gustavo Lopes para conectar, na GR-51, o processamento da nota (Agents), as consultas da GR-40, a análise pendente da GR-43 e o serviço financeiro (GR-37/GR-38), em paralelo e sem duplicar funções.
+
+**Branch:** escrito em `feature/gr-43-analise-pendente`, junto com a GR-43 sem commit, por decisão de Pedro Simon em 27/10/2026 (as interfaces da GR-43 só existem nessa branch). **Atualização:** antes do commit da GR-43, a equipe decidiu separar o contrato: ele não entrou no PR #29 e segue em PR próprio, da branch `docs/gr-51-contrato-integracao` (ver 15.1.10).
+
+**Conteúdo (10 seções):** responsabilidades e donos de arquivos; regras aprovadas (R-01 a R-14) e regras só implementadas; fluxo das 12 etapas com o estado de cada uma; contratos existentes; contratos propostos (PENDENTES DE APROVAÇÃO); 10 decisões pendentes com alternativas, riscos e recomendação; checklist de aceite da GR-51; ordem de integração; regras de Git; tabela de aprovação.
+
+**Contratos verificados no código** (assinaturas conferidas com `inspect`, sem conexão a banco): `processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None)` e `ResultadoProcessamento(resultado, justificativa)`; JSON final de 10 chaves; `consultar_pessoa(documento, papel, nome=None)`, `consultar_classificacao(codigo, tipo=DESPESA)`, `consultar_nota(resultado)`, `ConsultaPessoa`, `ConsultaClassificacao`, `ResultadoConsultas`, `Situacao`, `PAPEL_AUSENTE`; `garantir_dono`, `criar_analise`, `obter_analise`, `cancelar_analise`, `confirmar_analise(session, analise_id, gravar)`, `descartar_analises`, `expirar_analises(agora=None)`, `AnaliseError` com 6 códigos; `registrar_movimento(dados)` → `(movimento, criado)`, `DadosMovimento`, `ItemClassificacao`, `ItemParcela`, `MAXIMO_DE_PARCELAS = 120` e os códigos de `ValidationError`.
+
+**Estado real usado no contrato:** `develop` em `69d21f9` com GR-33 a GR-38 e GR-40 integradas (PRs #22 a #28); GR-43 implementada e testada localmente, **sem commit e não integrada** naquela data (integrada depois pelo PR #29, `a6f929f`); `main` em `f7786e8`; nenhuma branch do Gustavo Lopes no remoto; migrations da Etapa 2 não aplicadas por Pedro Simon em homologação.
+
+**Divergências registradas no contrato:**
+- **Pessoa incompleta:** `registrar_movimento()` bloqueia (`pessoa_incompleta`), mas a DQ-05 registra o uso em movimentos como "não definido" (decisão 3).
+- **Duplicidade:** a idempotência vale por análise; a mesma nota processada duas vezes gera duas análises (dois UUIDs) e pode gerar dois movimentos. `MovimentoConta` não guarda número nem data de emissão da nota (decisão 1, T-03).
+- **Correções na conferência:** não há API para alterar `AnalisePendente.dados`; a T-02 continua aberta (decisão 2).
+- **Parcelas:** o Extrator aceita nota sem parcelas, sem vencimento e sem teto; o backend exige 1 a 120 parcelas com vencimento (decisão 4, T-01).
+- **Sessões de teste:** `usuarios/testing.py::autenticar_demo` cria sessão sem o código das análises; testes da GR-51 que gravarem análise precisam de `documentos/testing.py::nova_sessao`.
+- **Resultado da GR-40 não serializável** como está (dataclasses com `StrEnum`); proposta: reconsultar na conferência em vez de guardar.
+- **GR-22, GR-41, GR-42, GR-44 e GR-45:** sem descrição no repositório e Jira não consultado; escopos não atribuídos (decisão 7).
+- **`docs/INDICE.md`:** a linha do ADR-001 ainda diz "GR-33 não integrada" (não corrigida nesta tarefa).
+
+**Decisões pendentes (seção 6 do contrato):** duplicidade de notas; campos editáveis e rastreabilidade; cadastro incompleto; parcelas incompletas; formato único do adaptador; limpeza e retenção das análises; compatibilidade com GR-41/42/44; dono da função `gravar` e arquivos compartilhados; versionamento do JSON; segurança da sessão e logout. Herdadas: Q-05, Q-06, Q-10, C-06.
+
+**Responsabilidades:** Pedro Simon: models, migrations, persistência, GR-40, GR-43 e, como proposta, o serviço que cria cadastros e monta `DadosMovimento`. Gustavo Lopes: adaptação dos Agents, chamadas da GR-40 e da GR-43 na view, tela de conferência, confirmação e mensagens. Compartilhado: aprovação do contrato, testes ponta a ponta, homologação.
+
+**Próximos passos de integração:** (1) revisão conjunta e versão 1.0 do contrato; (2) PR da GR-43 (feito: PR #29) e PR próprio para este contrato; (3) Gustavo adapta os Agents e prototipa a tela; (4) Pedro implementa o serviço de lançamento a partir da nota, se aprovado; (5) view de conferência e confirmação; (6) testes ponta a ponta e de concorrência; (7) migrations em homologação; (8) homologação e `main`.
+
+**Arquivos:** `docs/contratos/ContratoIntegracaoGR51.md` (novo), `docs/INDICE.md` (entrada do novo documento) e este registro. Nenhum código, teste, model ou migration foi alterado nesta tarefa.
+
+**Validação:** tarefa só documental; assinaturas conferidas com `inspect` (com `DB_HOST` inalcançável); `git diff --check` sem problemas. Testes não foram executados de novo (nenhum código mudou desde `Ran 650 tests — OK`).
+
+**Git:** branch `feature/gr-43-analise-pendente`, sem commit. Commit, push e PR ficam com o usuário.
+
+## 15.1.9 - Contrato GR-51, minuta 0.2: decisões D-01 a D-05 (27/10/2026; redigido em `feature/gr-43-analise-pendente`, hoje em `docs/gr-51-contrato-integracao`, sem commit)
+
+**Objetivo:** incorporar ao [contrato](docs/contratos/ContratoIntegracaoGR51.md) as cinco decisões de negócio aprovadas pela equipe (informadas por Pedro Simon em 27/10/2026), separando o que já está implementado do que exige mudança técnica, e listar os bloqueios efetivos da GR-51. Tarefa só documental: nenhum código, teste, model ou migration foi alterado. **A GR-51 não foi iniciada nem concluída.**
+
+**Decisões aprovadas** (matriz, DQ-10 a DQ-14) e situação real:
+
+| Decisão | Aprovada | Implementação local (branch da GR-43) | Integrada à `develop` |
+| ------- | -------- | ------------------------------------- | --------------------- |
+| D-01 Duplicidade (chave de acesso; sem ela, CNPJ + modelo + série + número; insuficiente bloqueia; proteção concorrente) | sim (DQ-10) | não | não. Só existe a idempotência por `analise_origem_id` (GR-37, integrada); o Extrator não extrai chave, modelo nem série |
+| D-02 Campos editáveis, extraído × corrigido separados, revalidação | sim (DQ-11) | não (não há API para correções em `AnalisePendente`) | não. A revalidação de pessoas, papéis, classificações, valor e parcelas existe em `registrar_movimento()` (integrada) |
+| D-03 CPF e CNPJ simultâneos: escolha explícita, sem tipo por papel | sim (DQ-12) | — | backend atende (GR-40 e `Pessoa` aceitam qualquer tipo em qualquer papel, integrados); **o Extrator associa** CNPJ ao fornecedor e CPF ao faturado |
+| D-04 "Salvar cadastro pendente", bloqueio até regularizar, seleção manual, sem mesclagem por nome | sim (DQ-13) | não (ação e listagem) | bloqueio (`pessoa_incompleta`), `regularizar()`, `incompletas()` e busca só por documento integrados; ação, listagem e seleção não implementadas |
+| D-05 `AnalisePendente` oficial, sessão, 30 min, confirmação transacional e idempotente | sim (DQ-14, formaliza DQ-09) | sim (GR-43, testada no PostgreSQL local) | não na data deste registro; **sim** desde o PR #29 (`a6f929f`) |
+
+**Bloqueios efetivos da GR-51** (contrato, 6.3): B-01 GR-43 não integrada (**resolvido** pelo PR #29); B-02 JSON sem chave de acesso, modelo, série e documentos sem tipo fixo (JSON v2, Gustavo); B-03 sem persistência da identidade fiscal (Pedro); B-04 sem armazenamento de correções (extensão da GR-43, Pedro); B-05 sem serviço de cadastro pendente e listagem (Pedro); B-06 sem serviço de lançamento a partir da análise (Pedro, se P-08 for aprovada); B-07 migrations não aplicadas em homologação.
+
+**Decisões técnicas pendentes** (não aprovadas): T-01 local da identidade fiscal (recomendação: tabela própria 1:1 com o movimento); T-02 local das correções (campo `correcoes` em `AnalisePendente`); T-03 rastreabilidade após a confirmação; T-04 chave divergente dos campos; T-05 análise após "Salvar cadastro pendente"; T-06 notas sem chave nem modelo/série (ex.: NFS-e), que D-01 bloqueia; T-07 movimento cancelado e identidade fiscal. Da minuta 0.1, continuam pendentes: P-04 parcelas ausentes, P-05 formato do adaptador, P-06 retenção, P-07 GR-41/42/44, P-08 dono do serviço de lançamento, P-09 versionamento do JSON (necessário para D-01/D-03), P-10 sessão e logout. Herdadas: Q-05, Q-06, Q-10, C-06.
+
+**Responsabilidades (sem edição concorrente):** Pedro Simon: identidade fiscal, correções em `AnalisePendente`, serviço de cadastro pendente, serviço de lançamento, adaptação de `CHAVES_DOS_DADOS`/`VERSAO_DADOS` e `consultar_nota` à v2, sempre em arquivos de backend (novos serviços em arquivos novos). Gustavo Lopes: JSON v2 no Extrator e em `montar_resultado`, view, templates, formulários e testes de interface. Compartilhado: ratificação, testes ponta a ponta, homologação.
+
+**Contratos verificados:** as assinaturas da seção 4 do contrato continuam as conferidas com `inspect` na minuta 0.1 (nenhum código mudou desde então). O contrato agora registra os limites de cada serviço em relação às decisões: `criar_analise` aceita só o JSON v1 (10 chaves); `confirmar_analise` entrega a `gravar` só os dados extraídos; `MovimentoConta` não tem identidade fiscal.
+
+**Arquivos alterados:** `docs/contratos/ContratoIntegracaoGR51.md` (minuta 0.2, reescrita), `docs/requisitos/matriz-n2-etapa2.md` (DQ-10 a DQ-14), `docs/INDICE.md` (estado do contrato) e esta seção.
+
+**Validação:** só documental; `git diff --check` sem problemas; testes não executados (nenhum código alterado; último resultado `Ran 650 tests — OK`).
+
+**Situação do contrato:** **MINUTA 0.2**. A versão 1.0 depende da ratificação de T-01 a T-07 e P-04 a P-10 e da revisão do Gustavo Lopes.
+
+**Git:** branch `feature/gr-43-analise-pendente`, sem commit. Commit, push e PR ficam com o usuário.
+
+## 15.1.10 - Revisão documental do contrato GR-51 após o PR #29 (27/10/2026, branch `docs/gr-51-contrato-integracao`, sem commit)
+
+**Objetivo:** preparar o contrato da GR-51 para commit e PR próprios, depois da integração da GR-43. Tarefa só documental: nenhum código, teste, model ou migration foi alterado. **A GR-51 não foi iniciada nem concluída.**
+
+**Estado Git verificado (somente leitura):** `develop` = `origin/develop` em `a6f929f` (merge do PR #29, `feature/gr-43-analise-pendente`, commit `54897d5`). O PR #29 levou exatamente os 16 arquivos da GR-43 (código, migration `documentos` `0001`, testes, login/logout e a parte da GR-43 da documentação); a `develop` não contém o contrato nem as seções 15.1.8 e 15.1.9. Branch atual `docs/gr-51-contrato-integracao`, criada a partir de `a6f929f`, com as alterações da GR-51 ainda não commitadas.
+
+**Correções feitas:**
+
+| Documento | Correção |
+| --------- | -------- |
+| `docs/contratos/ContratoIntegracaoGR51.md` | branch e base verificada (`a6f929f`); GR-43 passa de "IMPLEMENTADO, NÃO INTEGRADO" a "INTEGRADO (PR #29)" nas seções 1, 2.1 (D-05), 3 (diagrama e tabela), 4.3; B-01 marcado como resolvido; passo 2 da seção 8 concluído; seção 9: contrato com PR próprio; B-04 e passo 4: a extensão para correções exige migration `documentos` `0002` (a `0001` já integrada não deve ser alterada); seção 10: verificação, testes e integração atualizados; linha nova no histórico de versões |
+| `ContextoProjeto.md` | 1.2, 2.3 e 8.1 com a `develop` em `a6f929f` e a GR-43 integrada; 15.1.1; 15.1.7 e 15.1.7.1 (títulos, nota de atualização e situação); 15.1.8 e 15.1.9 (branch atual e separação do PR); 19.1 (sessão); esta seção |
+| `docs/requisitos/matriz-n2-etapa2.md` | efeitos de DQ-09 e DQ-14: GR-43 integrada (PR #29) |
+
+**Preservado sem alteração:** decisões D-01 a D-05; decisões técnicas T-01 a T-07 e P-04 a P-10, com alternativas, riscos e recomendações (nenhuma recomendação virou decisão); bloqueios B-02 a B-07; histórico das minutas 0.1 e 0.2. O contrato continua **MINUTA 0.2, aguardando revisão conjunta com Gustavo Lopes**.
+
+**Verificações:** assinaturas da seção 4 do contrato reconferidas com `inspect` em `a6f929f` (com `DB_HOST` inalcançável), idênticas às documentadas; `git diff --check` sem problemas. A suíte de testes **não** foi reexecutada (nenhum código alterado).
+
+**Pendências documentais fora do escopo (não corrigidas):** `docs/INDICE.md` (estado da documentação na linha 10, ADR-001 e `ContextoProjeto.md` com textos de 24/10 e 25/10); registros antigos da GR-33 no `ContextoProjeto.md` (9.3, 21.x, 25) e na matriz (5.G e nota de 25/10) que ainda dizem "branch não integrada"; o plano de responsabilidades (P01). O arquivo citado na solicitação como `docs/INDEX.md` é `docs/INDICE.md`.
+
+**Arquivos desta branch para o commit:** `docs/contratos/ContratoIntegracaoGR51.md` (novo), `docs/INDICE.md`, `docs/requisitos/matriz-n2-etapa2.md` e `ContextoProjeto.md`.
+
+**Git:** branch `docs/gr-51-contrato-integracao`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
@@ -1283,7 +1376,7 @@ Não é um sistema de usuários: não há `django.contrib.auth`, `request.user`,
 | `credenciais_validas`      | `constant_time_compare` em login e senha, combinados com `&`                        |
 | `demo_autenticado`         | `session["demo_autenticado"] is True` **e** credenciais configuradas                |
 | `demo_login_required`      | sem sessão válida → `redirect("login")`                                             |
-| Sessão                     | `signed_cookies`: na `main` (Etapa 1), conteúdo `{"demo_autenticado": true}`; na branch da GR-43, também `analise_dono` (código aleatório das análises pendentes, criado a cada login; 15.1.7.1). Assinado com `DJANGO_SECRET_KEY` (não criptografado), `HttpOnly`, `Secure` com `DEBUG=False`, `SameSite=Lax`, 2 semanas |
+| Sessão                     | `signed_cookies`: na `main` (Etapa 1), conteúdo `{"demo_autenticado": true}`; na `develop`, desde a GR-43 (PR #29), também `analise_dono` (código aleatório das análises pendentes, criado a cada login; 15.1.7.1). Assinado com `DJANGO_SECRET_KEY` (não criptografado), `HttpOnly`, `Secure` com `DEBUG=False`, `SameSite=Lax`, 2 semanas |
 | Login e logout (GR-43)     | o login troca o código das análises e cancela as pendentes do anterior; o logout cancela as pendentes da sessão antes do `flush`; erro de banco não impede nenhum dos dois |
 
 ## 19.2 - Controles existentes (VALIDADO)
@@ -1359,6 +1452,8 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 | `python manage.py check --deploy` com `.env` local | 6 avisos esperados por `DEBUG=True` local (o cenário de produção é coberto por `test_producao.py`, que exige só W004 e W008) |
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
+
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO).
 
 ## 21.2 - Distribuição
 
@@ -1673,3 +1768,228 @@ Quando houver conflito: requisitos → documento acadêmico oficial mais recente
 7. `ContextoFluxoGit.md` é a referência detalhada de colaboração; `ContextoTasksJira.md` é complementar (o Jira atual prevalece); `analisetemporaria.md` é rascunho temporário e não é fonte de verdade.
 8. Ao mover algo de PLANEJADO para IMPLEMENTADO, remova a versão antiga e, se a decisão anterior for relevante, registre-a como HISTÓRICO na seção 26.
 9. Detalhes ficam nos documentos donos de cada assunto: requisitos na matriz, decisões nos ADRs (`docs/arquitetura/ADR-NNN-*.md`), localização no índice. Este arquivo resume e aponta para eles. Ver [`docs/organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md`](docs/organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md).
+
+---
+
+# 34 - Handoff técnico Simon → Lopes: componentes implementados e integração GR-51
+
+Registro de 27/10/2026, feito na branch `docs/gr-51-contrato-integracao` (sem commit), sobre o código da `develop` em `a6f929f`. **Não implementa nada** e **não aprova** nenhuma decisão pendente do [contrato GR-51](docs/contratos/ContratoIntegracaoGR51.md), que continua **MINUTA 0.2**. Onde o detalhe já existe, esta seção aponta para ele (15.1.1 a 15.1.10, contrato, matriz).
+
+**Marcas usadas aqui:** **INTEGRADO** (código na `develop` `a6f929f`), **DECISÃO APROVADA** (aprovada pela equipe, pode não estar implementada), **PROPOSTA** (contrato GR-51, pendente de aprovação), **PENDENTE** (não implementado), **NÃO VERIFICADO** (sem evidência acessível).
+
+## 34.1 - Resumo executivo
+
+- O backend da Etapa 2 está **integrado à `develop`** e testado no PostgreSQL local: cadastros (GR-35, GR-36), movimento e parcelas (GR-37, GR-38), consultas de existência (GR-40) e análise pendente com login/logout (GR-43). **Nada disso está em produção** (`main` em `f7786e8`) e **nenhuma migration da Etapa 2 foi aplicada no Supabase de homologação** por Pedro Simon.
+- A **tela continua a da Etapa 1**: nenhuma view chama GR-40, GR-43 ou o financeiro. Esse elo é a GR-51 (e GR-41, GR-42, GR-44, GR-45, do Gustavo Lopes).
+- Para o Lopes, o essencial é: (1) **reutilizar** `consultar_pessoa`/`consultar_nota`, `criar_analise`/`obter_analise`/`cancelar_analise`/`confirmar_analise` e `registrar_movimento`, sem reimplementar validação de documento, armazenamento ou regra financeira; (2) três limites do código atual travam as decisões aprovadas D-01 a D-03 (34.10); (3) os testes de interface que passarem a gravar análise precisam virar `TestCase` com sessão que tenha o código das análises.
+- **Evidência atual:** `python manage.py test` → `Ran 650 tests — OK` em 27/10/2026 (PostgreSQL local 18.6, `127.0.0.1`, banco `test_gestao_rural` inexistente antes da execução; `DB_HOST` inalcançável; código idêntico a `a6f929f`). `check` sem problemas; `makemigrations --check` sem mudanças.
+
+## 34.2 - Estado real da branch `develop`
+
+| Item | Estado verificado (27/10/2026, somente leitura) |
+| ---- | ----------------------------------------------- |
+| `develop` / `origin/develop` | `a6f929f` (merge do PR #29) |
+| `main` / `origin/main` | `f7786e8` (Etapa 1, produção) |
+| Branches no remoto | só `develop` e `main` (`git ls-remote`): **nenhuma branch do Gustavo Lopes** publicada; PRs abertos: nenhum |
+| Trabalho local do Lopes | **NÃO VERIFICADO** (não acessível desta máquina); nada dele é considerado integrado sem evidência no Git |
+| Branch atual | `docs/gr-51-contrato-integracao` = `a6f929f` + documentação da GR-51 não commitada (contrato, `docs/INDICE.md`, matriz e este arquivo) |
+| Jira | **não consultado** (sem integração disponível). As descrições de GR-41, GR-42, GR-44 e GR-45 vêm da solicitação de Pedro Simon |
+
+## 34.3 - Entregas de Simon e evidências de integração
+
+| Tarefa | Entrega | PR / merge | Detalhe |
+| ------ | ------- | ---------- | ------- |
+| GR-33 | PostgreSQL por `DB_*` (Psycopg 3, Session Pooler, TLS obrigatório) | PR #22 | 15.1.1; ADR-001, 13.1 |
+| GR-34 | testes só no PostgreSQL local (`DB_TEST_*`), executor protegido, migrations manuais | PR #23 | 15.1.1; ADR-001, 13.2; 34.7 |
+| GR-35 | `Pessoa`, `PapelPessoa`, cadastro incompleto e regularização | PR #24 | 15.1.2 |
+| GR-36 | `Classificacao` e 2 categorias iniciais de DESPESA | PR #25 | 15.1.3 |
+| GR-37 | `MovimentoConta`, `MovimentoClassificacao`, `registrar_movimento()` | PR #26 | 15.1.4 |
+| GR-38 | `ParcelaConta`, soma exata por serviço e gatilho diferido | PR #27 | 15.1.5 |
+| GR-40 | consultas de existência, só leitura | PR #28 (`69d21f9`) | 15.1.6 |
+| GR-43 | `AnalisePendente`, ciclo de vida no login/logout | PR #29 (commit `54897d5`, merge `a6f929f`) | 15.1.7, 15.1.7.1 |
+| Contrato GR-51 | minuta 0.2 (D-01 a D-05 incorporadas) | **não integrado** (branch `docs/gr-51-contrato-integracao`) | 15.1.8 a 15.1.10 |
+
+## 34.4 - Inventário dos componentes reutilizáveis
+
+Todos **INTEGRADO** em `a6f929f`. L = só leitura; E = escreve no banco.
+
+| # | Arquivo | Componente | Responsabilidade | L/E | Uso pelo Lopes |
+| - | ------- | ---------- | ---------------- | --- | -------------- |
+| 1 | `documentos/processamento.py` | `processar_pdf`, `ResultadoProcessamento`, `ProcessamentoError`, `montar_resultado` | PDF → Extrator → Classificador → JSON final (10 chaves) | — (sem banco) | entrada de tudo; mudar o JSON exige versão nova (34.10) |
+| 2 | `cadastros/validators.py` | `normalizar_documento`, `tipo_do_documento`, `validar_documento` | normaliza e valida CPF/CNPJ (inclusive alfanumérico) | — | validar documentos corrigidos na tela; **não** reescrever a regra do DV |
+| 3 | `cadastros/models.py` | `Pessoa` + `objects.por_documento`, `objects.incompletas`, `regularizar`, `atribuir_papel`, `inativar`/`reativar`, `documentacao_completa` | cadastro de pessoas e situação documental | L/E | busca e criação de pessoas só por estes métodos |
+| 4 | `cadastros/models.py` | `PapelPessoa` + `objects.vigentes` | papéis FORNECEDOR, CLIENTE, FATURADO | L/E | papel novo por `atribuir_papel` (não reativa) |
+| 5 | `cadastros/models.py` | `Classificacao` + `objects.por_codigo` | tipos de despesa/receita; código = valor do Enum | L/E | consulta pela GR-40; criação depende de Q-05 |
+| 6 | `cadastros/models.py` | `Status`, `Papel`, `SituacaoDocumental`, `TipoClassificacao`, `ExclusaoNaoPermitida` | enums e erro de exclusão | — | usar os valores, nunca strings soltas |
+| 7 | `cadastros/consultas.py` | `consultar_pessoa`, `ConsultaPessoa` | existência por CPF/CNPJ, status da pessoa e do papel | L | GR-41/GR-44 (inclusive para o documento escolhido) |
+| 8 | `cadastros/consultas.py` | `consultar_classificacao`, `ConsultaClassificacao` | existência da classificação | L | GR-42/GR-44 |
+| 9 | `cadastros/consultas.py` | `consultar_nota`, `ResultadoConsultas`, `Situacao`, `PAPEL_AUSENTE` | as três consultas a partir do JSON v1 | L | GR-44, tela FLU-04 |
+| 10 | `financeiro/servicos.py` | `registrar_movimento`, `DadosMovimento`, `ItemClassificacao`, `ItemParcela`, `MAXIMO_DE_PARCELAS` | grava movimento, classificações e parcelas com revalidação e idempotência | E | **só** dentro de `confirmar_analise` |
+| 11 | `financeiro/models.py` | `MovimentoConta`, `MovimentoClassificacao`, `ParcelaConta`, `TipoMovimento`, `OrigemMovimento`, `StatusMovimento`, `StatusParcela` | persistência financeira imutável | L (para exibir) | exibir o lançamento (ex.: `MovimentoConta.objects.get(analise_origem_id=...)`) |
+| 12 | `documentos/models.py` | `AnalisePendente`, `StatusAnalise` | análise temporária no servidor | L | não escrever direto: usar o serviço 13 |
+| 13 | `documentos/analises.py` | `criar_analise`, `obter_analise`, `cancelar_analise`, `confirmar_analise`, `AnaliseError` | ciclo de vida da análise | E | GR-44/GR-45/GR-51 |
+| 14 | `documentos/analises.py` | `garantir_dono`, `descartar_analises`, `expirar_analises` + comando `expirar_analises` | login, logout e limpeza | E | já ligados em `usuarios/demo.py`; não chamar na view |
+| 15 | `usuarios/demo.py` | `demo_login_required`, `iniciar_sessao_demo`, `encerrar_sessao_demo` | autenticação de demonstração | E (logout) | decorar views novas com `demo_login_required` |
+| 16 | `usuarios/testing.py`, `documentos/testing.py` | `autenticar_demo`, `CREDENCIAIS_TESTE`; `nova_sessao`, `resultado_da_nota` | apoio a testes | — | testes da GR-44/GR-45/GR-51 |
+
+**Total:** 16 grupos, com **12 funções de serviço públicas** com assinatura conferida (`processar_pdf`, `consultar_pessoa`, `consultar_classificacao`, `consultar_nota`, `garantir_dono`, `criar_analise`, `obter_analise`, `cancelar_analise`, `confirmar_analise`, `descartar_analises`, `expirar_analises`, `registrar_movimento`) e **8 estruturas de contrato** (`ResultadoProcessamento`, `ConsultaPessoa`, `ConsultaClassificacao`, `ResultadoConsultas`, `DadosMovimento`, `ItemClassificacao`, `ItemParcela`, `AnalisePendente`), além de 3 hierarquias de erro (`ProcessamentoError`, `AnaliseError`, `ValidationError.code` do financeiro).
+
+## 34.5 - Contratos reais de entrada, retorno e erros
+
+Assinaturas conferidas com `inspect` em `a6f929f`. Os detalhes completos (campos, códigos, mensagens) estão no [contrato](docs/contratos/ContratoIntegracaoGR51.md), seção 4; aqui só o que o Lopes precisa para chamar corretamente.
+
+| Chamada | Entrada | Retorno | Erros | Observações |
+| ------- | ------- | ------- | ----- | ----------- |
+| `processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None)` | bytes do PDF, chave da tela | `ResultadoProcessamento(resultado: dict, justificativa: str)` | `ProcessamentoError(etapa, codigo, mensagem)` | classificação inconclusiva hoje **interrompe** o fluxo (`classificacao_inconclusiva`), sem JSON |
+| `consultar_pessoa(documento, papel, nome=None)` | texto ou `None`; valor de `Papel` | `ConsultaPessoa` (`situacao`, dados da nota; `id`, `razao_social`, `status`, `status_papel` quando EXISTE) | `TypeError` (não texto), `ValueError` (papel) | ausente/inválido sem query; aceita CPF ou CNPJ em qualquer papel |
+| `consultar_classificacao(codigo, tipo=DESPESA)` | código (texto/`None`) | `ConsultaClassificacao` | `TypeError`, `ValueError` | `None` → `CLASSIFICACAO_AUSENTE` sem query |
+| `consultar_nota(resultado)` | JSON v1 (`dict`) | `ResultadoConsultas(fornecedor, faturado, classificacao)` | `TypeError` | lê só `fornecedor.cnpj`, `faturado.cpf`, `tipo_despesa`; ≤ 5 `SELECT`; resultado **não** serializável em JSON |
+| `criar_analise(session, resultado)` | `request.session`, JSON v1 | `AnalisePendente` (PENDENTE, `expira_em` = +30 min) | `AnaliseError`: `sessao_sem_codigo`, `dados_invalidos` | exige **exatamente as 10 chaves de primeiro nível** (as internas não são conferidas), JSON puro, ≤ 256 KB; expira as vencidas de qualquer sessão |
+| `obter_analise(session, analise_id)` | sessão, UUID ou texto | `AnalisePendente` PENDENTE e no prazo | `analise_nao_encontrada`, `analise_expirada`, `analise_confirmada`, `analise_cancelada` | outra sessão = "não encontrada"; **não** chamar dentro de `transaction.atomic()` (`RuntimeError`) |
+| `cancelar_analise(session, analise_id)` | idem | `None` | os mesmos (cancelar de novo não tem efeito) | idem |
+| `confirmar_analise(session, analise_id, gravar)` | idem + `gravar(dados: dict, analise_id: UUID)` | o retorno de `gravar` | os de `AnaliseError` + qualquer exceção de `gravar` (análise continua PENDENTE) | bloqueia a linha; marca CONFIRMADA no mesmo commit; `gravar` recebe **só os dados extraídos** |
+| `registrar_movimento(dados: DadosMovimento)` | pessoas e classificações como **objetos**, `Decimal`, `date`, `UUID` | `(MovimentoConta, criado: bool)` | `ValidationError.code` (entrada, banco, idempotência; ver contrato 4.4) | APAGAR exige FORNECEDOR + FATURADO vigentes e completos; 1 a 120 parcelas; soma exata; idempotente por `analise_origem_id` |
+
+**Estados da análise:** PENDENTE → CONFIRMADA (`confirmar_analise`) | CANCELADA (`cancelar_analise`, logout, novo login com código anterior) | EXPIRADA (acesso após o prazo, `criar_analise` de qualquer sessão, comando). Estados finais não voltam; `dados` vira `NULL` neles (constraint `analise_dados_coerentes_com_status`). Linhas nunca são apagadas. 30 minutos **não** significam exclusão física imediata (15.1.7.1).
+
+## 34.6 - Estrutura e dependências do banco de dados
+
+| App | Migration | Depende de | Conteúdo |
+| --- | --------- | ---------- | -------- |
+| `cadastros` | `0001_initial` | — | `pessoas`, `papeis_pessoa` |
+| `cadastros` | `0002_classificacao` | `cadastros.0001` | `classificacoes` |
+| `cadastros` | `0003_categorias_iniciais` | `cadastros.0002` | dados: MANUTENCAO_E_OPERACAO, INFRAESTRUTURA_E_UTILIDADES (idempotente; reversão `noop`) |
+| `financeiro` | `0001_initial` | `cadastros.0003` | `movimentos_contas`, `movimentos_classificacoes` |
+| `financeiro` | `0002_parcelas_contas` | `financeiro.0001` | `parcelas_contas` + gatilho diferido `financeiro_conferir_parcelas` |
+| `documentos` | `0001_initial` | — (sem FK) | `analises_pendentes` |
+
+- **Ambientes (DQ-03, DQ-04; ADR-001, 13.2):** testes no PostgreSQL **local** de cada desenvolvedor (`DB_TEST_*`); DEV e QA no Supabase **de homologação compartilhado** (`DB_*`); produção em projeto Supabase **separado, ainda não criado** (NÃO VERIFICADO se mudou), com credenciais próprias.
+- **Quatro estados diferentes de uma migration:** (1) **testada localmente**: o executor cria `test_*`, aplica todas as migrations e apaga o banco; (2) **versionada**: o arquivo está na `develop` (é o caso das 6 acima); (3) **aplicada em homologação**: alguém rodou `migrate` manualmente com `DB_*` de homologação, combinado antes, uma pessoa por vez — **não feito** por Pedro Simon para nenhuma delas; (4) **publicada em produção**: depois de homologar, com autorização — **não feito**. `build.sh` e `start.sh` **não** rodam `migrate` (garantido por teste).
+- **Reversão:** `migrate cadastros 0001` derruba `classificacoes` com dados, e reverter `financeiro 0002` remove o gatilho; não reverter em ambiente compartilhado.
+- **Próximas migrations previstas (PROPOSTA, contrato):** `documentos.0002` (correções, D-02) e uma tabela de identidade fiscal em `financeiro` (D-01). Números de migration são sequenciais por app: o Lopes **não** deve criar migrations em `documentos`, `cadastros` ou `financeiro` sem combinar (34.11).
+
+## 34.7 - Configuração local necessária para Lopes
+
+**Variáveis (nomes e finalidade; valores nunca no Git):**
+
+| Variável | Finalidade | Exemplo fictício seguro |
+| -------- | ---------- | ----------------------- |
+| `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | Django | `DJANGO_DEBUG=True` |
+| `DEMO_LOGIN`, `DEMO_PASSWORD` | login de demonstração | `DEMO_LOGIN=usuario-local` |
+| `GEMINI_MODEL`, `GEMINI_TIMEOUT_SEGUNDOS`, `GEMINI_MAX_TENTATIVAS`, `MAX_PDF_UPLOAD_SIZE_MB`, `GUNICORN_TIMEOUT` | Agents e upload | ver `.env.example` |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | banco da aplicação (Supabase de homologação); **obrigatórias**: sem elas o Django não inicia | `DB_HOST=db-teste.invalid` (para rodar só testes) |
+| `DB_SSLMODE`, `DB_SSLROOTCERT`, `DB_CONNECT_TIMEOUT` | TLS e tempo de conexão (opcionais) | `DB_CONNECT_TIMEOUT=1` |
+| `DB_TEST_HOST`, `DB_TEST_PORT`, `DB_TEST_NAME`, `DB_TEST_USER`, `DB_TEST_PASSWORD`, `DB_TEST_CONNECT_TIMEOUT` | PostgreSQL **local** dos testes | `DB_TEST_HOST=127.0.0.1`, `DB_TEST_NAME=test_gestao_rural` |
+
+**Proteções do executor (`config/banco_de_teste.py`):** host só local; `DB_TEST_NAME` começa com `test_` e é diferente de `DB_NAME`; `PGHOSTADDR`, `PGSERVICE` e `PGSERVICEFILE` recusados; sem `DB_TEST_*`, os testes com banco param antes de conectar. Só vale para `python manage.py test` (não usar `pytest`, `--testrunner` ou executor de IDE). O banco `test_*` é **apagado** a cada execução: não use `--keepdb` nem um nome que guarde dados.
+
+**Procedimento seguro de validação local:**
+1. PostgreSQL local com um usuário que tenha `CREATEDB` (sem superusuário) e `DB_TEST_*` no `.env`.
+2. Rodar com banco remoto inalcançável (variáveis do ambiente prevalecem sobre o `.env`): Linux/macOS `DB_HOST=db-teste.invalid DB_CONNECT_TIMEOUT=1 python manage.py test`; **PowerShell**: `$env:DB_HOST="db-teste.invalid"; $env:DB_CONNECT_TIMEOUT="1"; python manage.py test` (as variáveis valem até fechar o terminal).
+3. Antes de mexer em models: `python manage.py makemigrations --check --dry-run` (também com `DB_HOST` inalcançável, porque esse comando lê o histórico de migrations do banco configurado).
+4. `git diff --check` antes do commit.
+
+**Cuidados no Windows (do Lopes):**
+- `DB_TEST_HOST=127.0.0.1` ou `localhost`. O executor aceita um caminho absoluto como diretório de socket Unix; no Windows isso não faz sentido para o PostgreSQL: use o loopback.
+- Python 3.14 (`.python-version`); ativar com `.venv\Scripts\activate` e rodar com `python`, não `python3`.
+- `psycopg[binary]==3.3.6` traz o binário do libpq; não é preciso instalar o cliente do PostgreSQL só para os testes.
+- O fuso `America/Sao_Paulo` depende do pacote `tzdata` no Windows: o Django 6.1.1 o declara como dependência (`sys_platform == "win32"`), mas ele **não está fixado** em `requirements.txt`; conferir com `pip show tzdata`.
+- Não há `.gitattributes`: com `core.autocrlf` desligado, arquivos salvos com CRLF geram diffs inteiros e podem ser apontados por `git diff --check`. Recomendado `git config core.autocrlf true` na máquina Windows (configuração local, não versionada).
+- **NÃO VERIFICADO:** a suíte nunca foi executada no ambiente do Lopes (pendência registrada desde a GR-34).
+
+## 34.8 - Integração com GR-41, GR-42, GR-44 e GR-45
+
+Escopos conforme descritos por Pedro Simon (Jira não consultado).
+
+| Tarefa | O que o Lopes já pode reutilizar (INTEGRADO) | O que ainda depende de Simon | Aprovação conjunta |
+| ------ | -------------------------------------------- | ---------------------------- | ------------------ |
+| **GR-41** faturado com CPF ou CNPJ | `consultar_pessoa(documento, Papel.FATURADO, nome)` aceita CNPJ; `Pessoa` e `registrar_movimento` aceitam CPF ou CNPJ em qualquer papel; `validar_documento` | nada no backend para consultar e gravar; `consultar_nota` lê só `faturado.cpf` (adaptar, ou a view chamar `consultar_pessoa` direto) | D-03 (**DECISÃO APROVADA**: escolha explícita, sem tipo por papel); formato v2 do JSON (P-09) |
+| **GR-42** classificação inconclusiva | `consultar_classificacao(None)` → `CLASSIFICACAO_AUSENTE` sem query; `criar_analise` **aceita** `tipo_despesa: null` (só confere as chaves de primeiro nível); `registrar_movimento` exige classificação | correção da classificação na conferência (D-02, armazenamento de correções: B-04) | hoje o Classificador **interrompe** com `classificacao_inconclusiva` e a seção 17.3 diz que `tipo_despesa` nunca é `null`: continuar o fluxo muda esse contrato (decidir junto) |
+| **GR-44** adaptador e consultas | `processar_pdf` → `consultar_nota`/`consultar_pessoa` → `criar_analise`; `normalizar_documento`, `validar_documento` | adaptar `consultar_nota` e `CHAVES_DOS_DADOS`/`VERSAO_DADOS` se o JSON mudar de primeiro nível | P-05 (adaptador sem segundo formato), P-09 (versão do JSON) |
+| **GR-45** tela de conferência e correção | `obter_analise` (dados extraídos), consultas (reconsultar a cada exibição, sem guardar o resultado), `cancelar_analise`, `confirmar_analise`, `AnaliseError.mensagem` | armazenamento de correções e `registrar_correcoes` (B-04); cadastro pendente e listagem de incompletos (B-05); serviço de lançamento (B-06) | D-02, D-04 (**APROVADAS**); T-02, T-03, T-05; P-08 (dono do serviço de lançamento) |
+| **GR-51** contrato e integração | tudo acima | B-03 a B-06 | ratificação do contrato (versão 1.0) |
+
+## 34.9 - Responsabilidades de Simon e Lopes
+
+Conforme o [plano](docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md), seção 2, e o contrato, seção 1 (Jira não consultado):
+
+- **Pedro Simon:** models, migrations, serviços de backend e testes de serviço: identidade fiscal (B-03), correções em `AnalisePendente` (B-04), cadastro pendente e listagem (B-05), serviço de lançamento a partir da análise (B-06, se P-08 for aprovada), adaptação de `consultar_nota`/`CHAVES_DOS_DADOS` ao JSON v2.
+- **Gustavo Lopes:** Agents e `montar_resultado` (JSON v2: GR-41, GR-42, D-01, D-03), views, formulários, templates, estáticos, mensagens e `documentos/test_interface.py` (GR-44, GR-45).
+- **Juntos:** ratificação do contrato, testes ponta a ponta e de concorrência (P07), migrations em homologação (uma pessoa por vez), homologação (P09).
+- **Regra de arquivos:** serviços novos de backend em arquivos novos; o Simon não altera `views.py`, `forms.py`, `urls.py`, templates nem `test_interface.py`; o Lopes não cria migrations nem altera `cadastros/*`, `financeiro/*`, `documentos/models.py` ou `documentos/analises.py` sem combinar (contrato, 1.4).
+
+## 34.10 - Divergências e decisões pendentes da GR-51
+
+**Incompatibilidades reais entre o código e as decisões aprovadas** (impacto na integração):
+
+| # | Código atual (evidência) | Decisão aprovada | Impacto |
+| - | ------------------------ | ---------------- | ------- |
+| I-1 | `NotaFiscalExtraida` não tem chave de acesso, modelo nem série (`agents/extrator/schemas.py`); `MovimentoConta` não guarda identidade fiscal (`financeiro/models.py`) | D-01 | duplicidade entre análises **não** é evitada: a mesma nota em duas análises gera dois movimentos (idempotência só por `analise_origem_id`) |
+| I-2 | `Fornecedor` só tem `cnpj`, `Faturado` só tem `cpf` (`agents/extrator/schemas.py`); `consultar_nota` lê só esses campos | D-03 | a escolha entre CPF e CNPJ não é possível com o JSON v1; o backend em si aceita qualquer tipo |
+| I-3 | `confirmar_analise` chama `gravar(analise.dados, analise.id)`; não há campo nem função para correções (`documentos/analises.py`) | D-02 | correções da tela não chegam à confirmação sem extensão da GR-43 (migration `documentos.0002`) |
+| I-4 | `criar_analise` exige exatamente as 10 chaves de primeiro nível (`CHAVES_DOS_DADOS`) | D-01 (campos novos) | um JSON v2 com chave nova de primeiro nível é recusado (`dados_invalidos`); mudanças dentro de `fornecedor`/`faturado` passam |
+| I-5 | não há serviço "salvar cadastro pendente" nem listagem de incompletos para a tela (só `Pessoa.objects.incompletas()`) | D-04 | a tela não tem o que chamar sem criar regra na view |
+| I-6 | `ClassificacaoInconclusivaError` interrompe o processamento | GR-42 (escopo) | continuar o fluxo exige mudar o Classificador/`montar_resultado` e a seção 17.3 |
+
+**Decisões pendentes (não aprovadas):** T-01 a T-07 e P-04 a P-10 do contrato (6.2), mais Q-05, Q-06, Q-10 e C-06. A minuta continua **0.2**; nada desta seção as aprova.
+
+**Verificação de consistência com a minuta 0.2:** as assinaturas, campos, códigos de erro e estados citados aqui e no contrato (seção 4) coincidem com o código de `a6f929f`; as incompatibilidades I-1 a I-5 correspondem aos bloqueios B-02 a B-05 do contrato; I-6 não está no contrato e entra como ponto de aprovação conjunta da GR-42.
+
+## 34.11 - Riscos e medidas preventivas
+
+| Classe | Achado | Evidência | Medida |
+| ------ | ------ | --------- | ------ |
+| **Bloqueante** | D-01 sem suporte (I-1) | 34.10 | JSON v2 (Lopes) + tabela de identidade fiscal com constraint única (Simon), após T-01 |
+| **Bloqueante** | D-02 sem suporte (I-3) | 34.10 | `documentos.0002` + `registrar_correcoes` (Simon), após T-02/T-03 |
+| **Bloqueante** | migrations da Etapa 2 não aplicadas em homologação | 34.6 | aplicar manualmente, combinado, antes da homologação da GR-51 |
+| **Importante** | regra de negócio duplicada na view (criação de pessoas, mapeamento para `DadosMovimento`, validação de documento) | não existe serviço de lançamento a partir da análise | decidir P-08; usar `validar_documento`, `consultar_pessoa` e `registrar_movimento` |
+| **Importante** | migrations concorrentes no mesmo app (`documentos.0002` de dois lados) | numeração sequencial por app (34.6) | só Simon cria migrations nos apps de backend; combinar antes |
+| **Importante** | conflito em arquivos compartilhados (`ContextoProjeto.md`, matriz, `usuarios/*`) | ambos editam documentação | edições pontuais; atualizar a `develop` local antes de começar |
+| **Importante** | testes de interface quebram quando a view gravar análise | `documentos/test_interface.py` é `SimpleTestCase` e confere `session == {SESSAO_DEMO: True}`; `autenticar_demo` cria sessão sem código (`sessao_sem_codigo`) | converter para `TestCase` e usar `documentos/testing.py::nova_sessao` |
+| **Importante** | dados extraídos × corrigidos inconsistentes | sem armazenamento de correções | revalidar tudo no servidor na confirmação (D-02) |
+| **Importante** | `confirmar_analise` chamado dentro de transação | `atomic(durable=True)` | chamar direto na view (`ATOMIC_REQUESTS` está desligado) |
+| **Importante** | suíte nunca executada no Windows do Lopes | pendência desde a GR-34 | 34.7 |
+| **Melhoria** | limpeza das análises não agendada; linhas finalizadas nunca apagadas | 15.1.7.1 | P-06 |
+| **Melhoria** | cookie assinado sem revogação completa | 15.1.7.1, 19.3 | P-10 |
+| **Melhoria** | `tzdata` não fixado; sem `.gitattributes` | 34.7 | fixar/decidir em tarefa própria |
+| **Melhoria** | sem testes ponta a ponta e de concorrência da GR-51 | não existem | P07 |
+
+Não confirmados como defeito: concorrência entre análises distintas da mesma nota (depende de D-01 ainda não implementada); comportamento no Windows (não executado).
+
+## 34.12 - Ordem recomendada de integração
+
+Segue a seção 8 do contrato, com o estado atual:
+1. Ratificar T-01 a T-07, P-04 a P-10 e o ponto I-6 (contrato 1.0). **PENDENTE**.
+2. PR da GR-43. **CONCLUÍDO** (PR #29).
+3. PR do contrato (`docs/gr-51-contrato-integracao`). **PENDENTE** (sem commit).
+4. Em paralelo, sem arquivos em comum: Lopes faz o JSON v2 e a tela com dados simulados; Simon faz identidade fiscal, correções, cadastro pendente e serviço de lançamento.
+5. Adaptar `consultar_nota`/`CHAVES_DOS_DADOS` à v2 (Simon), depois da v2 integrada.
+6. Ligar a view aos serviços reais (Lopes).
+7. Testes ponta a ponta e de concorrência (juntos).
+8. Migrations em homologação, homologação, PR `develop` → `main`.
+
+## 34.13 - Checklist técnico para Lopes
+
+- [ ] Atualizar a `develop` local até `a6f929f` ou depois, e rodar a suíte com `DB_TEST_*` e `DB_HOST` inalcançável (34.7); esperado: 650 testes OK.
+- [ ] Ler o [contrato GR-51](docs/contratos/ContratoIntegracaoGR51.md) (seções 4, 5 e 6) e este handoff.
+- [ ] Decorar views novas com `demo_login_required`.
+- [ ] Usar `consultar_pessoa`/`consultar_nota` e `validar_documento`; não buscar pessoa por nome nem reimplementar o DV.
+- [ ] Criar a análise com `criar_analise(request.session, resultado)` e levar só o `analise.id` para o navegador; tratar `AnaliseError` exibindo `erro.mensagem` (inclusive `sessao_sem_codigo`).
+- [ ] Reconsultar a GR-40 a cada exibição, sem guardar `ResultadoConsultas` na sessão.
+- [ ] Confirmar só com `confirmar_analise`, fora de `transaction.atomic()`, e exibir sucesso só depois do retorno.
+- [ ] Nunca exibir `str()` de `ValidationError`, `IntegrityError` ou de erros do banco; traduzir por `code`.
+- [ ] Não gravar a chave Gemini nem o PDF; não pôr dados da nota na sessão.
+- [ ] Ao mudar o JSON final: combinar a v2 com Simon antes (chaves de primeiro nível, `VERSAO_DADOS`).
+- [ ] Não criar migrations nos apps de backend; não editar `cadastros/*`, `financeiro/*`, `documentos/models.py`, `documentos/analises.py` sem combinar.
+- [ ] Testes de interface que gravam: `TestCase` + `documentos/testing.py::nova_sessao`.
+- [ ] Atualizar `ContextoProjeto.md` na mesma branch da entrega.
+
+## 34.14 - Próximos passos conjuntos
+
+1. Pedro Simon: revisar este handoff e versionar a documentação da branch `docs/gr-51-contrato-integracao` (commit e PR manuais).
+2. Revisão conjunta do contrato com o Jira aberto (GR-41, GR-42, GR-44, GR-45, GR-22), decidindo T-01 a T-07, P-04 a P-10 e I-6; só então a versão 1.0.
+3. Gustavo Lopes: confrontar o trabalho local com 34.4, 34.5 e 34.10; publicar a branch para revisão; rodar a suíte no Windows.
+4. Combinar quem aplica as migrations da Etapa 2 no Supabase de homologação e quando.
+5. Abrir as tarefas de backend B-03 a B-06 e as de interface correspondentes, com dono e ordem definidos.
+
+**Validação desta seção:** `python manage.py test` → `Ran 650 tests — OK` (27/10/2026, local); `check` e `makemigrations --check` sem problemas (com `DB_HOST` inalcançável); assinaturas conferidas com `inspect`; nenhum banco remoto acessado; nenhum arquivo além do `ContextoProjeto.md` alterado por esta tarefa.

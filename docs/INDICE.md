@@ -28,6 +28,7 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | como integrar a documentação ao fluxo de trabalho  | [`organizacao/LEIA-ME-integracao.md`](organizacao/LEIA-ME-integracao.md)  |
 | quem faz o quê na Etapa 2, pacotes e tarefas do Jira | [`organizacao/Plano_Responsabilidades_N2_Etapa2.md`](organizacao/Plano_Responsabilidades_N2_Etapa2.md) |
 | como criar branches, commitar e abrir PRs          | [`ContextoFluxoGit.md`](../ContextoFluxoGit.md)                           |
+| como os componentes de Pedro e Gustavo se integram na GR-51 | [`contratos/ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) |
 
 ## 3. Documentos oficiais (professor e Classroom)
 
@@ -54,6 +55,7 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------- | ------ |
 | [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; auditoria de 24/10/2026 | repositório | atualizado em 24/10/2026; em 25/10/2026, estado da GR-33 (branch `feature/gr-33-configurar-supabase`, não integrada) |
 | [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33, branch `feature/gr-33-configurar-supabase`, não integrada); antes: ACEITO PARA PLANEJAMENTO |
+| [`ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) | contrato técnico de integração da GR-51 (Agents, GR-40, GR-43, financeiro) | repositório | **MINUTA 0.2** (27/10/2026): decisões D-01 a D-05 incorporadas; demais aguardando ratificação |
 | [`matriz-n2-etapa2.md`](requisitos/matriz-n2-etapa2.md)           | rastreabilidade dos requisitos da Etapa 2                              | repositório | novo |
 | `tecnologias.pdf`                                                | stack da Etapa 2 com Render + **Neon** (out/2026)                      | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/` | localizado; **histórico quanto ao Neon** (substituído pelo ADR-001) |
 | `MVPcompleto.pdf`                                                | arquitetura e execução do MVP da Etapa 1                               | `../Documentos/Att-01--21-09-Agent IA/Documentação/` | localizado; histórico (anterior ao PR #15) |
