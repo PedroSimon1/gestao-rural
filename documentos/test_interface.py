@@ -77,6 +77,17 @@ class InterfaceTestBase(SimpleTestCase):
         configuracao.enable()
         self.addCleanup(configuracao.disable)
 
+        # Estes testes da apresentação/Agents não acessam banco. A integração
+        # real das consultas tem TestCase próprio em test_interface_consultas.
+        from cadastros.consultas import ResultadoConsultas, consultar_pessoa, consultar_classificacao
+        consulta_vazia = ResultadoConsultas(
+            consultar_pessoa(None, "FORNECEDOR"), consultar_pessoa(None, "FATURADO"),
+            consultar_classificacao(None),
+        )
+        consulta_patcher = mock.patch("documentos.views.consultar_resultado", return_value=consulta_vazia)
+        consulta_patcher.start()
+        self.addCleanup(consulta_patcher.stop)
+
         for alvo, mensagem in (
             ("agents.gemini_client.genai.Client", "O SDK real do Gemini não deve ser usado."),
             ("django.core.files.storage.FileSystemStorage._save", "Nenhum arquivo deve ser gravado."),
@@ -152,7 +163,7 @@ class TelaTests(InterfaceTestBase):
         self.assertTemplateUsed(resposta, "documentos/inicio.html")
         self.assertContains(
             resposta,
-            '<form method="post" enctype="multipart/form-data" class="formulario" '
+            f'<form method="post" action="{reverse("analise_criar")}" enctype="multipart/form-data" class="formulario" '
             'data-submit-lock data-submit-texto="Processando...">',
             html=False,
         )
@@ -480,12 +491,18 @@ class IntegracaoTests(IntegracaoTestBase):
     def test_classificacao_inconclusiva(self):
         self.respostas({"tipo_despesa": None, "justificativa": "Itens fora das categorias."})
 
-        with self.assertLogs("documentos.processamento", "WARNING"):
+        with self.assertLogs("agents.classificador.agent", "WARNING"):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "A despesa não se encaixa nas categorias disponíveis no MVP.")
-        self.assertContains(resposta, views.SUGESTOES_ERRO["classificacao_inconclusiva"])
-        self.assertNotContains(resposta, "JSON final")
+        self.assertContains(resposta, "Aguardando classificação")
+        self.assertContains(resposta, "A extração foi preservada.")
+        self.assertContains(resposta, "JSON final")
+        self.assertContains(resposta, "Filtro de oleo")
+        self.assertContains(resposta, "Itens fora das categorias.")
+        self.assertContains(resposta, '&quot;tipo_despesa&quot;: null')
+        self.assertNotContains(resposta, "não foi concluído")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertEqual(self.generate_content.call_count, 2)
 
 
 class GeminiApiKeyFormularioTests(InterfaceTestBase):

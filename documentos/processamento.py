@@ -10,7 +10,10 @@ from dataclasses import dataclass
 
 from django.views.decorators.debug import sensitive_variables
 
-from agents.classificador.agent import AgentClassificador, ClassificadorError
+from agents.classificador.agent import (
+    AgentClassificador, ClassificacaoInconclusivaError, ClassificadorError,
+)
+from agents.classificador.schemas import ClassificacaoDespesa
 from agents.extrator.agent import AgentExtrator, ExtratorError
 from agents.gemini_client import GeminiClient, GeminiConfiguracaoError
 
@@ -34,6 +37,13 @@ class ProcessamentoError(Exception):
 class ResultadoProcessamento:
     resultado: dict
     justificativa: str
+
+    @property
+    def situacao(self):
+        return (
+            "AGUARDANDO_CLASSIFICACAO" if self.resultado["tipo_despesa"] is None
+            else "CLASSIFICADA"
+        )
 
 
 def montar_resultado(nota, classificacao):
@@ -96,6 +106,13 @@ def _executar(pdf_bytes, gemini_api_key, extrator, classificador):
 
     try:
         classificacao = classificador.classificar(nota)
+    except ClassificacaoInconclusivaError as exc:
+        # Inconclusão não invalida a extração. Falhas de rede/API/schema
+        # continuam no caminho de erro abaixo, sem inventar uma categoria.
+        classificacao = exc.classificacao or ClassificacaoDespesa(
+            tipo_despesa=None,
+            justificativa="Classificação inconclusiva; é necessária revisão manual.",
+        )
     except ClassificadorError as exc:
         raise _erro("classificacao", exc) from None
 
@@ -114,6 +131,7 @@ def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=Non
     fim da chamada. Nunca é gravada, logada nem devolvida.
     `extrator` e `classificador` só são injetados em testes.
 
+    Classificação inconclusiva preserva a extração para revisão manual.
     Toda falha (configuração, extração, classificação ou inesperada) vira
     ProcessamentoError com etapa, código e mensagem seguros.
     """

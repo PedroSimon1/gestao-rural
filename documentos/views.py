@@ -3,6 +3,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import DatabaseError
 from django.shortcuts import render
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from django.views.decorators.http import require_http_methods
@@ -10,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 from usuarios.demo import demo_login_required
 
 from .forms import DocumentoUploadForm
+from .consultas import consultar_resultado
 from .processamento import ProcessamentoError, processar_pdf
 
 ROTULOS_TIPO_DESPESA = {
@@ -20,6 +23,7 @@ ROTULOS_TIPO_DESPESA = {
 AVISOS_VALIDACAO = (
     ("fornecedor_cnpj", "CNPJ do fornecedor com dígitos verificadores inválidos."),
     ("faturado_cpf", "CPF do faturado com dígitos verificadores inválidos."),
+    ("faturado_cnpj", "CNPJ do faturado com dígitos verificadores inválidos."),
 )
 
 SUGESTAO_ERRO_PADRAO = "Tente novamente. Se o problema persistir, avise a equipe."
@@ -72,8 +76,28 @@ def _avisos_validacao(resultado):
     return [
         aviso
         for chave, aviso in AVISOS_VALIDACAO
-        if validacoes[chave]["status"] == "invalido"
+        if validacoes.get(chave, {}).get("status") == "invalido"
     ]
+
+
+def _linhas_consultas(consultas):
+    rotulos = {
+        "EXISTE": "EXISTE", "NAO_EXISTE": "NÃO EXISTE",
+        "DOCUMENTO_AUSENTE": "DOCUMENTO AUSENTE", "DOCUMENTO_INVALIDO": "DOCUMENTO INVÁLIDO",
+        "CLASSIFICACAO_AUSENTE": "AGUARDANDO CLASSIFICAÇÃO",
+    }
+    linhas = []
+    for rotulo, consulta in (
+        ("Fornecedor", consultas.fornecedor), ("Faturado", consultas.faturado),
+        ("Classificação", consultas.classificacao),
+    ):
+        linhas.append({
+            "rotulo": rotulo, "situacao": rotulos[consulta.situacao], "id": consulta.id,
+            "nome": (getattr(consulta, "razao_social", None) or getattr(consulta, "nome", None)
+                     or getattr(consulta, "descricao", None) or getattr(consulta, "codigo", None)),
+            "status": consulta.status, "status_papel": getattr(consulta, "status_papel", None),
+        })
+    return linhas
 
 
 @sensitive_variables("gemini_api_key")
@@ -93,13 +117,24 @@ def _processar(arquivo, gemini_api_key):
         }
 
     resultado = processamento.resultado
-    return {
+    contexto = {
         "resumo": _resumo(resultado),
+        "aguardando_classificacao": processamento.situacao == "AGUARDANDO_CLASSIFICACAO",
         "avisos": _avisos_validacao(resultado),
         "justificativa": processamento.justificativa,
         # Ordem do contrato: a de montar_resultado (dict preserva a inserção).
         "json_resultado": json.dumps(resultado, ensure_ascii=False, indent=2),
     }
+    try:
+        contexto["consultas"] = _linhas_consultas(consultar_resultado(resultado))
+    except (ValidationError, TypeError, ValueError):
+        contexto["erro_consultas"] = (
+            "Revise os dados extraídos antes da consulta. Se CPF e CNPJ estiverem "
+            "preenchidos no faturado, a identificação precisa ser esclarecida."
+        )
+    except DatabaseError:
+        contexto["erro_consultas"] = "Não foi possível consultar os cadastros agora. Os dados extraídos foram preservados."
+    return contexto
 
 
 @sensitive_post_parameters("gemini_api_key")

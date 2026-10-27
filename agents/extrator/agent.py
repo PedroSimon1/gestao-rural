@@ -26,7 +26,10 @@ deduza ou complete dados.
 - Quando um dado opcional não estiver presente ou não estiver legível, use null.
 - Fornecedor é o emitente da nota (ou o prestador, em nota de serviço).
 - Faturado é o destinatário da nota (ou o tomador, em nota de serviço).
-- Se o faturado for pessoa jurídica e não houver CPF, use null no CPF.
+- Preencha faturado.cpf com o CPF e faturado.cnpj com o CNPJ do destinatário,
+somente quando escritos no documento; use null em cada campo ausente.
+- Não copie o CNPJ do fornecedor para o faturado e não deduza o tipo de pessoa
+a partir do nome. Se ambos os documentos estiverem escritos, preserve ambos.
 - Copie CPF e CNPJ exatamente como aparecem no documento. Não invente e não \
 corrija dígitos verificadores; a aplicação valida esses números depois.
 - Datas no formato AAAA-MM-DD.

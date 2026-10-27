@@ -61,7 +61,7 @@ def validar_bloco(bloco, **alteracoes):
 
 class NotaFiscalValidaTests(SimpleTestCase):
     def test_versao_do_schema(self):
-        self.assertEqual(VERSAO_SCHEMA, 1)
+        self.assertEqual(VERSAO_SCHEMA, 2)
 
     def test_json_completo_valido(self):
         nota = validar()
@@ -163,7 +163,7 @@ class CamposOpcionaisTests(SimpleTestCase):
         self.assertEqual(nota.fornecedor.model_dump(), {
             "razao_social": None, "nome_fantasia": None, "cnpj": None,
         })
-        self.assertEqual(nota.faturado.model_dump(), {"nome": None, "cpf": None})
+        self.assertEqual(nota.faturado.model_dump(), {"nome": None, "cpf": None, "cnpj": None})
         self.assertIsNone(nota.numero_nota)
         self.assertIsNone(nota.data_emissao)
 
@@ -368,6 +368,7 @@ class ValidacoesTests(SimpleTestCase):
                     "status": "invalido",
                     "motivo": "digitos_verificadores_invalidos",
                 },
+                "faturado_cnpj": {"status": "ausente", "motivo": None},
             },
         )
         texto = json.dumps(dados["validacoes"])
