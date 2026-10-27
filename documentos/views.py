@@ -152,7 +152,8 @@ def documento_inicio(request):
     contexto = {"limite_upload_mb": settings.MAX_PDF_UPLOAD_SIZE_MB}
 
     if request.method == "POST":
-        form = DocumentoUploadForm(request.POST, request.FILES)
+        form = DocumentoUploadForm(request.POST, request.FILES,
+            upload_interrompido=getattr(request, "pdf_upload_interrompido", False))
         if form.is_valid():
             arquivo = form.cleaned_data["arquivo"]
             gemini_api_key = form.cleaned_data["gemini_api_key"]

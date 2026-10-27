@@ -50,5 +50,8 @@ def login_demo(request):
 
 @require_http_methods(["GET", "POST"])
 def logout_demo(request):
+    # GET não pode cancelar análises por um link externo ou prefetch.
+    if request.method == "GET":
+        return render(request, "usuarios/logout.html")
     encerrar_sessao_demo(request)
     return redirect("login")

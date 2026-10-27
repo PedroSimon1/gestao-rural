@@ -252,7 +252,7 @@ class ConfiguracaoAusenteTests(LoginDemoTestBase):
 
 class LogoutTests(LoginDemoComBancoTestBase):
     def test_logout_remove_a_autenticacao_e_volta_para_o_login(self):
-        for metodo in ("get", "post"):
+        for metodo in ("post",):
             with self.subTest(metodo=metodo):
                 self.entrar()
 
@@ -263,7 +263,7 @@ class LogoutTests(LoginDemoComBancoTestBase):
 
     def test_depois_do_logout_documentos_volta_para_o_login(self):
         self.entrar()
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
 
         resposta = self.client.get(self.url_documentos)
 
@@ -272,14 +272,14 @@ class LogoutTests(LoginDemoComBancoTestBase):
     def test_logout_apaga_o_cookie_de_sessao(self):
         self.entrar()
 
-        resposta = self.client.get(self.url_logout)
+        resposta = self.client.post(self.url_logout)
 
         cookie = resposta.cookies[settings.SESSION_COOKIE_NAME]
         self.assertEqual(cookie.value, "")
         self.assertEqual(cookie["max-age"], 0)
 
     def test_logout_sem_sessao_nao_quebra(self):
-        resposta = self.client.get(self.url_logout)
+        resposta = self.client.post(self.url_logout)
 
         self.assertRedirects(resposta, self.url_login)
 
@@ -296,7 +296,7 @@ class LogoutSemBancoTests(LoginDemoTestBase):
         # Cookie anterior à GR-43, como o de autenticar_demo: só o indicador.
         autenticar_demo(self.client)
 
-        resposta = self.client.get(self.url_logout)
+        resposta = self.client.post(self.url_logout)
 
         self.assertRedirects(resposta, self.url_login)
         self.assertFalse(self.autenticado())
@@ -407,7 +407,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
     def test_cada_login_recebe_um_codigo_novo(self):
         self.entrar()
         primeiro = self.codigo()
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
 
         self.entrar()
 
@@ -438,7 +438,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
         self.entrar(client=outro)
         de_outro_navegador = self.criar(outro)
 
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
 
         self.assert_cancelada_sem_dados(primeira)
         self.assert_cancelada_sem_dados(segunda)
@@ -465,7 +465,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
         self.assertEqual(obter_analise(aba.session, da_primeira.id).pk, da_primeira.pk)
         self.assertEqual(obter_analise(self.client.session, da_segunda.id).pk, da_segunda.pk)
 
-        aba.get(self.url_logout)
+        aba.post(self.url_logout)
 
         self.assert_cancelada_sem_dados(da_primeira)
         self.assert_cancelada_sem_dados(da_segunda)
@@ -475,7 +475,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
         analise = self.criar()
         cookie_antigo = self.client.cookies[settings.SESSION_COOKIE_NAME].value
 
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
         self.client.cookies[settings.SESSION_COOKIE_NAME] = cookie_antigo
 
         # Limite conhecido: cookie assinado não é revogável no servidor e a
@@ -495,7 +495,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
 
                 with mock.patch("usuarios.demo.descartar_analises", side_effect=erro), \
                         self.assertLogs("usuarios.demo", level="WARNING") as logs:
-                    resposta = self.client.get(self.url_logout)
+                    resposta = self.client.post(self.url_logout)
 
                 self.assertRedirects(resposta, self.url_login)
                 self.assertFalse(self.autenticado())
@@ -538,7 +538,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
         # análises novas com o mesmo código, que ficam pendentes.
         self.entrar()
         cookie_antigo = self.client.cookies[settings.SESSION_COOKIE_NAME].value
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
         self.client.cookies[settings.SESSION_COOKIE_NAME] = cookie_antigo
 
         nova = self.criar()
@@ -548,7 +548,7 @@ class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
     def test_logout_sem_analises_nao_altera_nada(self):
         self.entrar()
 
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
 
         self.assertEqual(AnalisePendente.objects.count(), 0)
         self.assertEqual(descartar_analises({}), 0)

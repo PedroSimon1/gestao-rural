@@ -340,8 +340,9 @@ class ProcessarPdfErrosTests(ProcessarPdfTestBase):
                 )
                 self.assertIsNone(erro.__cause__)
                 self.assertTrue(erro.__suppress_context__)
-                # O traceback completo fica só no log do servidor.
-                self.assertIn("Traceback", "\n".join(logs.output))
+                # GR-18: traceback/cadeia de causas podem conter chave e JSON.
+                self.assertNotIn("Traceback", "\n".join(logs.output))
+                self.assertNotIn(DETALHE_INTERNO, "\n".join(logs.output))
 
     def test_chave_ausente_vira_servico_indisponivel_sem_chamar_o_gemini(self):
         # Agents reais, sem chave: nenhuma chamada real possível.
