@@ -42,7 +42,7 @@ NOMES_DE_CAMPOS_PROIBIDOS = (
 
 AMBIENTE_TESTE_VALIDO = {
     "DB_NAME": "postgres",
-    "DB_TEST_HOST": "/run/postgresql",
+    "DB_TEST_HOST": "127.0.0.1",
     "DB_TEST_NAME": "test_gestao_rural",
     "DB_TEST_USER": "usuario-teste",
 }
@@ -223,7 +223,7 @@ class BancoDeTesteTests(SimpleTestCase):
     def test_configuracao_local_valida(self):
         configuracao = configuracao_do_banco_de_teste(AMBIENTE_TESTE_VALIDO)
 
-        self.assertEqual(configuracao["HOST"], "/run/postgresql")
+        self.assertEqual(configuracao["HOST"], "127.0.0.1")
         self.assertEqual(configuracao["PORT"], "5432")
         self.assertEqual(configuracao["NAME"], "test_gestao_rural")
         self.assertEqual(configuracao["PASSWORD"], "")
@@ -231,12 +231,23 @@ class BancoDeTesteTests(SimpleTestCase):
         self.assertEqual(configuracao["OPTIONS"], {"sslmode": "prefer", "connect_timeout": 10})
 
     def test_hosts_locais_aceitos(self):
-        for host in ("localhost", "127.0.0.1", "::1", "/var/run/postgresql"):
+        for host in ("localhost", "127.0.0.1", "::1"):
             with self.subTest(host=host):
                 configuracao = configuracao_do_banco_de_teste(
                     {**AMBIENTE_TESTE_VALIDO, "DB_TEST_HOST": f" {host} "}
                 )
                 self.assertEqual(configuracao["HOST"], host)
+
+    def test_socket_unix_conforme_plataforma(self):
+        # Caminho Unix so e local onde o sistema o reconhece como absoluto.
+        # No Windows, recusa-lo preserva a protecao do runner.
+        host = "/var/run/postgresql"
+        ambiente = {**AMBIENTE_TESTE_VALIDO, "DB_TEST_HOST": host}
+        if os.name == "nt":
+            with self.assertRaisesMessage(ImproperlyConfigured, "DB_TEST_HOST"):
+                configuracao_do_banco_de_teste(ambiente)
+        else:
+            self.assertEqual(configuracao_do_banco_de_teste(ambiente)["HOST"], host)
 
     def test_sem_variaveis_db_test_nao_ha_banco_substituto(self):
         for variavel in ("DB_TEST_HOST", "DB_TEST_NAME", "DB_TEST_USER"):
@@ -283,7 +294,7 @@ class BancoDeTesteTests(SimpleTestCase):
         self.assertEqual(original, connections["default"].settings_dict)
         self.assertEqual(local["ENGINE"], "django.db.backends.postgresql")
         self.assertEqual((local["HOST"], local["NAME"], local["USER"], local["PASSWORD"]),
-                         ("/run/postgresql", "test_gestao_rural", "usuario-teste", ""))
+                         ("127.0.0.1", "test_gestao_rural", "usuario-teste", ""))
         self.assertEqual(local["OPTIONS"], {"sslmode": "prefer", "connect_timeout": 10})
         # Chaves que o Django lê sem valor padrão ao criar o banco de teste.
         self.assertEqual(local["TEST"], {**original["TEST"], "NAME": "test_gestao_rural"})
