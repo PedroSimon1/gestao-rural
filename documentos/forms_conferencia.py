@@ -1,6 +1,7 @@
 """GR-45: validação da conferência, sem gravação ou autorização de lançamento."""
 
 from decimal import Decimal
+from copy import deepcopy
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -9,6 +10,7 @@ from django.forms import BaseFormSet, formset_factory
 from cadastros.models import Classificacao, Status, TipoClassificacao
 from cadastros.validators import normalizar_documento, tipo_do_documento, validar_documento
 from financeiro.servicos import MAXIMO_DE_PARCELAS
+from .forms_fiscais import CamposFiscaisForm
 
 
 def documento_corrigido(valor):
@@ -34,6 +36,8 @@ class ConferenciaForm(forms.Form):
     )
     numero_nota = forms.CharField(label="Número da nota", max_length=60, required=False)
     serie_nota = forms.CharField(label="Série da nota", max_length=20, required=False)
+    chave_acesso = deepcopy(CamposFiscaisForm.base_fields['chave_acesso'])
+    modelo = deepcopy(CamposFiscaisForm.base_fields['modelo'])
     data_emissao = forms.DateField(label="Data de emissão", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     valor_total = forms.DecimalField(label="Valor total", max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
 

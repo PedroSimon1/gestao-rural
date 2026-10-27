@@ -230,3 +230,24 @@ Feita na Fase 2 (24/10/2026) e registrada no [plano de responsabilidades](../org
 3. a coluna **Responsável** mostra o responsável planejado e o pacote. "Pedro + Gustavo" indica responsabilidade compartilhada;
 4. as tarefas para o Jira (projeto `GR`) estão preparadas no plano, seção 6, e **ainda não foram cadastradas**;
 5. a coluna **Situação** continua mudando só com evidência (commit, teste ou PR).
+
+
+## Atualização de integração local — 27/10/2026 (CTX 34.25)
+
+As linhas históricas acima não devem ser usadas isoladamente para inferir o
+estado deste incremento. Base develop 39fab4d com F-5/G-01/P-09/F-6 integrados;
+nova interface preparada e validada LOCALMENTE, não integrada/homologada/publicada.
+
+| Critério | Evidência e limite atual |
+| --- | --- |
+| FLU-01..03 | Interface compõe serviços oficiais de consulta; v2 suporta CPF/CNPJ e valores ausentes sem escrita. |
+| FLU-04 | Conferência e confirmação exibem estados e dados salvos; escolha de documento ambíguo é explícita. |
+| FLU-05/06 | F-5/F-4 criam pessoas só após decisões explícitas e confirmação; regularizam/reativam/atribuem conforme autorização. |
+| FLU-07 | Permanece pendente para classificação inédita. Seleção de categoria ativa existente disponível; código inexistente bloqueado. |
+| FLU-08/09 | Rota chama F-5 oficial, testada com movimento e parcelas reais no PostgreSQL local; sem segunda transação. |
+| FLU-10 | Sucesso somente depois de lancar_nota retornar do commit; rollback e duplicidade testados. |
+| D-04/F-6 | Listagem/seleção de incompleto oficial para regularização na confirmação; salvar cadastro pendente ainda sem ação na tela. |
+| DEL-01/03 | Publicação e submissão acadêmica não executadas neste incremento. |
+
+Validação: 1001 testes OK; check/migrations sem problemas; nenhum banco
+remoto acessado. Pendentes homologação real, evidências e escopos administrativos.

@@ -25,7 +25,7 @@ class PessoaExtraida:
 class ParcelaParaConferencia:
     numero: int | None
     data_vencimento: date | None
-    valor: Decimal
+    valor: Decimal | None
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class NotaParaConferencia:
     faturado: PessoaExtraida
     numero_nota: str | None
     data_emissao: date | None
-    valor_total: Decimal
+    valor_total: Decimal | None
     codigo_despesa: str | None
     parcelas: tuple[ParcelaParaConferencia, ...]
     pendencias: tuple[str, ...]
@@ -52,8 +52,10 @@ def _texto(valor):
     return " ".join(valor.split()) or None
 
 
-def _dinheiro(valor):
+def _dinheiro(valor, permitir_ausente=False):
     # O JSON final usa strings; não arredondar nem aceitar float/bool.
+    if valor is None and permitir_ausente:
+        return None
     if not isinstance(valor, (str, Decimal)):
         raise _erro()
     try:
@@ -101,14 +103,18 @@ def documento_faturado(faturado):
 
     Dois documentos exigem seleção explícita na conferência (D-03 aprovada). Não descartar silenciosamente nem recorrer ao outro em caso de DV inválido.
     """
-    if not isinstance(faturado, dict):
+    return documento_da_parte(faturado, 'faturado')
+
+
+def documento_da_parte(parte, rotulo):
+    if not isinstance(parte, dict):
         raise _erro()
-    cpf = _texto(faturado.get("cpf"))
-    cnpj = _texto(faturado.get("cnpj"))
+    cpf = _texto(parte.get("cpf"))
+    cnpj = _texto(parte.get("cnpj"))
     if cpf and cnpj:
         raise ValidationError(
-            "O faturado possui CPF e CNPJ informados; revise a identificação antes da consulta.",
-            code="faturado_documento_ambiguo",
+            "Há CPF e CNPJ informados para a mesma parte; escolha o documento na conferência.",
+            code=f"{rotulo}_documento_ambiguo",
         )
     return cpf or cnpj
 
@@ -125,10 +131,11 @@ não autorizam gravação nem substituem sua validação na confirmação.
         fornecedor = resultado["fornecedor"]
         faturado = resultado["faturado"]
         fornecedor = _pessoa(
-            fornecedor["razao_social"] or fornecedor["nome_fantasia"], fornecedor["cnpj"]
+            fornecedor["razao_social"] or fornecedor["nome_fantasia"], documento_da_parte(fornecedor, 'fornecedor')
         )
         faturado = _pessoa(faturado["nome"], documento_faturado(faturado))
-        total = _dinheiro(resultado["valor_total"])
+        v2 = 'documento_fiscal' in resultado
+        total = _dinheiro(resultado["valor_total"], permitir_ausente=v2)
         codigo = resultado["tipo_despesa"]
         if codigo is not None:
             codigo = TipoDespesa(codigo).value
@@ -144,7 +151,7 @@ não autorizam gravação nem substituem sua validação na confirmação.
             if numero is not None and (type(numero) is not int or numero < 1):
                 raise _erro()
             parcelas.append(ParcelaParaConferencia(
-                numero, _data(item["data_vencimento"]), _dinheiro(item["valor"])
+                numero, _data(item["data_vencimento"]), _dinheiro(item["valor"], permitir_ausente=v2)
             ))
         numero_nota = _texto(resultado["numero_nota"])
         emissao = _data(resultado["data_emissao"])
@@ -152,6 +159,8 @@ não autorizam gravação nem substituem sua validação na confirmação.
         raise _erro() from None
 
     pendencias = []
+    if total is None:
+        pendencias.append('valor_total_ausente')
     for rotulo, pessoa in (("fornecedor", fornecedor), ("faturado", faturado)):
         if pessoa.situacao_documento != "valido":
             pendencias.append(f"{rotulo}_documento_{pessoa.situacao_documento}")
@@ -169,7 +178,9 @@ não autorizam gravação nem substituem sua validação na confirmação.
             pendencias.append("parcela_numeracao")
         if any(p.data_vencimento is None for p in parcelas):
             pendencias.append("parcela_vencimento")
-        if sum(p.valor for p in parcelas) != total:
+        if any(p.valor is None for p in parcelas):
+            pendencias.append('parcela_valor_ausente')
+        elif total is not None and sum(p.valor for p in parcelas) != total:
             pendencias.append("parcela_soma")
     return NotaParaConferencia(
         fornecedor, faturado, numero_nota, emissao, total, codigo, tuple(parcelas), tuple(pendencias)

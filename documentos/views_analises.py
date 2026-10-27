@@ -42,7 +42,7 @@ def analise_criar(request):
     try:
         gemini_api_key = form.cleaned_data['gemini_api_key']
         arquivo = form.cleaned_data['arquivo']
-        processamento = processar_pdf(arquivo.read(), gemini_api_key)
+        processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2)
         analise = criar_analise(request.session, processamento.resultado)
     except ProcessamentoError as erro:
         contexto.update(form=DocumentoUploadForm(), erro={
@@ -72,7 +72,7 @@ def analise_conferencia(request, analise_id):
             if not isinstance(versao_tela, str) or not versao_tela.isascii() or not versao_tela.isdecimal() or len(versao_tela) > 10:
                 return _falha(request, 'Recarregue a conferência antes de salvar.', 400)
             try:
-                form, parcelas, revisao = validar_conferencia(analise.dados, dados)
+                form, parcelas, revisao = validar_conferencia(analise.dados, dados, analise.correcoes)
             except ValidationError:
                 return _falha(request, 'A conferência contém campos não autorizados.', 400)
             if revisao is not None:
@@ -92,12 +92,14 @@ def analise_conferencia(request, analise_id):
         nota = revisao.nota if revisao is not None else conferir_nota(analise.dados, analise.correcoes)
         consultas = SimpleNamespace(fornecedor=nota.fornecedor.consulta,
             faturado=nota.faturado.consulta, classificacao=nota.classificacao)
+        from .views_confirmacao import pendencias_da_nota
         return render(request, 'documentos/conferencia.html', {
             'form': form, 'parcelas': parcelas, 'revisao': SimpleNamespace(nota=nota),
             'json_original': json.dumps(analise.dados, ensure_ascii=False, indent=2),
             'analise_id': analise.id, 'versao_correcoes': versao_tela,
             'expira_em': analise.expira_em, 'erro_tela': erro_tela,
             'correcoes_salvas': salvo, 'consultas': _linhas_consultas(consultas),
+            'pendencias': pendencias_da_nota(nota),
         }, status=status)
     except AnaliseError as erro:
         return _erro_analise(request, erro)

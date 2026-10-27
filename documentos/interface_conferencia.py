@@ -13,6 +13,7 @@ from cadastros.validators import tipo_do_documento
 from .conferencia import NotaConferida, conferir_nota
 from .correcoes import validar_correcoes
 from .forms_conferencia import ConferenciaForm, ParcelasConferenciaFormSet
+from .forms_fiscais import preparar_campos_fiscais
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,8 @@ def preparar_conferencia(original, correcoes=None):
         'numero_nota': original.get('numero_nota'), 'data_emissao': original.get('data_emissao'),
         'valor_total': original.get('valor_total'),
     }
+    fiscal = preparar_campos_fiscais(original, correcoes).initial
+    initial.update(chave_acesso=fiscal['chave_acesso'], modelo=fiscal['modelo'], serie_nota=fiscal['serie'])
     cpf, cnpj = faturado.get('cpf'), faturado.get('cnpj')
     if bool(cpf) != bool(cnpj):
         initial['documento_faturado'] = 'CPF' if cpf else 'CNPJ'
@@ -65,11 +68,11 @@ def preparar_conferencia(original, correcoes=None):
     return ConferenciaForm(initial=initial), ParcelasConferenciaFormSet(initial=parcelas, prefix='parcelas')
 
 
-def validar_conferencia(original, dados):
+def validar_conferencia(original, dados, correcoes_atuais=None):
     """Devolve formulários e revisão; nota.problemas mantém bloqueios da F-3.
 
-Uma revisão produzida aqui não autoriza lançamento. A futura rota deverá
-validar sessão/TTL/versão otimista e chamar registrar_correcoes da GR-43.
+Uma revisão produzida aqui não autoriza lançamento. A rota valida sessão/TTL/
+versão otimista e chama registrar_correcoes da GR-43.
 """
     if not isinstance(original, dict):
         raise ValidationError('Recupere a análise original do servidor.')
@@ -87,7 +90,9 @@ validar sessão/TTL/versão otimista e chamar registrar_correcoes da GR-43.
     if not ok_form or not ok_parcelas:
         return form, parcelas, None
     c = form.cleaned_data
-    proposta = {
+    # registrar_correcoes substitui tudo: preservar campos não enviados no POST.
+    proposta = deepcopy(correcoes_atuais or {})
+    proposta.update({
         'fornecedor.razao_social': c['fornecedor_nome'],
         'fornecedor.documento': c['fornecedor_documento'],
         'faturado.nome': c['faturado_nome'],
@@ -95,14 +100,25 @@ validar sessão/TTL/versão otimista e chamar registrar_correcoes da GR-43.
         'tipo_despesa': c['classificacao'].codigo, 'valor_total': str(c['valor_total']),
         'parcelas': [{'numero': n, 'data_vencimento': p.cleaned_data['data_vencimento'].isoformat(),
                      'valor': str(p.cleaned_data['valor'])} for n, p in enumerate(parcelas.forms, 1)],
-    }
-    for campo, origem in (('numero_nota', 'numero_nota'), ('serie', 'serie_nota'), ('data_emissao', 'data_emissao')):
+    })
+    for campo, origem in (('numero_nota', 'numero_nota'), ('serie', 'serie_nota'),
+                          ('chave_acesso', 'chave_acesso'), ('modelo', 'modelo'), ('data_emissao', 'data_emissao')):
+        if origem not in dados:
+            continue
+        # Vazio explícito remove a correção; o extraído continua intacto.
+        proposta.pop(campo, None)
         if c.get(origem) not in (None, ''):
             proposta[campo] = c[origem].isoformat() if campo == 'data_emissao' else c[origem]
     normalizadas, invalidos = validar_correcoes(proposta)
     if invalidos:
         # O backend fornece só nomes dos campos, sem refletir o valor recebido.
-        form.add_error(None, 'Há campos incompatíveis com as regras de correção do backend.')
+        mapa = {'serie': 'serie_nota', 'fornecedor.documento': 'fornecedor_documento',
+                'fornecedor.razao_social': 'fornecedor_nome', 'faturado.nome': 'faturado_nome',
+                'tipo_despesa': 'classificacao'}
+        for campo in invalidos:
+            destino = mapa.get(campo, campo)
+            form.add_error(destino if destino in form.fields else None,
+                'Confira este dado: o backend recusou o valor informado.')
         return form, parcelas, None
     nota = conferir_nota(original, normalizadas)
     if any(p.campo == 'parcelas' for p in nota.problemas):

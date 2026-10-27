@@ -144,7 +144,7 @@ def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=Non
     Toda falha (configuração, extração, classificação ou inesperada) vira
     ProcessamentoError com etapa, código e mensagem seguros.
     """
-    # Opt-in explícito: rotas existentes seguem v1 até GR-43/F-3 compatíveis.
+    # A API mantém v1 por padrão; as rotas selecionam v2 explicitamente.
     if type(versao_dados) is not int or versao_dados not in (1, 2):
         raise ValueError("Versão de dados não suportada.")
     try:

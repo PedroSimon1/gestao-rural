@@ -7,7 +7,7 @@ Usada pela view para apresentação somente leitura; não confirma lançamentos.
 from cadastros import consultas as cadastros
 from cadastros.models import Papel
 
-from .adaptador_financeiro import adaptar_resultado, documento_faturado
+from .adaptador_financeiro import adaptar_resultado, documento_faturado, documento_da_parte
 
 
 def consultar_resultado(resultado):
@@ -23,7 +23,7 @@ def consultar_resultado(resultado):
     faturado = resultado["faturado"]
     return cadastros.ResultadoConsultas(
         fornecedor=cadastros.consultar_pessoa(
-            fornecedor["cnpj"], Papel.FORNECEDOR, nome=nota.fornecedor.nome
+            documento_da_parte(fornecedor, 'fornecedor'), Papel.FORNECEDOR, nome=nota.fornecedor.nome
         ),
         faturado=cadastros.consultar_pessoa(
             documento_faturado(faturado), Papel.FATURADO, nome=nota.faturado.nome

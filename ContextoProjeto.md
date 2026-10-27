@@ -3152,3 +3152,64 @@ isolado, DB_HOST inalcançável e banco descartável ausente antes/depois por
 SELECT. Gemini simulado; serviços de Simon preservados. Patch validado sem
 whitespace. Sem commit, push, PR, merge, deploy ou migration remota por agente.
 DEL-05 passa a PARCIAL (implementação local, conferência após publicação pendente).
+
+
+## 34.25 - Lopes: integração v2, correções fiscais e confirmação F-5
+
+27/10/2026. Estado deste registro: IMPLEMENTADO/VALIDADO LOCALMENTE EM PACOTE;
+NÃO INTEGRADO, NÃO HOMOLOGADO, NÃO PUBLICADO. Base atualizada para develop
+`39fab4d`, contendo PR #45 (F-5), #46 (G-01/P-09) e #47 (F-6). A preparação
+começou em b70ee9a e incorporou integralmente a F-6 antes da validação final.
+Clone humano e stash foram preservados; nenhum commit/push/PR/merge/deploy ou
+migration remota executado por agente.
+
+GR-45: chave_acesso/modelo integrados ao formulário principal, com número/série
+existentes. A reabertura usa o extraído e as correções oficiais. Como a GR-43
+substitui o conjunto inteiro, validar_conferencia recebe correcoes_atuais da
+análise autorizada e reúne todos os campos antes da F-2/F-3. Opcional omitido
+no POST é preservado; vazio explícito remove só a correção daquele campo,
+voltando ao extraído (não apaga/converte dados originais). Controle otimista
+permanece obrigatório. Dados inválidos recusados pelo backend não são salvos.
+
+V2 ativada explicitamente por versao_dados=2 nas duas rotas de processamento.
+A API processar_pdf ainda mantém padrão v1 para consumidores antigos. Backend
+oficial reconhece o conjunto exato de chaves; metadado versao_dados fica fora
+do JSON. V1 continua v1 até encerramento/expiração, com TTL original. Valores
+null de v2 são apresentados como pendência e podem ser completados. GR-44 usa
+consultar_pessoa/consultar_classificacao oficiais e aceita valor total/parcela
+ausentes em v2 sem inventar dados; não escolhe automaticamente CPF/CNPJ de
+nenhuma parte. Nenhuma consulta cadastra ou reativa registros.
+
+Nova rota analise_confirmar: GET apresenta somente dados salvos, parcelas,
+pendências e ações necessárias pela avaliação F-4. POST valida confirmação
+explícita, versão e decisões por parte (criar, regularizar, reativar e atribuir
+papel) e chama apenas lancar_nota(session, analise_id, SolicitacaoLancamento).
+Nenhuma segunda transação ou implementação financeira na view. Sucesso só
+depois de a F-5 retornar do commit. Erros de validação são traduzidos por códigos
+fixos; conflito/expiração/cancelamento/sessão e falha de banco têm tratamento.
+
+F-6 já integrada na base: seleção manual usa listar_incompletos() oficial,
+sem busca/associação automática por nome; o ID escolhido passa à F-5. Sem
+regularizar e atribuir/reativar quando necessário, a confirmação é recusada.
+A ação separada "Salvar cadastro pendente" e a regularização avulsa ainda não
+foram conectadas à interface neste incremento; não foi criado outro serviço.
+
+Validação final nesta base: **1001 testes, OK**, 79.94 s; 134
+testes direcionados passaram antes da suíte completa. Há 16 testes novos do
+fluxo, incluindo PDF/Agents simulados → JSON v2 → análise real → correções →
+decisões → F-5 real → movimento/parcelas/identidade; preservação fiscal;
+v1 com correção sem conversão/TTL novo; valores ausentes; DV/divergência;
+reativação/atribuição/regularização explícitas; duplicidade na mesma/outra
+análise; versão de outra aba; CSRF/sessão/expiração/cancelamento; rollback
+após criar pessoas; validação sem 500 e sucesso somente na gravação.
+PostgreSQL local isolado; banco descartável ausente antes/depois por SELECT.
+manage.py check OK; makemigrations --check --dry-run: No changes detected,
+com conexão ao banco configurado impedida por DB_HOST fictício. Sem migrations
+criadas/aplicadas em QA/PROD; serviços do Simon preservados byte a byte.
+
+Pendentes da entrega: ação/listagem de cadastro pendente na conferência,
+homologação conjunta com PDF/chave reais, escopos administrativos ainda não
+atendidos, evidências, migrations humanas coordenadas e publicação. FLU-07
+(criar classificação inédita) segue sem serviço/autorização novos: a tela
+seleciona categoria ativa existente e a F-3 bloqueia código inexistente.
+Os testes locais não provam homologação ou publicação da versão.
