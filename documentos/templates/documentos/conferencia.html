@@ -1,0 +1,39 @@
+{% extends "documentos/base.html" %}
+{% block titulo %}Conferir nota — Gestão Rural{% endblock %}
+{% block conteudo %}
+<section class="cartao">
+  <h1>Conferir e corrigir a nota</h1>
+  <p>Revise os documentos, a classificação e as parcelas. As correções não alteram os dados originalmente extraídos.</p>
+  <p class="aviso" role="status">Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado.</p>
+  {% if revisao.nota.problemas %}
+    <p class="aviso" role="alert">Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal.</p>
+  {% endif %}
+  <div class="formulario" aria-label="Conferência da nota">
+    <fieldset>
+      <legend>Dados para conferência</legend>
+      {{ form.non_field_errors }}
+      {% for campo in form %}
+        <div>
+          {{ campo.label_tag }}
+          {{ campo }}
+          {% if campo.help_text %}<p class="texto-apoio">{{ campo.help_text }}</p>{% endif %}
+          {{ campo.errors }}
+        </div>
+      {% endfor %}
+      <h2>Parcelas</h2>
+      {{ parcelas.management_form }}
+      {{ parcelas.non_form_errors }}
+      {% for parcela in parcelas %}
+        <fieldset>
+          <legend>Parcela {{ forloop.counter }}</legend>
+          {{ parcela.as_p }}
+        </fieldset>
+      {% endfor %}
+    </fieldset>
+  </div>
+</section>
+<section class="cartao">
+  <h2>Dados extraídos originalmente</h2>
+  <pre class="bloco-json"><code>{{ json_original }}</code></pre>
+</section>
+{% endblock %}

@@ -2415,27 +2415,37 @@ ausente antes/depois por SELECT. Gemini simulado. Patch validado por git apply
 --check --whitespace=error sobre a base exportada. Stash anterior preservado.
 
 
-## 34.18 - Lopes: consultas oficiais na interface (GR-44, revisão)
+## 34.19 - Lopes: componentes de conferência compatíveis com F-3 (GR-45 parcial)
 
-27/10/2026. Preparação local na base develop `5d40318`: GR-42 integrada
-pelo PR #35 e F-3 de Simon integrada pelo PR #34. Sem operações de publicação
-Git pelo agente. A conferencia.py e seus testes F-3 permanecem intactos.
+27/10/2026. Base develop `5d40318` (PRs #34 F-3 e #35 GR-42). Pacote
+independente da GR-44 ainda em revisão. Nenhuma operação de publicação por
+agente. A antiga proposta local de Lopes para conferencia.py NÃO foi aplicada:
+o arquivo e os testes oficiais de Simon foram preservados byte a byte.
 
-A interface compõe consultar_pessoa e consultar_classificacao da GR-40 para
-exibir existência, ID, nome, status do cadastro e papel. Documentos inválidos
-e ausentes não geram busca nem cadastro. Faturado PJ é aceito. Falhas de banco
-preservam extração e JSON com mensagem segura. Consultas não fazem escrita.
+Novos forms_conferencia.py, interface_conferencia.py, test_interface_conferencia.py
+e template documentos/conferencia.html. Componentes sem rota/submit/persistência.
+O controlador usa validar_correcoes (F-2) e conferir_nota (F-3), devolvendo
+original separado, correções planas oficiais e NotaConferida com problemas.
+Só diferenças calculadas pela F-3 entram nas correções. Não há novo contrato
+financeiro ou DTO usado como autorização de lançamento.
 
-Revisão necessária com Simon antes do merge: P-05 segue pendente no contrato
-MINUTA 0.5. O adaptador tipado local deste incremento não substitui a F-3 nem
-define o contrato de confirmação. CPF+CNPJ simultâneos interrompem o conjunto
-das consultas até escolha explícita (D-03); a seleção ainda será feita na tela
-de conferência. A consulta não persiste AnalisePendente nem lança movimentos.
-Não considerar a GR-51 concluída. Faltam integração da conferência, decisões
-de cadastro e confirmação transacional. Não reaplicar o antigo conferencia.py
-de Lopes sobre o arquivo F-3 de Simon ao preparar a GR-45.
+Categoria inconclusiva exige seleção ativa. Faturado CPF+CNPJ exige escolha
+explícita; fornecedor ambíguo não recebe escolha automática e exige informar
+seu documento. Nenhum vencimento/valor é inventado. Campos internos e campos
+não aprovados (modelo/chave, G-01) são recusados. Parcelas limitadas a 120.
+Backend revalida documentos, número/série, parcelas e identidade fiscal.
 
-Validação desta base: **813 testes, OK**, 53.21 s. PostgreSQL
-local isolado, DB_HOST inalcançável, banco descartável ausente antes/depois
-por SELECT. Agents simulados. Patch verificado sem erro de whitespace.
-Sem models, migrations, configuração, QA/PROD ou serviços do Simon alterados.
+Bloqueio preservado: F-3 atual retorna identidade_fiscal_insuficiente no JSON
+v1, mesmo com série corrigida, pois modelo/chave ainda não integram o contrato.
+O componente exibe pendência e nunca habilita confirmação. Resolver G-01/JSON
+fiscal com Simon antes do fluxo de lançamento; não contornar essa validação.
+
+Pendente: integrar rota autenticada com GR-43 (sessão, TTL, versao_correcoes,
+registrar_correcoes), recuperar dados/correções do servidor ao reabrir a tela,
+escolha/listagem de cadastros, cancelamento e confirmação transacional. Não
+considerar GR-45 ou GR-51 concluídas por este incremento.
+
+Validação independente sobre develop: **789 testes, OK**, 63.59 s,
+incluindo nove testes novos. PostgreSQL local isolado; DB_HOST inalcançável;
+banco descartável ausente antes/depois por SELECT. Sem Agents reais, escrita
+nas consultas de conferência, migrations, QA/PROD ou serviços de Simon alterados.
