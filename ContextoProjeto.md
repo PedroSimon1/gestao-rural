@@ -2700,3 +2700,38 @@ banco descartável ausente antes/depois por SELECT. Agents simulados. Sem altera
 nos serviços de Simon, models, migrations, configurações ou QA/PROD.
 
 > > > > > > > origin/develop
+
+
+## 34.22 - Lopes: componentes fiscais G-01 antecipados (GR-45 parcial)
+
+27/10/2026. Base develop `ea4b5f9`, após PR #40 (auditoria F-3 de Simon).
+Gustavo autorizou adiantar a interface enquanto Simon fecha o contrato v2.
+Simon aprovou G-01 (edição de chave/modelo/série/número) e P-09 (v1 acessível
+até expirar, sem conversão silenciosa). Schema definitivo ainda sob revisão.
+
+Novos forms_fiscais.py, test_campos_fiscais.py e parcial _campos_fiscais.html.
+Não ligados às rotas existentes. CamposFiscaisForm usa identificar_nota da
+GR-22, sem novo algoritmo fiscal nem consulta/escrita. Trata chave numérica
+ou alfanumérica, DV inválido, divergência e fallback completo; mensagens fixas
+não refletem exceções/valores. Nenhum modelo, série ou documento é inventado.
+Documento do emitente é recebido explicitamente do chamador; não se escolhe
+CPF/CNPJ nem se infere papel neste componente.
+
+preparar_campos_fiscais lê v1 ou bloco documento_fiscal da v2 proposta e
+preenche correções salvas sem mutar o original. proposta_correcoes retorna
+somente campos preenchidos, em nomes planos provisórios chave_acesso/modelo/
+serie/numero_nota. Não decide apagar correções existentes, não grava na GR-43
+e não altera consumidores da F-3. A liberação desses nomes na lista oficial
+de correções depende da entrega de Simon. Não incluir o parcial na tela ativa
+antes de compatibilizar formulário, payload, reabertura e backend no mesmo PR.
+
+Pendente após revisão: conciliar nomes/tipos finais do v2; conectar o componente
+à conferência sem duplicar número/série já existentes; persistir e reabrir pelo
+contrato oficial; tratar remoção de correção; apresentar erros da F-3 e exercitar
+o fluxo real v1/v2. Confirmação financeira permanece indisponível.
+
+Validação: **842 testes, OK**, 37.94 s, oito novos testes dos
+componentes. Suíte completa no PostgreSQL local isolado; DB_HOST inalcançável;
+banco descartável ausente antes/depois por SELECT. Agents simulados. Patch
+verificado sem erro de whitespace; todos os arquivos de código preexistentes
+preservados byte a byte. Sem operações de publicação, migrations ou QA/PROD.
