@@ -115,7 +115,7 @@ def _montar_contexto(nota):
             }
             for item in nota.itens
         ],
-        "valor_total": str(nota.valor_total),
+        "valor_total": str(nota.valor_total) if nota.valor_total is not None else None,
     }
 
 

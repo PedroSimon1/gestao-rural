@@ -46,17 +46,22 @@ class ResultadoProcessamento:
         )
 
 
-def montar_resultado(nota, classificacao):
+def montar_resultado(nota, classificacao, *, versao_dados=1):
     """Monta o JSON final da atividade.
 
     Parte do dump JSON da extração (dinheiro como string, datas ISO,
     validacoes incluído) e acrescenta quantidade_parcelas e tipo_despesa.
     documento_e_nota_fiscal fica de fora: é sempre true quando se chega aqui.
     """
+    if type(versao_dados) is not int or versao_dados not in (1, 2):
+        raise ValueError("Versão de dados não suportada.")
+    from agents.extrator.schemas_v2 import NotaFiscalExtraidaV2
+    if isinstance(nota, NotaFiscalExtraidaV2) != (versao_dados == 2):
+        raise ValueError("Schema da extração incompatível com a versão de dados.")
     extracao = nota.model_dump(mode="json")
     parcelas = extracao["parcelas"]
 
-    return {
+    resultado = {
         "fornecedor": extracao["fornecedor"],
         "faturado": extracao["faturado"],
         "numero_nota": extracao["numero_nota"],
@@ -68,6 +73,9 @@ def montar_resultado(nota, classificacao):
         "tipo_despesa": classificacao.model_dump(mode="json")["tipo_despesa"],
         "validacoes": extracao["validacoes"],
     }
+    if versao_dados == 2:
+        resultado["documento_fiscal"] = extracao["documento_fiscal"]
+    return resultado
 
 
 def _erro(etapa, exc):
@@ -91,11 +99,12 @@ def _criar_cliente(gemini_api_key):
 
 
 @sensitive_variables("gemini_api_key")
-def _executar(pdf_bytes, gemini_api_key, extrator, classificador):
+def _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados=1):
     if extrator is None or classificador is None:
         cliente = _criar_cliente(gemini_api_key)
         if extrator is None:
-            extrator = AgentExtrator(cliente=cliente)
+            extrator = (AgentExtrator(cliente=cliente, versao_schema=3) if versao_dados == 2
+                        else AgentExtrator(cliente=cliente))
         if classificador is None:
             classificador = AgentClassificador(cliente=cliente)
 
@@ -117,13 +126,13 @@ def _executar(pdf_bytes, gemini_api_key, extrator, classificador):
         raise _erro("classificacao", exc) from None
 
     return ResultadoProcessamento(
-        resultado=montar_resultado(nota, classificacao),
+        resultado=montar_resultado(nota, classificacao, versao_dados=versao_dados),
         justificativa=classificacao.justificativa,
     )
 
 
 @sensitive_variables("gemini_api_key")
-def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None):
+def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None, versao_dados=1):
     """Processa os bytes de um PDF e devolve o JSON final e a justificativa.
 
     `gemini_api_key` é a chave informada na tela: vai direto para um único
@@ -135,8 +144,11 @@ def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=Non
     Toda falha (configuração, extração, classificação ou inesperada) vira
     ProcessamentoError com etapa, código e mensagem seguros.
     """
+    # Opt-in explícito: rotas existentes seguem v1 até GR-43/F-3 compatíveis.
+    if type(versao_dados) is not int or versao_dados not in (1, 2):
+        raise ValueError("Versão de dados não suportada.")
     try:
-        return _executar(pdf_bytes, gemini_api_key, extrator, classificador)
+        return _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados)
     except ProcessamentoError:
         raise
     except Exception:

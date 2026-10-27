@@ -649,3 +649,27 @@ Antes de cada passo de código, cada integrante atualiza a própria `develop` lo
 | Testes | nenhum teste da GR-51; base: `Ran 650 tests — OK` na branch da GR-43 antes do commit (27/10/2026, PostgreSQL local); suíte **não** reexecutada nesta revisão documental |
 | Integração com `develop` | GR-43 **integrada** (PR #29, `a6f929f`); este contrato **não integrado** (branch `docs/gr-51-contrato-integracao`, sem commit) |
 | Homologação | não iniciada |
+
+
+## Adendo — estrutura fiscal v2, G-01 e P-09 alinhadas (27/10/2026)
+
+Simon aprovou estrutura geral, nomes e compatibilidade da proposta enviada por
+Lopes, com valor_total e parcelas[].valor anuláveis quando não identificados.
+Os dois ajustes foram incorporados ao [schema completo](JSONFiscalV2.schema.json)
+e à [especificação](JSONFiscalV2-proposta.md). Número canônico numero_nota;
+emitente fornecedor.cnpj; documento_fiscal={chave_acesso,modelo,serie}; CPF/CNPJ
+de ambas as partes; dez chaves preservadas e uma nova. versao_dados 1/2 fora do
+JSON. Validação estrutural/extrativa não autoriza lançamento com valores ausentes.
+
+G-01 aprovada: chave/modelo/série/número editáveis como correções separadas.
+Backend oficial GR-22 revalida formato, DV, consistência e duplicidade.
+P-09 aprovada: v1 armazenada segue acessível até expirar naturalmente em 30 min,
+sem conversão silenciosa, dados fictícios ou extensão do prazo; preencher o que
+faltar na conferência e bloquear confirmação insuficiente.
+
+Simon implementa GR-43/correções/F-3 compatíveis; Lopes implementa Agents,
+processamento/interface. Consumidores precisam aceitar os dois formatos antes
+da ativação. Este incremento só prepara emissão opt-in: padrão/rotas ainda v1.
+Integração e confirmação transacional ainda pendentes, sem migrations remotas.
+As seções históricas da minuta 0.5 ficam preservadas; este adendo prevalece
+especificamente sobre G-01, P-09 e o formato fiscal descrito acima.
