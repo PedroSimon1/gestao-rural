@@ -2413,3 +2413,29 @@ Validação: **745 testes, OK**, em 53.57 s, incluindo oito novos
 da GR-42, apenas PostgreSQL local, DB_HOST inalcançável e banco descartável
 ausente antes/depois por SELECT. Gemini simulado. Patch validado por git apply
 --check --whitespace=error sobre a base exportada. Stash anterior preservado.
+
+
+## 34.18 - Lopes: consultas oficiais na interface (GR-44, revisão)
+
+27/10/2026. Preparação local na base develop `5d40318`: GR-42 integrada
+pelo PR #35 e F-3 de Simon integrada pelo PR #34. Sem operações de publicação
+Git pelo agente. A conferencia.py e seus testes F-3 permanecem intactos.
+
+A interface compõe consultar_pessoa e consultar_classificacao da GR-40 para
+exibir existência, ID, nome, status do cadastro e papel. Documentos inválidos
+e ausentes não geram busca nem cadastro. Faturado PJ é aceito. Falhas de banco
+preservam extração e JSON com mensagem segura. Consultas não fazem escrita.
+
+Revisão necessária com Simon antes do merge: P-05 segue pendente no contrato
+MINUTA 0.5. O adaptador tipado local deste incremento não substitui a F-3 nem
+define o contrato de confirmação. CPF+CNPJ simultâneos interrompem o conjunto
+das consultas até escolha explícita (D-03); a seleção ainda será feita na tela
+de conferência. A consulta não persiste AnalisePendente nem lança movimentos.
+Não considerar a GR-51 concluída. Faltam integração da conferência, decisões
+de cadastro e confirmação transacional. Não reaplicar o antigo conferencia.py
+de Lopes sobre o arquivo F-3 de Simon ao preparar a GR-45.
+
+Validação desta base: **813 testes, OK**, 53.21 s. PostgreSQL
+local isolado, DB_HOST inalcançável, banco descartável ausente antes/depois
+por SELECT. Agents simulados. Patch verificado sem erro de whitespace.
+Sem models, migrations, configuração, QA/PROD ou serviços do Simon alterados.

@@ -77,6 +77,17 @@ class InterfaceTestBase(SimpleTestCase):
         configuracao.enable()
         self.addCleanup(configuracao.disable)
 
+        # Estes testes da apresentação/Agents não acessam banco. A integração
+        # real das consultas tem TestCase próprio em test_interface_consultas.
+        from cadastros.consultas import ResultadoConsultas, consultar_pessoa, consultar_classificacao
+        consulta_vazia = ResultadoConsultas(
+            consultar_pessoa(None, "FORNECEDOR"), consultar_pessoa(None, "FATURADO"),
+            consultar_classificacao(None),
+        )
+        consulta_patcher = mock.patch("documentos.views.consultar_resultado", return_value=consulta_vazia)
+        consulta_patcher.start()
+        self.addCleanup(consulta_patcher.stop)
+
         for alvo, mensagem in (
             ("agents.gemini_client.genai.Client", "O SDK real do Gemini não deve ser usado."),
             ("django.core.files.storage.FileSystemStorage._save", "Nenhum arquivo deve ser gravado."),

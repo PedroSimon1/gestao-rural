@@ -80,6 +80,24 @@
     </section>
 
     <section class="cartao">
+      <h2>Consulta aos cadastros</h2>
+      {% if erro_consultas %}
+        <p class="aviso" role="alert">{{ erro_consultas }}</p>
+      {% else %}
+        {% for consulta in consultas %}
+          <h3>{{ consulta.rotulo }}</h3>
+          <dl class="resumo">
+            <div class="resumo__item"><dt>Situação</dt><dd>{{ consulta.situacao }}{% if consulta.id %} — ID: {{ consulta.id }}{% endif %}</dd></div>
+            <div class="resumo__item"><dt>Nome ou descrição</dt><dd>{{ consulta.nome|default:"—" }}</dd></div>
+            {% if consulta.status %}<div class="resumo__item"><dt>Status do cadastro</dt><dd>{{ consulta.status }}</dd></div>{% endif %}
+            {% if consulta.status_papel %}<div class="resumo__item"><dt>Papel solicitado</dt><dd>{{ consulta.status_papel }}</dd></div>{% endif %}
+          </dl>
+        {% endfor %}
+      {% endif %}
+      <p class="texto-apoio">Esta consulta não cria nem reativa cadastros e não realiza lançamento financeiro.</p>
+    </section>
+
+    <section class="cartao">
       <h2>JSON final</h2>
       <pre class="bloco-json"><code>{{ json_resultado }}</code></pre>
     </section>
