@@ -173,7 +173,7 @@ class CombinacaoTests(ConferirNotaTestBase):
 
     def test_correcao_nao_autorizada_e_formato_errado(self):
         self.assertIn(("campo_nao_autorizado", "invalido"),
-                      problemas(conferir_nota(resultado_da_nota(), {"chave_acesso": "1" * 44})))
+                      problemas(conferir_nota(resultado_da_nota(), {"documento_fiscal": {}})))
         self.assertIn(("correcoes", "invalido"),
                       problemas(conferir_nota(resultado_da_nota(), ["serie"])))
 
@@ -355,7 +355,9 @@ class IdentidadeFiscalTests(ConferirNotaTestBase):
         with mock.patch("documentos.conferencia.identificar_nota", return_value=IDENTIDADE) as chamada:
             nota = conferir_nota(resultado_da_nota(), {"serie": 1})
 
-        chamada.assert_called_once_with(emitente_cnpj=CNPJ, modelo=None, serie=1, numero=123)
+        chamada.assert_called_once_with(
+            chave_acesso=None, emitente_cnpj=CNPJ, modelo=None, serie=1, numero=123
+        )
         self.assertTrue(nota.sem_problemas, nota.problemas)
         self.assertEqual(nota.identidade_fiscal, IDENTIDADE)
 
@@ -364,7 +366,9 @@ class IdentidadeFiscalTests(ConferirNotaTestBase):
                         wraps=identificar_nota) as chamada:
             conferir_nota(resultado_da_nota(), {"serie": 7, "fornecedor.documento": CNPJ_ALFANUMERICO})
 
-        chamada.assert_called_once_with(emitente_cnpj=CNPJ_ALFANUMERICO, modelo=None, serie=7, numero=123)
+        chamada.assert_called_once_with(
+            chave_acesso=None, emitente_cnpj=CNPJ_ALFANUMERICO, modelo=None, serie=7, numero=123
+        )
 
     def test_nota_ja_lancada(self):
         with transaction.atomic():

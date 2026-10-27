@@ -19,6 +19,8 @@ from .analises import (
 )
 from .correcoes import CAMPOS_CORRIGIVEIS, validar_correcoes
 from .models import AnalisePendente, StatusAnalise
+from financeiro.test_identidade_fiscal import chave
+
 from .test_analises import vencer
 from .testing import nova_sessao, resultado_da_nota
 
@@ -34,6 +36,9 @@ CORRECOES = {
     "tipo_despesa": " infraestrutura_e_utilidades ",
     "numero_nota": "000123",
     "serie": "001",
+    # G-01: chave como impressa (com espaços) e modelo.
+    "chave_acesso": " ".join(chave()[i:i + 4] for i in range(0, 44, 4)),
+    "modelo": " 55 ",
     "data_emissao": "2026-10-02",
     "valor_total": "300.5",
     "parcelas": [
@@ -49,6 +54,8 @@ NORMALIZADAS = {
     "tipo_despesa": "INFRAESTRUTURA_E_UTILIDADES",
     "numero_nota": 123,
     "serie": 1,
+    "chave_acesso": chave(),
+    "modelo": "55",
     "data_emissao": "2026-10-02",
     "valor_total": "300.50",
     "parcelas": [
@@ -66,9 +73,10 @@ def assert_erro(teste, codigo, funcao, *args, **kwargs):
 
 
 class ValidacaoDosCamposTests(SimpleTestCase):
-    def test_lista_fechada_da_d02_e_d03(self):
+    def test_lista_fechada_da_d02_d03_e_g01(self):
         self.assertEqual(set(CAMPOS_CORRIGIVEIS), set(NORMALIZADAS))
-        for proibido in ("chave_acesso", "modelo", "itens", "validacoes", "fornecedor", "dados"):
+        for proibido in ("documento_fiscal", "emitente_cnpj", "itens", "validacoes", "fornecedor",
+                         "dados"):
             self.assertNotIn(proibido, CAMPOS_CORRIGIVEIS)
 
     def test_normaliza_todos_os_campos(self):
@@ -90,6 +98,9 @@ class ValidacaoDosCamposTests(SimpleTestCase):
             "numero_nota": [0, 1_000_000_000, "12a", True, 1.0, "²", "1" * 5000,
                             "0" * 5000 + "1"],
             "serie": [-1, 1000, "1-A", "9" * 5000],
+            "chave_acesso": [chave()[:-1] + str((int(chave()[-1]) + 1) % 10), chave()[:43], "",
+                             int(chave()), None, "x" * 5000],
+            "modelo": ["5", "555", "5A", 55, None, ""],
             "data_emissao": ["01/10/2026", "2026-02-30", "2026-1-1", 20261001],
             "valor_total": ["0", "-1", "1.005", "abc", 150.0, "NaN", "Infinity", "10000000000",
                             "1e3", "1_000", "+5", "١٠", "150,25", "1.250", "1" * 5000],
@@ -115,7 +126,7 @@ class ValidacaoDosCamposTests(SimpleTestCase):
 
     def test_campo_nao_autorizado_nao_ecoa_o_nome(self):
         normalizadas, invalidos = validar_correcoes({
-            "chave_acesso": "1" * 44, "<script>": "x", "modelo": "55",
+            "documento_fiscal": {"modelo": "55"}, "<script>": "x", "emitente_cnpj": "1",
         })
         self.assertEqual((normalizadas, invalidos), ({}, ["campo_nao_autorizado"]))
 
@@ -188,7 +199,7 @@ class RegistrarCorrecoesTests(TestCase):
     def test_correcao_invalida_nao_grava_nem_ecoa_valores(self):
         erro = assert_erro(
             self, "correcao_invalida", registrar_correcoes, self.sessao, self.analise.id,
-            {"faturado.documento": "12345678900", "serie": 1, "chave_acesso": "segredo"}, 0,
+            {"faturado.documento": "12345678900", "serie": 1, "validacoes": "segredo"}, 0,
         )
 
         self.assertEqual(erro.campos, ("campo_nao_autorizado", "faturado.documento"))

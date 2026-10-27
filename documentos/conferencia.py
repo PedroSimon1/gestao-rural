@@ -2,7 +2,7 @@
 
 conferir_nota(dados, correcoes) monta a nota que será lançada: para cada campo
 da lista fechada de documentos/correcoes.py, vale a correção, se houver, ou o
-valor extraído do JSON final (versão 1). Tudo é revalidado no servidor com as
+valor extraído do JSON final (versão 1 ou 2). Tudo é revalidado no servidor com as
 regras que já existem, sem confiar no que a tela validou:
 
 - cada campo: os mesmos validadores das correções (F-2), aplicados também ao
@@ -44,8 +44,10 @@ ESCOLHA_NECESSARIA = "escolha_necessaria"
 # ainda não existe; a data de emissão não é gravada no movimento. Uma correção
 # inválida desses campos continua sendo problema.
 _SO_SE_USADO = {"fornecedor.razao_social", "faturado.nome", "data_emissao"}
-# Série e número ausentes entram na identidade fiscal, que acusa a falta.
-_AUSENCIA_NA_IDENTIDADE = {"serie", "numero_nota"}
+# Campos fiscais ausentes entram na identidade fiscal, que acusa a falta
+# (com chave válida, os outros não são necessários). Presentes e inválidos,
+# são problema do próprio campo, como os demais.
+_AUSENCIA_NA_IDENTIDADE = {"serie", "numero_nota", "chave_acesso", "modelo"}
 
 
 @dataclass(frozen=True)
@@ -116,8 +118,13 @@ def _parcelas_extraidas(valor):
 
 
 def _extraidos(dados):
-    """Valores do JSON final (versão 1) com os nomes da lista de correções."""
+    """Valores do JSON final com os nomes da lista de correções.
+
+    Versão 1: sem documento_fiscal, série, modelo e chave só por correção (G-01).
+    Versão 2: documento_fiscal = {chave_acesso, modelo, serie}, como impressos.
+    """
     fornecedor, faturado = _bloco(dados, "fornecedor"), _bloco(dados, "faturado")
+    fiscal = _bloco(dados, "documento_fiscal")
     obter = dados.get if isinstance(dados, dict) else (lambda chave: None)
     return {
         "fornecedor.documento": _documento_extraido(fornecedor),
@@ -126,8 +133,9 @@ def _extraidos(dados):
         "faturado.nome": faturado.get("nome"),
         "tipo_despesa": obter("tipo_despesa"),
         "numero_nota": obter("numero_nota"),
-        # A versão 1 não tem série: só por correção.
-        "serie": None,
+        "serie": fiscal.get("serie"),
+        "chave_acesso": fiscal.get("chave_acesso"),
+        "modelo": fiscal.get("modelo"),
         "data_emissao": obter("data_emissao"),
         "valor_total": obter("valor_total"),
         "parcelas": _parcelas_extraidas(obter("parcelas")),
@@ -227,8 +235,8 @@ def _parcelas(finais):
 def _identidade(finais, problemas):
     try:
         identidade = identificar_nota(
-            emitente_cnpj=finais["fornecedor.documento"], modelo=None,
-            serie=finais["serie"], numero=finais["numero_nota"],
+            chave_acesso=finais["chave_acesso"], emitente_cnpj=finais["fornecedor.documento"],
+            modelo=finais["modelo"], serie=finais["serie"], numero=finais["numero_nota"],
         )
     except ValidationError as erro:
         problemas.append(Problema("identidade_fiscal", erro.code))
@@ -241,7 +249,7 @@ def _identidade(finais, problemas):
 def conferir_nota(dados, correcoes=None):
     """NotaConferida a partir dos dados extraídos e das correções; só leitura.
 
-    `dados`: AnalisePendente.dados (JSON final, versão 1). `correcoes`:
+    `dados`: AnalisePendente.dados (JSON final, versão 1 ou 2). `correcoes`:
     AnalisePendente.correcoes ou correcoes_da_confirmacao() (None ou dict).
     """
     combinacao = _combinar(dados, correcoes)

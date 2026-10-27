@@ -464,24 +464,24 @@ class SolicitacaoTests(LancamentoTestBase):
 
 
 class VersoesDosDadosTests(LancamentoTestBase):
-    def test_v1_e_a_unica_versao_armazenada(self):
+    # Os fluxos sem simulação (v1 com correções G-01 e v2) estão em
+    # financeiro/test_lancamento_fiscal.py.
+    def test_v1_continua_v1(self):
         analise = self.nova_analise()
         self.assertEqual(analise.versao_dados, 1)
 
-    def test_json_v2_ainda_nao_e_aceito_pela_analise(self):
-        # P-09 aprovada, mas a GR-43 ainda confere só as chaves da v1.
+    def test_json_v2_e_aceito_pela_analise(self):
+        # P-09: a GR-43 reconhece a v2 pelas chaves.
         resultado = resultado_da_nota()
         resultado["documento_fiscal"] = {"chave_acesso": None, "modelo": "55", "serie": "1"}
-        with self.assertRaises(AnaliseError) as contexto:
-            criar_analise(self.sessao, resultado)
-        self.assertEqual(contexto.exception.codigo, "dados_invalidos")
+        self.assertEqual(criar_analise(self.sessao, resultado).versao_dados, 2)
 
-    def test_f3_ainda_nao_le_o_bloco_fiscal_v2(self):
+    def test_f3_le_o_bloco_fiscal_v2(self):
         resultado = resultado_da_nota()
         resultado["documento_fiscal"] = {"chave_acesso": None, "modelo": "55", "serie": "1"}
-        nota = conferir_nota(resultado, {"serie": 1})
-        self.assertIn(("identidade_fiscal", "identidade_fiscal_insuficiente"),
-                      {(p.campo, p.codigo) for p in nota.problemas})
+        nota = conferir_nota(resultado)
+        self.assertNotIn("identidade_fiscal", {p.campo for p in nota.problemas})
+        self.assertEqual(nota.identidade_fiscal.modelo, "55")
 
 
 class ConcorrenciaTests(TransactionTestCase):

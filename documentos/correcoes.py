@@ -1,9 +1,12 @@
 """Correções da conferência: lista fechada de campos e validação de cada um (GR-22, F-2).
 
 Campos autorizados pela D-02 (documentos, nomes, classificação, número,
-série, data, valor total e parcelas) e pela D-03 (o documento de cada parte é
-o escolhido pelo usuário, CPF ou CNPJ, sem tipo deduzido pelo papel). Chave de
-acesso e modelo ficam fora (G-01, não aprovada).
+série, data, valor total e parcelas), pela D-03 (o documento de cada parte é
+o escolhido pelo usuário, CPF ou CNPJ, sem tipo deduzido pelo papel) e pela
+G-01 (chave de acesso e modelo, aprovada em 27/10/2026). A chave só é aceita
+com formato e DV válidos (serviço oficial da F-1); o modelo, com dois dígitos.
+Se o modelo é suportado e se a chave bate com os outros campos é a identidade
+fiscal que decide, na F-3 e na confirmação.
 
 Aqui cada campo é validado e normalizado sozinho. A combinação com os dados
 extraídos e as regras entre campos (soma das parcelas, numeração, identidade
@@ -20,6 +23,7 @@ from django.core.exceptions import ValidationError
 
 from cadastros.models import FORMATO_CODIGO
 from cadastros.validators import normalizar_documento, validar_documento
+from financeiro.identidade_fiscal import validar_chave_acesso
 from financeiro.models import LIMITE_VALOR, NUMERO_MAXIMO, SERIE_MAXIMA
 from financeiro.servicos import MAXIMO_DE_PARCELAS
 
@@ -30,6 +34,7 @@ _DIGITOS = re.compile(r"[0-9]{1,10}")
 _DATA = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 # Valor com ponto decimal e sem separador de milhar: "1.250" seria R$ 1,25.
 _VALOR = re.compile(r"[0-9]{1,10}(\.[0-9]{1,2})?")
+_MODELO = re.compile(r"[0-9]{2}")
 # NUL e outros caracteres de controle (o PostgreSQL recusa NUL em jsonb) e
 # surrogates isolados (não codificáveis em UTF-8).
 _CATEGORIAS_PROIBIDAS = {"Cc", "Cs"}
@@ -79,6 +84,21 @@ def _inteiro(minimo, maximo):
             raise CampoInvalido
         return valor
     return validar
+
+
+def _chave_acesso(valor):
+    if not isinstance(valor, str):
+        raise CampoInvalido
+    try:
+        return validar_chave_acesso(valor)
+    except ValidationError:
+        raise CampoInvalido from None
+
+
+def _modelo(valor):
+    if not isinstance(valor, str) or not _MODELO.fullmatch(valor.strip()):
+        raise CampoInvalido
+    return valor.strip()
 
 
 def _data(valor):
@@ -136,6 +156,8 @@ CAMPOS_CORRIGIVEIS = {
     "tipo_despesa": _codigo,
     "numero_nota": _inteiro(1, NUMERO_MAXIMO),
     "serie": _inteiro(0, SERIE_MAXIMA),
+    "chave_acesso": _chave_acesso,
+    "modelo": _modelo,
     "data_emissao": _data,
     "valor_total": _valor,
     "parcelas": _parcelas,
