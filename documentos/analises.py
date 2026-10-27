@@ -24,6 +24,12 @@ analise_id)`, o mapeamento da GR-51 para registrar_movimento(), e o executa na
 mesma transação que finaliza a análise. Se `gravar` falhar, nada é gravado e a
 análise continua PENDENTE.
 
+Formatos de `dados` (P-09, aprovada em 27/10/2026): versão 1 (as dez chaves
+de montar_resultado) e versão 2 (as mesmas e documento_fiscal, JSON fiscal v2).
+A versão é reconhecida pelo conjunto exato de chaves e guardada em
+versao_dados, fora do JSON; nada é convertido, e uma análise v1 continua v1
+até o fim. Outro conjunto de chaves (versão futura) é recusado.
+
 Correções da conferência (GR-22, F-2; T-02, T-03 e G-03 aprovadas por Pedro
 Simon em 27/10/2026): registrar_correcoes() substitui o conjunto inteiro, com
 controle otimista por versao_correcoes, e guarda tudo separado de `dados`.
@@ -47,6 +53,7 @@ from .correcoes import validar_correcoes
 from .models import AnalisePendente, StatusAnalise
 
 VALIDADE = timedelta(minutes=30)
+# Versão do JSON v1, o formato emitido hoje pelas rotas.
 VERSAO_DADOS = 1
 CHAVE_DA_SESSAO = "analise_dono"
 # Chaves do JSON final, na ordem de montar_resultado (versão 1).
@@ -54,6 +61,11 @@ CHAVES_DOS_DADOS = (
     "fornecedor", "faturado", "numero_nota", "data_emissao", "itens",
     "quantidade_parcelas", "parcelas", "valor_total", "tipo_despesa", "validacoes",
 )
+CHAVES_POR_VERSAO = {
+    1: CHAVES_DOS_DADOS,
+    2: (*CHAVES_DOS_DADOS, "documento_fiscal"),
+}
+CHAVES_DO_DOCUMENTO_FISCAL = ("chave_acesso", "modelo", "serie")
 # Folga ampla para uma nota; impede guardar conteúdo arbitrário.
 LIMITE_DOS_DADOS = 256 * 1024
 
@@ -105,17 +117,34 @@ def _dono(session):
     return _hash(codigo)
 
 
-def _copia_dos_dados(resultado):
-    """Cópia JSON pura do resultado, conferida na estrutura de primeiro nível."""
-    if not isinstance(resultado, dict) or set(resultado) != set(CHAVES_DOS_DADOS):
+def _versao_dos_dados(resultado):
+    """Versão pelo conjunto exato de chaves; o bloco fiscal da v2 é conferido."""
+    if not isinstance(resultado, dict):
         raise AnaliseError("dados_invalidos")
+    versao = next(
+        (v for v, chaves in CHAVES_POR_VERSAO.items() if set(resultado) == set(chaves)), None
+    )
+    if versao is None:
+        raise AnaliseError("dados_invalidos")
+    if versao == 2:
+        fiscal = resultado["documento_fiscal"]
+        if not isinstance(fiscal, dict) or set(fiscal) != set(CHAVES_DO_DOCUMENTO_FISCAL):
+            raise AnaliseError("dados_invalidos")
+        if any(valor is not None and not isinstance(valor, str) for valor in fiscal.values()):
+            raise AnaliseError("dados_invalidos")
+    return versao
+
+
+def _copia_dos_dados(resultado):
+    """(versão, cópia JSON pura do resultado), conferida na estrutura."""
+    versao = _versao_dos_dados(resultado)
     try:
         texto = json.dumps(resultado, ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError):
         raise AnaliseError("dados_invalidos") from None
     if len(texto.encode()) > LIMITE_DOS_DADOS:
         raise AnaliseError("dados_invalidos")
-    return json.loads(texto)
+    return versao, json.loads(texto)
 
 
 def _uuid(analise_id):
@@ -202,12 +231,12 @@ def criar_analise(session, resultado):
     dono = _dono(session)
     if dono is None:
         raise AnaliseError("sessao_sem_codigo")
-    dados = _copia_dos_dados(resultado)
+    versao, dados = _copia_dos_dados(resultado)
     agora = timezone.now()
     expirar_analises(agora)
     return AnalisePendente.objects.create(
         dono_hash=dono,
-        versao_dados=VERSAO_DADOS,
+        versao_dados=versao,
         dados=dados,
         criado_em=agora,
         expira_em=agora + VALIDADE,

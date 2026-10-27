@@ -55,6 +55,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Atualização posterior                   | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit                                                                                                                                                                                                                        |
 | Estado da `develop` (27/10/2026)        | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
 | Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35                                                                                                         |
+| GR-51 G-01/P-09 backend (27/10/2026)    | branch `feature/gr-51-fiscal-v2-backend` sobre `develop` `37b41e7` (F-5 integrada, PR #45): análise aceita JSON v1 e v2, chave de acesso e modelo corrigíveis, F-3 lendo o bloco fiscal; notas válidas deixam de ficar em `identidade_fiscal_insuficiente` no backend; tela ainda não ligada; sem commit; `python manage.py test` → **Ran 963 tests — OK** (local); seção 15.1.17 |
 | GR-22, F-5 (27/10/2026)                 | branch `feature/gr-22-f5-lancamento` sobre `develop` `59a92d9` (F-1 a F-4, JSON v2 opt-in e campos fiscais do Lopes integrados): lançamento transacional implementado, sem commit; fluxo real **bloqueado** pela identidade fiscal (G-01/P-09 pendentes no backend); `python manage.py test` → **Ran 940 tests — OK** (local); seção 15.1.16 |
 | GR-22, F-4 (27/10/2026)                 | branch `feature/gr-22-f4-resolucao-pessoas` sobre `develop` `ea4b5f9` (F-1 a F-3, GR-41/42/44 e GR-45 com GR-43 integradas, PRs #31 a #40): resolução de pessoas implementada, sem commit; `python manage.py test` → **Ran 878 tests — OK** (local); seção 15.1.15                                                                                                                                                                                                         |
 | GR-22, F-3 (27/10/2026)                 | branch `feature/gr-22-f3-revalidacao` sobre `develop` `fb18872` (F-1 e F-2 integradas, PR #31): combinação e revalidação implementadas, sem commit; `python manage.py test` → **Ran 760 tests — OK** (local); seção 15.1.14                                                                                                                                                                                                                                                |
@@ -1750,6 +1751,71 @@ Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
 
 **Git:** branch `feature/gr-22-f5-lancamento`, sem commit. Arquivos para o commit: `financeiro/lancamento_nota.py`, `financeiro/test_lancamento_nota.py`, `ContextoProjeto.md`. Commit, push e PR para `develop` ficam com o usuário.
 
+## 15.1.17 - GR-51: G-01 e P-09 no backend, identidade fiscal a partir do JSON v2 e das correções (27/10/2026, branch `feature/gr-51-fiscal-v2-backend`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_TEST_*`, banco descartável); **não integrado**; **sem migration**. Branch criada a partir da `develop` em `37b41e7` (merge do PR #45, F-5). **No backend, o bloqueio `identidade_fiscal_insuficiente` registrado na 15.1.16 deixa de valer para notas válidas**, tanto em análises v1 com correções fiscais quanto em análises v2. **A interface ainda não usa isso** (ver Pendências).
+
+**Objetivo:** implementar a parte do backend das decisões G-01 (chave de acesso, modelo, série e número editáveis como correções) e P-09 (análises v1 e v2 convivendo), aprovadas no adendo de 27/10/2026 do contrato GR-51, sem enfraquecer as validações da GR-22.
+
+**Decisões:** nenhuma decisão nova. Aplicadas: G-01 e P-09 (adendo do contrato), D-01, T-04 (chave divergente bloqueia), T-06 (só NF-e 55 e NFC-e 65, emitente CNPJ), D-03 (CPF e CNPJ do emitente exigem escolha), D-02 (extraído e corrigido separados).
+
+**Implementação:**
+
+| Camada | Arquivo | Mudança |
+| ------ | ------- | ------- |
+| GR-43 (P-09) | `documentos/analises.py` | `CHAVES_POR_VERSAO = {1: CHAVES_DOS_DADOS, 2: (*CHAVES_DOS_DADOS, "documento_fiscal")}`. `criar_analise` reconhece a versão pelo **conjunto exato** de chaves e grava `versao_dados` (1 ou 2), sem mudar o JSON. Na v2, `documento_fiscal` precisa ser um objeto com exatamente `chave_acesso`, `modelo` e `serie`, texto ou `null`. Outro conjunto (versão futura, chave a mais ou a menos) → `dados_invalidos`. `VERSAO_DADOS = 1` e `CHAVES_DOS_DADOS` continuam com o mesmo significado (v1). Sessão, prazo, bloqueio e estados finais não mudaram |
+| F-2 (G-01) | `documentos/correcoes.py` | dois campos novos em `CAMPOS_CORRIGIVEIS`: `chave_acesso` (texto; normalizada e validada por `validar_chave_acesso` da F-1, formato e DV, inclusive alfanumérica) e `modelo` (texto com 2 dígitos). `serie` e `numero_nota` já existiam. Os nomes são os da proposta do Lopes (`forms_fiscais.proposta_correcoes`) |
+| F-3 | `documentos/conferencia.py` | `_extraidos` lê `documento_fiscal` (v2): `serie`, `modelo` e `chave_acesso` como impressos (v1: `null`, só por correção). `_identidade` passa `chave_acesso` e `modelo` finais a `identificar_nota`. Ausência de chave, modelo, série ou número não é problema do campo: a identidade decide (com chave válida, os outros podem faltar). Presentes e inválidos são problema do campo (`invalido`) e bloqueiam até a correção |
+
+`identificar_nota`, `registrar_identidade_fiscal`, a F-4, a F-5, models e migrations **não** mudaram. A F-5 (`lancar_nota`) passa a lançar notas válidas sem nenhuma alteração.
+
+**Comportamento resultante** (em todos, a confirmação revalida pelo serviço oficial):
+
+| Entrada | Resultado |
+| ------- | --------- |
+| v2 com modelo, série e número; ou só com chave válida | identidade completa; lançamento possível |
+| v1 + correções `modelo` e `serie`; ou só `chave_acesso` | idem |
+| v1 só com `serie` (situação anterior) | `identidade_fiscal_insuficiente` |
+| v2 sem chave nem modelo | `identidade_fiscal_insuficiente` até corrigir |
+| chave (extraída ou corrigida) divergente de emitente, modelo, série ou número | `identidade_fiscal_divergente` |
+| chave extraída com DV ou formato inválido | `chave_acesso: invalido`; a correção com chave válida resolve; o extraído não muda |
+| modelo 57 ou outro não suportado; emitente só com CPF | `identidade_fiscal_nao_suportada` |
+| modelo ou série impressos ilegíveis (`5A`, `A1`) | `modelo`/`serie`: `invalido` |
+| emitente com CPF e CNPJ (v2) | `fornecedor.documento: escolha_necessaria` até a escolha |
+| mesma nota em análises v1 e v2 | `nota_ja_lancada` (unicidade da F-1 por chave e por emitente + modelo + série + número) |
+
+**Testes:**
+
+- novos: `documentos/test_fiscal_v2.py` (15: versões da análise, estrutura inválida e versão futura, mesmas proteções na v2, v1 continua v1 com correções fiscais, correção de chave inválida não gravada nem ecoada; combinações v2 e v1 + G-01, chave coerente, só chave, divergente em três formas, inválida e corrigida, modelo não suportado e ilegível, emitente CPF e ambíguo, chave com CNPJ alfanumérico) e `financeiro/test_lancamento_fiscal.py` (8, **sem simulação**: v1 com modelo/série, v1 com chave, v2 sem correções, v2 com chave, cinco recusas fiscais sem nada gravado, mesma nota por v1 e por v2, rollback depois do movimento numa análise v2, concorrência v1 × v2 → um movimento e uma identidade);
+- adaptados (o comportamento antigo deixou de valer; a intenção foi mantida): `test_correcoes.py` (lista fechada com G-01; chave e modelo nos fixtures e nos casos inválidos; os testes de "campo não autorizado" passam a usar `documento_fiscal`, `emitente_cnpj` e `validacoes`), `test_conferencia.py` (argumentos de `identificar_nota` com `chave_acesso`; campo não autorizado `documento_fiscal`), `test_lancamento_nota.py` (`VersoesDosDadosTests`: v2 aceita, F-3 lê o bloco fiscal). Nenhum teste foi removido.
+
+Mutações de controle, todas detectadas (9): modelo ou chave fora da identidade; ausência fiscal virando problema; série da v2 ignorada; qualquer conjunto de chaves aceito; bloco fiscal sem conferência; versão sempre 1; chave sem validação; modelo sem validação.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python manage.py test documentos.test_fiscal_v2` | `Ran 15 tests — OK` |
+| `python manage.py test financeiro.test_lancamento_fiscal` (3 vezes) | `Ran 8 tests — OK` nas 3 |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final) | `Ran 963 tests — OK` (940 da `develop` + 23) |
+| `git diff --check` | sem problemas |
+
+Supabase, QA e PROD não foram acessados; nenhuma migration aplicada. Emissão v2 nas rotas **não** foi ativada (`processar_pdf` continua com `versao_dados=1` por padrão).
+
+**Arquivos:** `documentos/analises.py`, `documentos/correcoes.py`, `documentos/conferencia.py` (alterados); `documentos/test_fiscal_v2.py`, `financeiro/test_lancamento_fiscal.py` (novos); `documentos/test_correcoes.py`, `documentos/test_conferencia.py`, `financeiro/test_lancamento_nota.py` (adaptados); `ContextoProjeto.md`. Nenhum arquivo do Lopes alterado (`agents/*`, `processamento.py`, views, `views_analises.py`, formulários, templates, contratos JSON v2).
+
+**Pendências e riscos (interface e coordenação com o Lopes):**
+
+1. **Correções fiscais apagadas pela tela atual (risco alto):** `views_analises.py` grava `registrar_correcoes(..., revisao.correcoes, ...)` só com os campos do formulário principal, e `registrar_correcoes` substitui o conjunto inteiro (T-02). Quando a tela passar a gravar chave e modelo (com `forms_fiscais.py`), o POST precisa enviar as correções fiscais junto com as demais; senão, salvar a conferência apaga as fiscais. A rota e o formulário são do Lopes.
+2. **Ativar a emissão v2** nas rotas (`processar_pdf(..., versao_dados=2)`): o backend já aceita, mas a decisão e a mudança são do Lopes, depois de testar o fluxo de tela com análises v1 e v2.
+3. **GR-44 com v2:** `documentos/consultas.py`/`adaptador_financeiro.py` (Lopes) não foram verificados com `fornecedor.cpf` e `documento_fiscal`; a seção 35.8 já registrava a seleção automática do fornecedor no adaptador.
+4. **`ConferenciaForm` (GR-45)** recusa `chave_acesso` como campo do formulário principal (`test_interface_conferencia.py`); a G-01 entra pelo `CamposFiscaisForm`, que precisa ser ligado à rota.
+5. **Contrato GR-51:** o adendo de 27/10 descreve G-01 e P-09 como pendentes no backend; atualizar na revisão documental conjunta (não alterado aqui).
+6. **Chave extraída ilegível (decisão da equipe):** uma chave impressa inválida só sai do caminho com a correção de uma chave válida (correção não aceita `null`); a nota fica bloqueada mesmo com modelo, série e número bons. Alternativa a decidir: correção explícita "sem chave".
+7. Continuam pendentes: contrato de envio das decisões da F-4 (15.1.16), rota de confirmação, F-6.
+
+**Git:** branch `feature/gr-51-fiscal-v2-backend`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
 Diagrama conceitual derivado **somente** das entidades e atributos citados pelo professor (ENT-01 a ENT-04 na [matriz](docs/requisitos/matriz-n2-etapa2.md)); nomes de campos adicionais, chaves e cardinalidades exatas ainda precisam ser decididos. Banco previsto: Supabase PostgreSQL ([ADR-001](docs/arquitetura/ADR-001-supabase.md)).
@@ -2053,7 +2119,7 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 
-**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40).
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40); com G-01/P-09 sobre `develop` `37b41e7` (15.1.17): **Ran 963 tests — OK** (940 + 23).
 
 ## 21.2 - Distribuição
 
