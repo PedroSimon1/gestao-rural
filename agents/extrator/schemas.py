@@ -27,7 +27,7 @@ from pydantic import (
     model_validator,
 )
 
-VERSAO_SCHEMA = 1
+VERSAO_SCHEMA = 2
 
 CENTAVO = Decimal("0.01")
 # Teto de sanidade para valores extraídos: até 12 dígitos com 2 casas decimais
@@ -193,7 +193,15 @@ class Faturado(_ModeloExtracao):
         default=None,
         description=(
             "CPF do destinatário/tomador, exatamente como impresso. "
-            "null se não houver CPF."
+            "null se não houver CPF; não preencher com o CNPJ."
+        ),
+    )
+
+    cnpj: Cnpj | None = Field(
+        default=None,
+        description=(
+            "CNPJ do destinatário/tomador, exatamente como impresso. "
+            "null se não houver CNPJ; não deduzir a partir do fornecedor."
         ),
     )
 
@@ -231,6 +239,7 @@ class Validacoes(BaseModel):
     # Somente o resultado; os números ficam em fornecedor/faturado.
     fornecedor_cnpj: ValidacaoDocumento
     faturado_cpf: ValidacaoDocumento
+    faturado_cnpj: ValidacaoDocumento
 
 
 def _validar_documento(numero, dv_valido):
@@ -271,6 +280,7 @@ class NotaFiscalExtraida(_ModeloExtracao):
         return Validacoes(
             fornecedor_cnpj=_validar_documento(self.fornecedor.cnpj, cnpj_dv_valido),
             faturado_cpf=_validar_documento(self.faturado.cpf, cpf_dv_valido),
+            faturado_cnpj=_validar_documento(self.faturado.cnpj, cnpj_dv_valido),
         )
 
     @model_validator(mode="after")
