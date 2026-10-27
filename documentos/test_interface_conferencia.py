@@ -71,11 +71,12 @@ class InterfaceConferenciaTests(TestCase):
         self.assertIsNone(form.initial['fornecedor_documento'])
         self.assertNotIn('documento_faturado', form.initial)
         self.assertFalse(parcelas.forms[0].initial)
-        self.assertNotIn('chave_acesso', form.fields)
+        self.assertIn('chave_acesso', form.fields)
+        self.assertIn('modelo', form.fields)
         self.assertNotIn('modelo_nota', form.fields)
 
     def test_campos_nao_autorizados_recusados(self):
-        for k in ('id', 'analise_id', 'status', 'parcelas-0-id', 'modelo_nota', 'chave_acesso'):
+        for k in ('id', 'analise_id', 'status', 'parcelas-0-id', 'modelo_nota'):
             with self.subTest(k=k):
                 d = self.dados()
                 d[k] = 'alterado'

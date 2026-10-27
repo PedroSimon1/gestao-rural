@@ -231,7 +231,7 @@ class ProcessamentoTests(InterfaceTestBase):
     def test_processa_os_bytes_exatos_do_pdf(self):
         _, processar = self.enviar(pdf(conteudo=PDF + b"conteudo"), retorno=processamento())
 
-        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO)
+        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2)
 
     def test_resumo_justificativa_e_json(self):
         resposta, _ = self.enviar(retorno=processamento())
@@ -397,6 +397,7 @@ class IntegracaoTestBase(InterfaceTestBase):
 
     def respostas(self, classificacao):
         nota = dados_nota(parcelas=[{"data_vencimento": "2026-10-20", "valor": 1500}])
+        nota['documento_fiscal'] = {'chave_acesso': None, 'modelo': None, 'serie': None}
         self.generate_content.side_effect = [
             mock.Mock(text=json.dumps(nota)),
             mock.Mock(text=json.dumps(classificacao)),
@@ -560,7 +561,7 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
             with self.subTest(chave=chave):
                 _, processar = self.enviar(chave=chave, retorno=processamento())
 
-                processar.assert_called_once_with(PDF, chave)
+                processar.assert_called_once_with(PDF, chave, versao_dados=2)
 
     def test_chave_nao_reaparece_apos_sucesso(self):
         resposta, _ = self.enviar(retorno=processamento())

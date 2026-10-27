@@ -673,3 +673,29 @@ da ativação. Este incremento só prepara emissão opt-in: padrão/rotas ainda 
 Integração e confirmação transacional ainda pendentes, sem migrations remotas.
 As seções históricas da minuta 0.5 ficam preservadas; este adendo prevalece
 especificamente sobre G-01, P-09 e o formato fiscal descrito acima.
+
+
+## Adendo — integração da interface com G-01/P-09 e F-5 (27/10/2026)
+
+Backend F-5 integrado pelo PR #45; G-01/P-09 pelo #46; F-6 pelo #47, base
+`39fab4d`. Interface deste incremento: implementada/testada localmente em pacote,
+ainda não integrada/homologada/publicada na data deste registro.
+
+- Correções principais/fiscais são enviadas conjuntamente à GR-43, respeitando
+  a substituição integral e versao_correcoes; campos omitidos não são apagados.
+- Rotas selecionam processar_pdf(..., versao_dados=2); consumidores de consulta
+  aceitam valores financeiros null na v2 e documentos de ambas as partes.
+- V1 já armazenada continua acessível/corrigível até expirar, sem conversão/TTL novo.
+- A confirmação monta SolicitacaoLancamento e DecisoesDaParte e chama a F-5
+  lancar_nota, sem transação financeira própria. Decisões vêm de checkboxes não
+  pré-marcados; regularização seleciona ID por listar_incompletos da F-6.
+- Validações são exibidas por mensagens fixas, sem 500/detalhes internos; sucesso
+  só após retorno do commit. Duplicidade, rollback, sessão e versão seguem backend.
+- F-6 ainda exige conectar "Salvar cadastro pendente" como ação separada com
+  consentimento; este incremento não implementa serviço nem persistência alternativa.
+
+Validação local: 1001 testes OK (SDK Gemini simulado, backend/TEST reais),
+check e verificação de migrations sem alteração. Falta homologação conjunta real
+e publicação humana. O fluxo não deve ser apresentado como publicado por esses
+testes. Seções anteriores permanecem como histórico; este adendo descreve esta
+integração e não dispensa critérios de aceite restantes da GR-51/entrega.

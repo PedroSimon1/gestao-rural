@@ -12,6 +12,7 @@
   {% if revisao.nota.problemas %}
     <p class="aviso" role="alert">Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal.</p>
   {% endif %}
+  {% if pendencias %}<ul role="alert">{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>{% endif %}
   {% if analise_id %}
   <form method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota">
     {% csrf_token %}
@@ -41,6 +42,10 @@
   {% if analise_id %}
     <button type="submit" class="botao">Salvar correções</button>
   </form>
+  {% if not revisao.nota.problemas %}
+    <p>Salve suas alterações antes de prosseguir. A confirmação usa apenas os dados salvos.</p>
+    <a href="{% url 'analise_confirmar' analise_id=analise_id %}" class="botao">Revisar dados salvos para confirmar</a>
+  {% endif %}
   <form method="post" action="{% url 'analise_cancelar' analise_id=analise_id %}">
     {% csrf_token %}
     <button type="submit" class="botao">Cancelar análise</button>

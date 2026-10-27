@@ -109,7 +109,7 @@ def _processar(arquivo, gemini_api_key):
     A chave só é repassada; não entra no contexto do template.
     """
     try:
-        processamento = processar_pdf(arquivo.read(), gemini_api_key)
+        processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2)
     except ProcessamentoError as exc:
         return {
             "erro": {
@@ -132,7 +132,7 @@ def _processar(arquivo, gemini_api_key):
     except (ValidationError, TypeError, ValueError):
         contexto["erro_consultas"] = (
             "Revise os dados extraídos antes da consulta. Se CPF e CNPJ estiverem "
-            "preenchidos no faturado, a identificação precisa ser esclarecida."
+            "preenchidos na mesma parte, a identificação precisa ser esclarecida."
         )
     except DatabaseError:
         contexto["erro_consultas"] = "Não foi possível consultar os cadastros agora. Os dados extraídos foram preservados."

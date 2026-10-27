@@ -1,0 +1,10 @@
+{% extends "documentos/base.html" %}
+{% block titulo %}Lançamento concluído — Gestão Rural{% endblock %}
+{% block conteudo %}
+<section class="cartao">
+  <h1>Lançamento realizado com sucesso</h1>
+  <p>O movimento e suas parcelas foram gravados.</p>
+  <p>Movimento: {{ movimento_id }}. Registro fiscal: {{ nota_fiscal_id }}.</p>
+  <a href="{% url 'documento_inicio' %}">Enviar outra nota</a>
+</section>
+{% endblock %}
