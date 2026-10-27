@@ -210,7 +210,7 @@ Caminhos que podem andar em paralelo desde o início, depois de acordado o contr
 | Dependências          | P02; contrato C-02, C-03, C-05, C-06 |
 | Critérios de aceite   | 1. Para cada um dos três itens, o serviço devolve "existe com ID" ou "não existe", no formato acordado em C-05.<br>2. A consulta **não grava nada**.<br>3. Testes cobrem: existente, inexistente, documento ausente, documento com DV inválido e registro INATIVO (comportamento acordado em C-02). |
 | Entregáveis           | serviço de consulta em camada de serviço (não na view); testes de serviço |
-| Situação atual        | NÃO INICIADO |
+| Situação atual        | IMPLEMENTADO NA BRANCH (GR-40, 27/10/2026; `feature/gr-40-consultas`, não integrada): `cadastros/consultas.py` e 32 testes no PostgreSQL local; regras na matriz (DQ-08). Formato do resultado a confirmar em C-05; uso no fluxo da nota na GR-51 ([`ContextoProjeto.md`](../../ContextoProjeto.md), 15.1.6). Antes: NÃO INICIADO |
 
 ### P04 — Persistência de cadastros, movimentos e parcelas
 
