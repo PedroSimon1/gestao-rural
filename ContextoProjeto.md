@@ -54,6 +54,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
 | Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
 | Estado da `develop` (27/10/2026) | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
+| GR-22, F-3 (27/10/2026) | branch `feature/gr-22-f3-revalidacao` sobre `develop` `fb18872` (F-1 e F-2 integradas, PR #31): combinação e revalidação implementadas, sem commit; `python manage.py test` → **Ran 760 tests — OK** (local); seção 15.1.14 |
 | GR-22, F-2 (27/10/2026) | mesma branch: correções em `AnalisePendente` implementadas, sem commit; `python manage.py test` → **Ran 725 tests — OK** (local); seção 15.1.13 |
 | GR-22, F-1 (27/10/2026) | branch `feature/gr-22-confirmacao-transacional`: identidade fiscal implementada, sem commit; `python manage.py test` → **Ran 691 tests — OK** (local); seção 15.1.12 |
 | Análise da GR-22 (27/10/2026) | branch `feature/gr-22-confirmacao-transacional` sobre `develop` `4fe9051` (PR #30); só documentação; `python manage.py test` → **Ran 650 tests — OK** (local); seção 15.1.11 |
@@ -1278,7 +1279,7 @@ Cada etapa pode ser um PR próprio (ou as etapas 1 a 5 num PR da GR-22, se a equ
 
 **Git:** branch `feature/gr-22-confirmacao-transacional`, só `ContextoProjeto.md` alterado, sem commit.
 
-## 15.1.12 - GR-22, etapa F-1: identidade fiscal da nota (27/10/2026, branch `feature/gr-22-confirmacao-transacional`, sem commit)
+## 15.1.12 - GR-22, etapa F-1: identidade fiscal da nota (27/10/2026, branch `feature/gr-22-confirmacao-transacional`, integrada à `develop`, PR #31, commit `b850421`)
 
 Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local 18.6 descartável); **não integrado** à `develop`; migration `financeiro` `0003_nota_fiscal_lancada` **não aplicada** em homologação nem em produção; **não ligado** ao fluxo da nota (F-5, GR-51). Implementação autorizada por Pedro Simon em 27/10/2026, só para a F-1.
 
@@ -1358,7 +1359,7 @@ O Supabase não foi acessado.
 
 **Git:** branch `feature/gr-22-confirmacao-transacional`, sem commit. Commit, push e PR ficam com o usuário.
 
-## 15.1.13 - GR-22, etapa F-2: correções da conferência em `AnalisePendente` (27/10/2026, branch `feature/gr-22-confirmacao-transacional`, sem commit)
+## 15.1.13 - GR-22, etapa F-2: correções da conferência em `AnalisePendente` (27/10/2026, branch `feature/gr-22-confirmacao-transacional`, integrada à `develop`, PR #31, commit `5cf75ca`)
 
 Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local 18.6 descartável); **não integrado**; migration `documentos` `0002_correcoes_da_conferencia` **não aplicada** em homologação nem em produção; **sem tela** (GR-45, Gustavo Lopes). **Depende da F-1** (15.1.12), também sem commit: `documentos/correcoes.py` importa `NUMERO_MAXIMO` e `SERIE_MAXIMA` de `financeiro/models.py`; a F-1 precisa ser versionada antes.
 
@@ -1432,6 +1433,85 @@ O Supabase não foi acessado.
 **Preparação para a F-3:** combinar `analise.dados` (JSON v1) com `correcoes_da_confirmacao()` dentro do `gravar`, com o mapeamento de nomes (`fornecedor.documento` ↔ `fornecedor.cnpj`, `faturado.documento` ↔ `faturado.cpf`; `serie` sem origem no JSON v1); revalidar entre campos (soma e numeração das parcelas, faixa de datas, existência da classificação); montar a identidade fiscal com `identificar_nota()` (F-1). A chave de acesso e o modelo continuam sem origem (JSON v2 ou G-01).
 
 **Git:** branch `feature/gr-22-confirmacao-transacional`, sem commit. Commit, push e PR ficam com o usuário.
+
+## 15.1.14 - GR-22, etapa F-3: combinação e revalidação de extraído + corrigido (27/10/2026, branch `feature/gr-22-f3-revalidacao`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local 18.6 descartável); **não integrado**; **sem migration**; **sem tela** (GR-45) e **sem uso no lançamento** (F-5). Branch criada a partir da `develop` em `fb18872` (merge do PR #31, com a F-1 e a F-2).
+
+**Objetivo:** montar, a partir de `AnalisePendente.dados` (JSON final v1) e das correções autorizadas, a nota que será lançada, revalidando tudo no backend com as regras que já existem, sem gravar nada.
+
+**Decisões:** nenhuma decisão nova foi tomada nesta etapa. A F-3 aplica D-01, D-02, D-03, D-04 (bloqueio de pessoa sem documento), DQ-07 (inativos ficam para a F-4), DQ-08 (busca só por documento), T-04, T-06 e G-03. Pontos ainda não decididos ficam registrados abaixo, sem comportamento inventado.
+
+**Implementação:**
+
+| Peça | Arquivo | Comportamento |
+| ---- | ------- | ------------- |
+| `conferir_nota(dados, correcoes=None)` → `NotaConferida` | novo `documentos/conferencia.py` | só leitura; para cada campo da lista fechada vale a correção, se houver, ou o extraído; tudo é revalidado |
+| `NotaConferida` | idem | `fornecedor`/`faturado` (`ParteConferida`: papel, documento, nome e `ConsultaPessoa`), `classificacao` (`ConsultaClassificacao`), `numero_nota`, `serie`, `data_emissao`, `valor_total` (`Decimal`), `parcelas` (`ItemParcela`), `identidade_fiscal` (`IdentidadeFiscal` ou `None`), `campos_alterados`, `problemas` e a propriedade `sem_problemas` |
+| `Problema(campo, codigo)` | idem | só o nome do campo e o código; nunca valores (as mensagens de `ValidationError` não são usadas) |
+| `validar_parcelas(valor_total, parcelas)` | `financeiro/servicos.py` | invólucro público de `_validar_parcelas` (GR-38), sem mudar o comportamento; `None` vira `sem_parcela` |
+
+**Mapeamento do JSON v1** (nomes da lista de `documentos/correcoes.py`): `fornecedor.documento` ← `fornecedor.cnpj` (ou `fornecedor.cpf`, se existir); `faturado.documento` ← `faturado.cpf` (ou `faturado.cnpj`); `fornecedor.razao_social`, `faturado.nome`, `tipo_despesa`, `numero_nota`, `data_emissao`, `valor_total`, `parcelas` ← chaves de mesmo nome; `serie` só por correção (não existe no v1). Parcelas extraídas são reduzidas a `numero`, `data_vencimento` e `valor` (campos novos do JSON v2 não as invalidam).
+
+**Regras aplicadas (reuso, sem duplicar):**
+
+| Verificação | Regra existente reutilizada | Problema |
+| ----------- | --------------------------- | -------- |
+| Cada campo, extraído e corrigido | validadores da F-2 (`CAMPOS_CORRIGIVEIS`, `validar_correcoes`) | `invalido`, `ausente`; correção inválida **não** volta ao extraído; campo fora da lista: `campo_nao_autorizado` |
+| CPF e CNPJ extraídos para a mesma parte | D-03 | `escolha_necessaria` (nenhum é escolhido sozinho) |
+| Documento e papel | `consultar_pessoa` (GR-40) | documento ausente ou inválido bloqueia; INATIVO e papel AUSENTE só aparecem na consulta (decisão da F-4); a consulta mostra `DOCUMENTO_INVALIDO` também para correção inválida |
+| Nome | — | exigido só quando a pessoa não existe (para cadastrá-la); extraído inválido de pessoa existente não bloqueia |
+| Classificação | `consultar_classificacao` (GR-40) | ausente (inclusive `tipo_despesa` nulo, GR-42) ou `classificacao_inexistente` bloqueiam; INATIVA fica para a F-4 |
+| Valor total e parcelas | `validar_parcelas` (GR-38) | `sem_parcela`, `parcela_soma`, `parcela_numeracao`, `parcela_repetida`, `parcela_vencimento` etc.; sem vencimento ou lista vazia exigem correção (D-02) |
+| Data de emissão | validador da F-2 | extraída inválida ou ausente não bloqueia (não é gravada); corrigida inválida, sim |
+| Identidade fiscal | `identificar_nota` e `nota_lancada` (F-1) | códigos da F-1 (`identidade_fiscal_insuficiente`, `identidade_fiscal_nao_suportada`, …) e `nota_ja_lancada` |
+
+**Consequência da D-01 com o JSON v1:** sem chave de acesso nem modelo, `identificar_nota` sempre devolve `identidade_fiscal_insuficiente`; **nenhuma nota fica `sem_problemas`** até existir o JSON v2 (F-7, Lopes) ou a G-01. Com fornecedor CPF, o código é `insuficiente` (falta o modelo), e não `nao_suportada`. Os testes cobrem o caminho completo com a origem do modelo simulada.
+
+**Contratos públicos:** nenhum alterado. **Novos:** `conferir_nota`, `NotaConferida`, `ParteConferida`, `Problema` (contrato GR-51, seção 4.3.2) e `validar_parcelas`. Uso previsto: na tela (GR-45), `conferir_nota(analise.dados, analise.correcoes)` depois de `obter_analise`; na F-5, dentro do `gravar`, `conferir_nota(dados, correcoes_da_confirmacao(analise_id))`.
+
+**Arquivos:**
+
+| Arquivo | Alteração |
+| ------- | --------- |
+| `documentos/conferencia.py` | novo |
+| `documentos/test_conferencia.py` | 35 testes |
+| `financeiro/servicos.py` | `validar_parcelas` (invólucro público) |
+| `docs/contratos/ContratoIntegracaoGR51.md` | minuta 0.5: seção 4.3.2; F-1 e F-2 marcadas como integradas (PR #31); P-12 |
+| `docs/requisitos/matriz-n2-etapa2.md` | DQ-15 a DQ-21: F-1 e F-2 integradas (PR #31) |
+| `README.md` | tabela de testes (F-1, F-2, F-3) e resultado |
+| `ContextoProjeto.md` | esta seção; 15.1.12 e 15.1.13 (integradas), 1.2 e 21.1 |
+
+Agents, views, templates, formulários, `processamento.py`, `usuarios/*`, `test_interface.py`, models e migrations **não** foram alterados.
+
+**Testes** (`documentos/test_conferencia.py`, 35): `validar_parcelas` com os mesmos códigos de `registrar_movimento` e `None`; uso do extraído; JSON v1 nunca identifica a nota; correções prevalecem e o extraído não muda; correção inválida não volta ao extraído; correções vazias = nenhuma; formatação não conta como alteração; correção não autorizada e formato errado; dados mal formados e extraídos que não são texto não quebram; documento extraído inválido e ausente; CPF e CNPJ extraídos exigem escolha (D-03, GR-41); faturado com CNPJ por correção; nome exigido só para pessoa nova; nome extraído e corrigido inválidos (um só problema); inativos não são problema de dado; classificação inconclusiva (GR-42), inexistente e inativa; regras de parcelas; parcelas sem vencimento ou vazias; parcela v2 com campo a mais; valor total inválido; data extraída inválida; número impresso com separadores; problemas sem valores; fornecedor com CPF; identidade completa (argumentos conferidos com `assert_called_once_with` e com `wraps`); nota já lançada; só `SELECT` e contagens inalteradas; uso dentro do `gravar` da confirmação.
+
+Mutações de controle, todas detectadas (11): correção inválida voltando ao extraído; escolha automática de documento; sem regras de parcelas; sem checar nota já lançada; classificação inexistente aceita; nome nunca exigido; sem revalidar o extraído; todos os corrigidos como alterados; série e número trocados na identidade; parcela v2 sem filtro; consulta usando o extraído com correção inválida.
+
+| Comando | Resultado |
+| ------- | --------- |
+| Conferência do banco de teste antes de cada execução | `127.0.0.1:5432`, `test_gestao_rural` inexistente, PostgreSQL 18.6; sem `--keepdb` |
+| `python manage.py test documentos.test_conferencia` | `Ran 35 tests — OK` |
+| `DB_HOST=192.0.2.1 python manage.py check` | sem problemas |
+| `DB_HOST=192.0.2.1 python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `DB_HOST=192.0.2.1 python manage.py test` (final) | `Ran 760 tests — OK` (725 da `develop` + 35) |
+| `git diff --check` | sem problemas |
+
+O Supabase não foi acessado.
+
+**Auditoria independente** (subagente, só leitura): nenhum caminho de exceção não tratada encontrado; reuso sem duplicação; só `SELECT`; nenhum arquivo do Lopes alterado. Corrigido, com testes: o teste da identidade não conferia os argumentos (troca de série e número passava); a consulta mostrava `DOCUMENTO_AUSENTE` para documento corrigido inválido; nome e data extraídos inválidos bloqueavam mesmo sem uso, e nome inválido gerava dois problemas; parcela do JSON v2 com campo a mais invalidaria a lista; `validar_parcelas(valor, None)` levantava `TypeError`; `_extraidos` era calculado duas vezes.
+
+**Divergências e pendências (não decididas pelo agente):**
+- **P-04 (parcelas ausentes):** continua pendente no contrato. A F-3 adota o comportamento mais seguro, que não inventa dados: parcela ausente ou sem vencimento bloqueia até ser corrigida (D-02). Se a equipe escolher outra alternativa, a F-3 muda.
+- **P-12 (nova):** número impresso com separadores (ex.: `000.012.345` no DANFE) é `invalido` e exige correção manual. Alternativa: remover pontos e espaços só do número extraído. Decisão da equipe.
+- **Critério da etapa 3 em 15.1.11** ("toda divergência vira `ValidationError` com `code`"): a F-3 devolve uma lista de `Problema`, mais útil para a tela; a F-5 converte em `ValidationError` na confirmação.
+- **Faixa de datas** (emissão e vencimento): sem regra aprovada; não implementada.
+- **Mapeamento v1 em dois lugares:** `cadastros/consultas.py::consultar_nota` e `documentos/conferencia.py::_extraidos`; os dois mudam no JSON v2.
+- **GR-44:** sem descrição no repositório (P-07); compatibilidade verificada só pelo contrato.
+
+**Pronto para a próxima etapa:** F-4 (resolução de pessoas: usar, criar, atribuir papel, reativar com escolha explícita) pode usar `NotaConferida.fornecedor/faturado.consulta` e `classificacao`; a F-5 pode chamar `conferir_nota` dentro do `gravar` e converter `problemas` em `ValidationError`.
+
+**Git:** branch `feature/gr-22-f3-revalidacao`, sem commit. Commit, push e PR ficam com o usuário.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
@@ -1722,7 +1802,7 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 
-**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**.
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**.
 
 ## 21.2 - Distribuição
 

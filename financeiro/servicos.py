@@ -209,6 +209,21 @@ def _validar_dados(dados):
     _validar_parcelas(dados)
 
 
+@dataclass(frozen=True)
+class _ParcelasDoLancamento:
+    valor_total: Decimal
+    parcelas: tuple
+
+
+def validar_parcelas(valor_total, parcelas):
+    """Regras das parcelas da GR-38, sem banco: as mesmas de registrar_movimento().
+
+    Usada também na conferência da nota (GR-22, F-3), antes da confirmação.
+    ValidationError com os códigos de _validar_parcelas.
+    """
+    _validar_parcelas(_ParcelasDoLancamento(valor_total, tuple(parcelas or ())))
+
+
 def _validar_parcelas(dados):
     """Pelo menos uma, numeradas 1..n, e a soma igual ao valor total (GR-38)."""
     parcelas = dados.parcelas
