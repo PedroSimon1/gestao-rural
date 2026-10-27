@@ -2449,3 +2449,39 @@ Validação independente sobre develop: **789 testes, OK**, 63.59 s,
 incluindo nove testes novos. PostgreSQL local isolado; DB_HOST inalcançável;
 banco descartável ausente antes/depois por SELECT. Sem Agents reais, escrita
 nas consultas de conferência, migrations, QA/PROD ou serviços de Simon alterados.
+
+
+## 34.20 - Lopes: integração da conferência GR-45 com GR-43
+
+27/10/2026. Base develop `ad91c9c`, com GR-44/PR #36 e componentes GR-45/PR #37
+integrados. Incremento local preparado para PR próprio; sem commit, push,
+PR, merge, deploy ou migration remota pelo agente.
+
+O formulário inicial envia para analises/nova/: a view valida sessão/formulário,
+processa e chama criar_analise, redirecionando ao UUID de conferência. Guarda
+somente o JSON autorizado pela GR-43, sem PDF nem chave Gemini. A justificativa
+do processamento é externa ao JSON oficial e não é persistida nem recuperada
+na nova conferência; eventual retenção requer contrato com Simon. A rota antiga
+de processamento permanece compatível, mas o formulário usa o fluxo novo.
+
+Rotas GET/POST de conferência chamam obter_analise, validar_conferencia/F-2/F-3
+e registrar_correcoes. O original vem do banco, após autorização da sessão.
+Reabertura preenche as correções salvas (incluindo categoria, documento escolhido
+e parcelas). Só diferenças da F-3 são gravadas; dados extraídos permanecem iguais.
+POST envia versao_correcoes e conflito em outra aba retorna 409, preservando a
+versão antiga na tela até recarregar. UUID vem da rota; campos internos enviados
+no formulário são recusados. Cancelamento só POST, com CSRF, apaga os dados pelo
+serviço oficial. Expiração e autorização são as da GR-43, sem duplicação.
+
+Não há criação/reativação de pessoas/papéis, classificação, movimento ou parcela.
+Consultas são apresentadas a partir da F-3. Confirmação financeira permanece
+indisponível: identidade fiscal insuficiente no JSON v1 não é contornada.
+Pendente: G-01/JSON fiscal, serviços/decisões de cadastro e confirmação F-4/F-5,
+P-05 e revisão do fluxo completo com Simon. GR-45/51 ainda não estão encerradas.
+
+Validação: **834 testes, OK**, 52.26 s, incluindo 12 novos testes
+de fluxo para criação, correção, reabertura, conflito de abas, outra sessão,
+expiração, cancelamento, CSRF, campos inválidos, banco indisponível, sessão sem
+código e categoria inconclusiva. PostgreSQL local isolado; DB_HOST inalcançável;
+banco descartável ausente antes/depois por SELECT. Agents simulados. Sem alterações
+nos serviços de Simon, models, migrations, configurações ou QA/PROD.

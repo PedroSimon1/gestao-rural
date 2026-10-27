@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from cadastros.models import Classificacao, Status, TipoClassificacao
+from cadastros.validators import tipo_do_documento
 from .conferencia import NotaConferida, conferir_nota
 from .correcoes import validar_correcoes
 from .forms_conferencia import ConferenciaForm, ParcelasConferenciaFormSet
@@ -21,7 +22,7 @@ class RevisaoFormulario:
     nota: NotaConferida
 
 
-def preparar_conferencia(original):
+def preparar_conferencia(original, correcoes=None):
     """Preenche sem inventar vencimentos nem escolher documentos ambíguos."""
     fornecedor, faturado = original.get('fornecedor') or {}, original.get('faturado') or {}
     categoria = Classificacao.objects.filter(tipo=TipoClassificacao.DESPESA,
@@ -40,6 +41,27 @@ def preparar_conferencia(original):
         initial['documento_faturado'] = 'CPF' if cpf else 'CNPJ'
     parcelas = [{'data_vencimento': p.get('data_vencimento'), 'valor': p.get('valor')}
                 for p in original.get('parcelas', [])]
+    # As correções vêm da análise autorizada, nunca de um original enviado pelo browser.
+    correcoes = correcoes or {}
+    for campo, destino in (
+        ('fornecedor.razao_social', 'fornecedor_nome'), ('fornecedor.documento', 'fornecedor_documento'),
+        ('faturado.nome', 'faturado_nome'), ('numero_nota', 'numero_nota'),
+        ('serie', 'serie_nota'), ('data_emissao', 'data_emissao'), ('valor_total', 'valor_total'),
+    ):
+        if campo in correcoes:
+            initial[destino] = correcoes[campo]
+    if 'faturado.documento' in correcoes:
+        documento = correcoes['faturado.documento']
+        tipo = tipo_do_documento(documento)
+        initial['documento_faturado'] = tipo
+        initial['faturado_cpf' if tipo == 'CPF' else 'faturado_cnpj'] = documento
+    if 'tipo_despesa' in correcoes:
+        categoria = Classificacao.objects.filter(tipo=TipoClassificacao.DESPESA,
+            status=Status.ATIVO, codigo=correcoes['tipo_despesa']).first()
+        initial['classificacao'] = categoria.pk if categoria else None
+    if 'parcelas' in correcoes:
+        parcelas = [{'data_vencimento': p['data_vencimento'], 'valor': p['valor']}
+                    for p in correcoes['parcelas']]
     return ConferenciaForm(initial=initial), ParcelasConferenciaFormSet(initial=parcelas, prefix='parcelas')
 
 

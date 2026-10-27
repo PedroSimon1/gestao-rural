@@ -1,0 +1,9 @@
+{% extends "documentos/base.html" %}
+{% block titulo %}Análise da nota — Gestão Rural{% endblock %}
+{% block conteudo %}
+<section class="cartao">
+  <h1>Análise da nota</h1>
+  <p role="status">{{ mensagem }}</p>
+  <a href="{% url 'documento_inicio' %}">Voltar ao envio da nota</a>
+</section>
+{% endblock %}
