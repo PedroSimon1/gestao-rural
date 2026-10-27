@@ -1,4 +1,4 @@
-{% load static %}<!DOCTYPE html>
+{% load static versao_publicada %}<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -24,5 +24,16 @@
   <main class="container">
     {% block conteudo %}{% endblock %}
   </main>
+  {% commit_publicado as sha_publicado %}
+  <footer class="container">
+    <p class="texto-apoio">
+      {% if sha_publicado %}
+        Versão publicada:
+        <a href="https://github.com/PedroSimon1/gestao-rural/commit/{{ sha_publicado }}"><code>{{ sha_publicado }}</code></a>
+      {% else %}
+        Versão publicada: não informada neste ambiente.
+      {% endif %}
+    </p>
+  </footer>
 </body>
 </html>
