@@ -54,6 +54,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Testes executados      | `python manage.py test` → **291 testes, OK** (Python 3.14.8 do `.venv`, `.env` local)        |
 | Atualização posterior  | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit |
 | Estado da `develop` (27/10/2026) | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
+| Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35 |
 | GR-22, F-3 (27/10/2026) | branch `feature/gr-22-f3-revalidacao` sobre `develop` `fb18872` (F-1 e F-2 integradas, PR #31): combinação e revalidação implementadas, sem commit; `python manage.py test` → **Ran 760 tests — OK** (local); seção 15.1.14 |
 | GR-22, F-2 (27/10/2026) | mesma branch: correções em `AnalisePendente` implementadas, sem commit; `python manage.py test` → **Ran 725 tests — OK** (local); seção 15.1.13 |
 | GR-22, F-1 (27/10/2026) | branch `feature/gr-22-confirmacao-transacional`: identidade fiscal implementada, sem commit; `python manage.py test` → **Ran 691 tests — OK** (local); seção 15.1.12 |
@@ -2363,3 +2364,182 @@ antes e depois, confirmado por SELECT. Os 651 testes da base anterior
 Trabalhos de GR-41/42/44/45 ficam fora desta entrega. As alterações anteriores
 estão preservadas no stash humano `backup-lopes-antes-prs` e em backups locais.
 Sem acesso a QA/PROD, migrations remotas ou publicação nesta correção.
+
+
+# 35 - Auditoria de sincronização Simon e Lopes: GR-22 F-3 versus GR-41/42/44/45
+
+## 35.1 - Identificação e objetivo
+
+27/10/2026. Auditoria só de leitura, executada na branch `feature/gr-22-f3-revalidacao` (Pedro Simon, com agente). Objetivo: confirmar no Git o que pertence a cada frente, comparar a F-3 da GR-22 com as entregas recentes de Gustavo Lopes (GR-41, GR-42, GR-44, GR-45) e recomendar a integração. Nenhum código, teste, migration ou contrato alterado; único arquivo modificado: este documento. Nenhum commit, merge, troca de branch ou acesso a QA/PROD.
+
+**Correção da premissa da tarefa:** a solicitação tratava a F-3 como "ainda não integrada". O Git mostra o contrário: a F-3 foi integrada à `develop` pelo **PR #34** (merge `3fdb204`, 27/10/2026, 16:28 UTC) **antes** das GR-42, GR-44 e GR-45, que foram construídas sobre ela. Os registros 15.1.14 ("sem commit") e a linha correspondente em 1.2 são **HISTÓRICO**.
+
+## 35.2 - Estado e commits das branches (verificado)
+
+| Item | Valor |
+| ---- | ----- |
+| Branch atual | `feature/gr-22-f3-revalidacao` = `origin/feature/gr-22-f3-revalidacao` = `8485457` (working tree limpo antes desta edição) |
+| `develop` | `ad91c9c` = `origin/develop` (merge do PR #37) |
+| `main` | `f7786e8` (Etapa 1; nada da Etapa 2 publicado) |
+| `git merge-base develop HEAD` | `8485457` (= HEAD) |
+| `git log develop..HEAD` | **vazio**: a branch F-3 não tem nada a integrar |
+| `git merge-base --is-ancestor` | `1a6a06a` e `8485457` são ancestrais da `develop` |
+| `git diff --name-status develop...HEAD` | vazio |
+| `git diff --name-status HEAD..develop` | 20 arquivos (só adições/modificações; **nenhuma exclusão**): são as entregas do Lopes que a branch F-3 ainda não tem, não remoções da F-3 |
+| F-3 intacta | `documentos/conferencia.py`, `test_conferencia.py`, `financeiro/servicos.py` e `correcoes.py` idênticos entre `1a6a06a`, HEAD e `develop` (`git diff` vazio; blob de `conferencia.py` `7efc936` nos três) |
+
+Linha do tempo na `develop` (todos em 27/10/2026): #33 GR-41 `1b72d25` (merge `d814469`) → #34 F-3 `1a6a06a`+`8485457` (merge `3fdb204`) → #35 GR-42 `018d1ef` (merge `5d40318`) → #36 GR-44 `dbc5a98` (merge `b995825`) → #37 GR-45 parcial `3cb2fe2` + sincronização `499a48c` (merge `ad91c9c`).
+
+## 35.3 - Entregas confirmadas de Simon
+
+| Entrega | Situação | Evidência |
+| ------- | -------- | --------- |
+| GR-35 Pessoa/PapelPessoa | integrada à `develop` | PR #24 (15.1.2) |
+| GR-36 Classificação | integrada | PR #25 (15.1.3) |
+| GR-37 Movimento/MovimentoClassificacao | integrada | PR #26 (15.1.4) |
+| GR-38 ParcelaConta | integrada | PR #27 (15.1.5) |
+| GR-40 consultas de existência | integrada | PR #28 (15.1.6) |
+| GR-43 AnalisePendente | integrada | PR #29 (15.1.7) |
+| GR-22 F-1 identidade fiscal | integrada | PR #31, `b850421` (15.1.12) |
+| GR-22 F-2 correções | integrada | PR #31, `5cf75ca` (15.1.13) |
+| GR-22 F-3 combinação e revalidação | **integrada** | PR #34, `1a6a06a` (15.1.14); `conferir_nota(dados, correcoes) -> NotaConferida`, só leitura; `validar_parcelas()` público em `financeiro/servicos.py` |
+
+Testadas localmente nesta auditoria (seção 35.14). F-4 (decisões de cadastro) e F-5 (confirmação transacional): **PENDENTES**, sem código.
+
+## 35.4 - Entregas confirmadas de Lopes
+
+| Tarefa | Situação | O que existe na `develop` | Parcial ou integral |
+| ------ | -------- | ------------------------- | ------------------- |
+| GR-41 faturado PJ | integrada (PR #33) | `Faturado.cnpj` opcional (numérico e alfanumérico), `validacoes.faturado_cnpj`, prompt do Extrator, aviso na tela; `agents/extrator/VERSAO_SCHEMA` 1 → **2**; JSON final mantém as 10 chaves; `test_faturado_pj.py` (11 testes) | integral para o faturado; **não** é o JSON fiscal v2 da GR-51 (sem `fornecedor.cpf`, modelo, série, chave de acesso) |
+| GR-42 classificação inconclusiva | integrada (PR #35) | `ClassificacaoInconclusivaError(classificacao=...)`; `processamento._executar` preserva a extração com `tipo_despesa=None`; `ResultadoProcessamento.situacao` (`AGUARDANDO_CLASSIFICACAO`/`CLASSIFICADA`, derivado, sem chave nova); aviso em `inicio.html`; `test_classificacao_pendente.py` | **parcial** (commit e 34.17): seleção manual persistida depende da GR-45/GR-43 |
+| GR-44 consultas na interface | integrada (PR #36) | `documentos/consultas.py::consultar_resultado` (compõe `consultar_pessoa`/`consultar_classificacao` da GR-40, aceita `faturado.cnpj`); `documentos/adaptador_financeiro.py` (`adaptar_resultado -> NotaParaConferencia`, `documento_faturado`); `views._linhas_consultas` exibe as consultas na tela inicial; trata `ValidationError` e `DatabaseError` com mensagem segura | integral para a exibição somente leitura; sem gravação |
+| GR-45 conferência | integrada **parcial** (PR #37) | `forms_conferencia.py` (`ConferenciaForm`, `ParcelasConferenciaFormSet`, máx. 120), `interface_conferencia.py` (`preparar_conferencia`, `validar_conferencia -> RevisaoFormulario`), `templates/documentos/conferencia.html`, 9 testes | **parcial**: sem rota (`documentos/urls.py` só tem `documento_inicio`), sem view, sem `AnalisePendente`, sem `registrar_correcoes`, sem confirmação |
+
+## 35.5 - Situação dos Pull Requests
+
+PRs #31 a #37: **MERGED** na `develop` (conferido com `gh pr list`). **PR #38** (`feature/gr-45-integracao-gr43`, Lopes, commit `469f9e6`): **CLOSED sem merge** em 27/10/2026. Pela descrição, ligava a conferência à GR-43 (`views_analises.py`, rotas em `urls.py`, `test_fluxo_conferencia.py`, 834 testes informados). O código desse PR **não foi verificado** nesta auditoria (branch não presente localmente); o motivo do fechamento não está registrado no repositório.
+
+## 35.6 - Arquivos compartilhados
+
+Nenhum arquivo de código da F-3 foi modificado pelas entregas do Lopes. Arquivos tocados pelas duas frentes:
+
+| Arquivo | Simon | Lopes | Risco |
+| ------- | ----- | ----- | ----- |
+| `ContextoProjeto.md` | 15.1.14, 1.2, esta seção 35 | 34.16 a 34.19 (final do arquivo) | **conflito certo** ao trazer esta seção à `develop` (ambos acrescentam no fim do arquivo) |
+| `docs/contratos/ContratoIntegracaoGR51.md` | atualizado na F-3 | não alterado | desatualizado em relação à GR-41 (35.9, item 7) |
+| `documentos/conferencia.py`, `test_conferencia.py` | F-3 | **só consumidos** (`interface_conferencia.py` importa `conferir_nota` e `NotaConferida`) | nenhum |
+| `documentos/correcoes.py` | F-2 | só consumido (`validar_correcoes`) | nenhum |
+| `financeiro/servicos.py` | F-3 (`validar_parcelas`) | só consumido (`MAXIMO_DE_PARCELAS`) | nenhum |
+| `documentos/views.py`, `processamento.py`, `inicio.html`, `test_interface.py`, `test_processamento.py` | não alterados pela F-3 | GR-41/42/44 | nenhum para a F-3 |
+
+`adaptador_financeiro.py`, `consultas.py`, `forms_conferencia.py`, `interface_conferencia.py` e `conferencia.html` são arquivos novos e exclusivos do Lopes.
+
+## 35.7 - Contratos e interfaces identificados
+
+- **F-3** — `conferir_nota(dados, correcoes=None) -> NotaConferida(fornecedor, faturado, classificacao, numero_nota, serie, data_emissao, valor_total, parcelas, identidade_fiscal, campos_alterados, problemas)`; `Problema(campo, codigo)` com códigos `ausente`, `invalido`, `escolha_necessaria`, `classificacao_inexistente`, códigos da GR-38 em `parcelas` e da F-1 em `identidade_fiscal` (`nota_ja_lancada`, `identidade_fiscal_insuficiente`...). Nunca lança por dado ruim; nunca escreve.
+- **GR-45** — `preparar_conferencia(original) -> (ConferenciaForm, ParcelasConferenciaFormSet)`; `validar_conferencia(original, dados_post) -> (form, parcelas, RevisaoFormulario(original, correcoes, nota) | None)`; lança `ValidationError` (`campo_nao_editavel`) para campos fora da lista; usa `validar_correcoes` e `conferir_nota`, e só mantém em `correcoes` os `nota.campos_alterados`.
+- **GR-44** — `consultar_resultado(resultado) -> ResultadoConsultas` (GR-40); `adaptar_resultado(resultado) -> NotaParaConferencia` com `pendencias` (`fornecedor_documento_invalido`, `classificacao_ausente`, `parcela_soma`...); lança `ValidationError` (`resultado_invalido`, `faturado_documento_ambiguo`).
+- **GR-41** — JSON final com `faturado = {nome, cpf, cnpj}` e `validacoes.faturado_cnpj`; `VERSAO_SCHEMA` do Extrator = 2; `documentos/analises.VERSAO_DADOS` continua **1** e `CHAVES_DOS_DADOS` só confere as chaves de primeiro nível (o JSON da GR-41 é aceito por `criar_analise`).
+- **GR-42** — `tipo_despesa=None` no JSON final; `ResultadoProcessamento.situacao`.
+
+## 35.8 - Diferenças entre as implementações de conferência
+
+Não há duas implementações concorrentes de conferência: a GR-45 **é uma camada de formulário sobre a F-3** (a proposta antiga de `conferencia.py` do Lopes não foi aplicada; 34.18 e 34.19). As diferenças reais estão entre a F-3 e o **adaptador da GR-44**, que normaliza os mesmos dados por outro caminho:
+
+| Aspecto | F-3 (`conferir_nota`) | GR-44 (`adaptar_resultado`/`consultar_resultado`) | GR-45 (`preparar_conferencia`) |
+| ------- | --------------------- | ------------------------------------------------- | ------------------------------ |
+| Dado ruim | registra `Problema` e continua | lança `ValidationError` e interrompe todas as consultas | mostra erro no formulário |
+| CPF+CNPJ no faturado (D-03) | `escolha_necessaria` | `faturado_documento_ambiguo` (consulta abortada) | exige escolha explícita (radio) |
+| Nome do fornecedor | só `razao_social` (`nome_fantasia` não é corrigível) | `razao_social or nome_fantasia` | `razao_social or nome_fantasia` como valor inicial |
+| `valor_total` ausente | problema `ausente` | `resultado_invalido` | campo obrigatório |
+| Parcelas | `validar_parcelas` (GR-38, códigos oficiais) | reimplementa (≤120, numeração 1..n, vencimento, soma) com códigos próprios (`parcela_soma`...) | formset + F-3 |
+| Documento inválido | consulta devolve `DOCUMENTO_INVALIDO` | `PessoaExtraida(documento=None, "invalido")` | `validar_documento` no `clean` |
+
+Conclusão: regras equivalentes no resultado para os casos testados, mas com **duas fontes** de normalização (F-3 e adaptador) e **dois vocabulários** de pendência. Divergência futura é provável se uma regra mudar só em um lado.
+
+## 35.9 - Incompatibilidades e possíveis conflitos
+
+1. **Merge de código: nenhum conflito.** A F-3 já está na `develop`; `develop...HEAD` é vazio.
+2. **Conflito documental certo:** esta seção 35 foi escrita na branch F-3, cujo `ContextoProjeto.md` termina em 34.15; a `develop` acrescentou 34.16 a 34.19 no mesmo ponto. Resolução: manter as duas partes, na ordem 34.16 → 34.17 → 34.18 → 34.19 → 35. A linha nova em 1.2 não conflita (a `develop` só alterou o fim do arquivo).
+3. **Duplicação de responsabilidade:** `adaptador_financeiro.adaptar_resultado` e `conferencia._extraidos/_normalizado` normalizam o mesmo JSON; validação de parcelas reimplementada no adaptador em vez de `validar_parcelas`.
+4. **Duplicação de consulta:** `consultas.consultar_resultado` (GR-44) e `cadastros.consultas.consultar_nota` (GR-40, ainda só `faturado.cpf`) coexistem; a F-3 não usa nenhum dos dois (chama `consultar_pessoa` direto e já aceita `faturado.cnpj`).
+5. **Versão dos dados:** Extrator em `VERSAO_SCHEMA = 2`, `VERSAO_DADOS = 1` na análise, docstrings da F-3 dizem "JSON final, versão 1". Não quebra nada hoje (a F-3 lê `faturado.cnpj` e ignora campos a mais), mas o número da versão deixou de identificar o formato.
+6. **Bloqueio fiscal estrutural:** `_identidade` chama `identificar_nota(modelo=None, ...)`; sem modelo/chave de acesso no JSON, toda nota recebe `identidade_fiscal_insuficiente`, mesmo com série corrigida. A GR-45 exibe o bloqueio e não o contorna (correto). Depende de G-01 / JSON fiscal.
+7. **Contrato GR-51 desatualizado** (não alterado nesta tarefa, por restrição): ainda diz "F-1 (não integrada)" e "o Extrator só extrai `faturado.cpf`".
+8. **Mensagem de erro de consulta** (GR-44): CPF+CNPJ no faturado suprime também a consulta do fornecedor e da classificação na tela inicial; a F-3 trataria cada parte separadamente.
+
+## 35.10 - Funcionalidades reutilizáveis
+
+- **Preservar integralmente (Simon):** `conferir_nota`, `NotaConferida`, `Problema`, `validar_parcelas`, `validar_correcoes`, `registrar_correcoes`, `identificar_nota`/`nota_lancada`, GR-40 e GR-43.
+- **Preservar integralmente (Lopes):** schema e prompt da GR-41; tratamento da GR-42 em `processamento.py`; `ConferenciaForm` e `ParcelasConferenciaFormSet`; `interface_conferencia.validar_conferencia` (já delega à F-3); `conferencia.html`; `_linhas_consultas` e o tratamento de `DatabaseError` na view.
+- **Candidatos à convergência (tarefa futura, não executada):** `adaptador_financeiro.adaptar_resultado` (pendências poderiam vir de `conferir_nota(dados).problemas`); `consultas.consultar_resultado` (poderia usar `nota.fornecedor.consulta`, `nota.faturado.consulta`, `nota.classificacao`) ou, alternativamente, adaptar `consultar_nota` da GR-40 ao `faturado.cnpj`.
+
+## 35.11 - Riscos técnicos e de integração
+
+| Risco | Severidade | Medida |
+| ----- | ---------- | ------ |
+| Regras duplicadas F-3 × adaptador divergirem | média | unificar em tarefa própria, com testes de equivalência antes |
+| Bloqueio fiscal impedir qualquer confirmação | alta para a GR-51 | decidir G-01 (modelo/série/chave no JSON ou informados na tela) |
+| Conflito em `ContextoProjeto.md` | baixa | resolução manual descrita em 35.9 |
+| Contrato GR-51 desatualizado induzir erro | média | atualização documental em tarefa própria |
+| PR #38 fechado: rota/sessão da conferência inexistente | alta para a GR-45 | reabrir ou refazer sobre `ad91c9c`, respeitando 34.13 |
+| `VERSAO_DADOS` não acompanhar o formato | baixa | decidir com P-05/contrato |
+| Banco | baixa | nenhuma migration nova nas frentes auditadas; a F-3 e a GR-45 só leem (teste `SomenteLeituraTests`) |
+
+## 35.12 - Estratégia recomendada
+
+Alternativas avaliadas:
+
+- **A. Merge da `develop` na branch F-3:** desnecessário para o código (a branch não tem nada próprio); serve apenas para levar esta documentação, com um conflito em `ContextoProjeto.md`.
+- **B. Nova branch a partir da `develop` com transporte seletivo da F-3:** sem objeto — não há código da F-3 fora da `develop`.
+- **C. Refatorar a F-3 para reutilizar a GR-45:** **não recomendado**; a dependência correta é a inversa e já existe (GR-45 → F-3).
+- **D. (recomendada)** Considerar a F-3 **encerrada como integração** e tratar o restante como trabalho novo a partir da `develop`:
+  1. levar esta auditoria à `develop` (merge da `develop` nesta branch resolvendo só o `ContextoProjeto.md`, ou nova branch `docs/*` a partir da `develop` com esta seção);
+  2. abrir uma tarefa de convergência pequena (GR-44 × F-3) para eliminar a normalização e as regras de parcela duplicadas;
+  3. seguir com GR-45 (rota + GR-43) e F-4/F-5 em branches novas a partir da `develop`.
+
+Justificativa: zero risco de regressão de código (nada é movido), preserva o trabalho dos dois sem reescrita, mantém a direção de dependência atual, PRs pequenos e revisáveis, nenhum impacto em banco.
+
+## 35.13 - Etapas da futura integração (não executadas)
+
+1. (Usuário) Decidir como levar a seção 35 à `develop`: `git merge develop` nesta branch (conflito só em `ContextoProjeto.md`) **ou** nova branch `docs/auditoria-sincronizacao-f3` a partir da `develop`.
+2. (Usuário) PR para `develop`; após o merge, a branch `feature/gr-22-f3-revalidacao` pode ser encerrada.
+3. (Simon + Lopes) Corrigir 15.1.14 e o contrato GR-51 para refletir PRs #33 a #37 (tarefa documental).
+4. (Lopes, com revisão de Simon) Tarefa de convergência: `consultar_resultado`/`adaptar_resultado` passam a usar `conferir_nota` ou a GR-40 adaptada; testes de equivalência antes da troca.
+5. (Lopes) GR-45: rota autenticada com `criar_analise`/`obter_analise`/`registrar_correcoes(versao)`/`cancelar_analise` (retomar o PR #38 com revisão).
+6. (Simon) F-4 (decisões de cadastro) e F-5 (`confirmar_analise` + `registrar_movimento`).
+7. (Juntos) G-01/JSON fiscal; testes ponta a ponta e de concorrência; homologação.
+
+## 35.14 - Testes
+
+Executados nesta auditoria (27/10/2026, PostgreSQL local de `DB_TEST_*`, Agents simulados, nenhum banco remoto):
+
+| Alvo | Comando | Resultado |
+| ---- | ------- | --------- |
+| `develop` `ad91c9c` (exportada com `git archive` para diretório temporário fora do repositório) | `manage.py check` | sem problemas |
+| idem | `manage.py test --noinput` | **Ran 822 tests — OK** |
+| idem | `test_conferencia`, `test_interface_conferencia`, `test_consultas`, `test_interface_consultas`, `test_classificacao_pendente`, `test_faturado_pj` | **Ran 96 tests — OK** |
+| branch F-3 `8485457` (working tree) | `manage.py test --noinput` | **Ran 761 tests — OK** |
+
+Não executados: testes no Windows; testes com Gemini real; testes do PR #38. A referência histórica de 760 testes (15.1.14) passa a 761 na branch F-3 por causa do teste incluído na sincronização `8485457`.
+
+Necessários depois das próximas integrações: suíte completa na `develop`; testes de equivalência F-3 × adaptador (CPF+CNPJ, documento inválido, `valor_total` ausente, parcelas com soma divergente, classificação nula); fluxo GR-45 com GR-43 (sessão, TTL, `versao_correcoes`, cancelamento); ponta a ponta com confirmação (F-5) e concorrência (duas abas, mesma nota).
+
+## 35.15 - Pendências com a GR-51
+
+- G-01: origem de modelo, série e chave de acesso (bloqueio `identidade_fiscal_insuficiente`).
+- P-05 e versão do JSON (`VERSAO_SCHEMA` 2 × `VERSAO_DADOS` 1 × "v2" da proposta do contrato).
+- P-11: significado de `campos_corrigidos` (a GR-45 já envia só as diferenças calculadas pela F-3).
+- Q-05: criação de classificação a partir do Classificador (`classificacao_inexistente`).
+- Ratificação T-01 a T-07, P-04 a P-10 (contrato 1.0) e atualização do contrato após PRs #33 a #37.
+- F-4, F-5, rota da GR-45, testes ponta a ponta. **Nenhuma decisão aberta foi tomada nesta auditoria.**
+
+## 35.16 - Próximas tarefas
+
+- **Pedro Simon:** versionar esta auditoria (35.13, passos 1 e 2); F-4 e F-5 da GR-22; revisar a tarefa de convergência; atualização documental do contrato GR-51.
+- **Gustavo Lopes:** retomar a integração GR-45 × GR-43 (conteúdo do PR #38) a partir de `ad91c9c`; propor a convergência do adaptador da GR-44 com a F-3; concluir a GR-42 (seleção manual persistida via `registrar_correcoes`).
+- **Juntos:** G-01, P-05, P-11, Q-05; testes ponta a ponta; migrations em homologação coordenadas.
+
+**Conclusão: APTO PARA INTEGRAÇÃO DIRETA — já realizada.** A F-3 está na `develop` desde o PR #34, sem alteração posterior, e é consumida pela GR-45 sem adaptação. Resta apenas integrar esta documentação (um conflito previsível em `ContextoProjeto.md`). As adaptações listadas (35.10, 35.13) são melhorias de convergência e continuidade da GR-51, não condições para a F-3.
+
+**Git desta tarefa:** branch `feature/gr-22-f3-revalidacao`; único arquivo modificado: `ContextoProjeto.md` (seções 1.2 e 35), sem commit. Commit, push e PR são do usuário.
