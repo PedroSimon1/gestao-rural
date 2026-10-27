@@ -96,6 +96,7 @@ def _processar(arquivo, gemini_api_key):
     resultado = processamento.resultado
     return {
         "resumo": _resumo(resultado),
+        "aguardando_classificacao": processamento.situacao == "AGUARDANDO_CLASSIFICACAO",
         "avisos": _avisos_validacao(resultado),
         "justificativa": processamento.justificativa,
         # Ordem do contrato: a de montar_resultado (dict preserva a inserção).
