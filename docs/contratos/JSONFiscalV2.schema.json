@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GR-51 JSON fiscal v2 — estrutura alinhada, ativação coordenada pendente",
+  "description": "Contrato de saída/armazenamento, não response_schema do Gemini. Validação estrutural não autoriza lançamento.",
+  "type": "object",
+  "properties": {
+    "fornecedor": {
+      "type": "object",
+      "properties": {
+        "razao_social": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nome_fantasia": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cnpj": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9A-Z]{12}[0-9]{2}$"
+        },
+        "cpf": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{11}$"
+        }
+      },
+      "required": [
+        "razao_social",
+        "nome_fantasia",
+        "cnpj",
+        "cpf"
+      ],
+      "additionalProperties": false
+    },
+    "faturado": {
+      "type": "object",
+      "properties": {
+        "nome": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cpf": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{11}$"
+        },
+        "cnpj": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9A-Z]{12}[0-9]{2}$"
+        }
+      },
+      "required": [
+        "nome",
+        "cpf",
+        "cnpj"
+      ],
+      "additionalProperties": false
+    },
+    "numero_nota": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data_emissao": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "itens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantidade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+          },
+          "valor_unitario": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,10}\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valor_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,10}\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "descricao",
+          "quantidade",
+          "valor_unitario",
+          "valor_total"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "quantidade_parcelas": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "parcelas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "data_vencimento": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "valor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,10}\\.[0-9]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "numero",
+          "data_vencimento",
+          "valor"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "valor_total": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9]{1,10}\\.[0-9]{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tipo_despesa": {
+      "enum": [
+        "MANUTENCAO_E_OPERACAO",
+        "INFRAESTRUTURA_E_UTILIDADES",
+        null
+      ]
+    },
+    "validacoes": {
+      "type": "object",
+      "properties": {
+        "fornecedor_cnpj": {
+          "$ref": "#/$defs/documento"
+        },
+        "faturado_cpf": {
+          "$ref": "#/$defs/documento"
+        },
+        "faturado_cnpj": {
+          "$ref": "#/$defs/documento"
+        },
+        "fornecedor_cpf": {
+          "$ref": "#/$defs/documento"
+        },
+        "chave_acesso": {
+          "$ref": "#/$defs/chave"
+        }
+      },
+      "required": [
+        "fornecedor_cnpj",
+        "faturado_cpf",
+        "faturado_cnpj",
+        "fornecedor_cpf",
+        "chave_acesso"
+      ],
+      "additionalProperties": false
+    },
+    "documento_fiscal": {
+      "type": "object",
+      "properties": {
+        "chave_acesso": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        },
+        "modelo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        },
+        "serie": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        }
+      },
+      "required": [
+        "chave_acesso",
+        "modelo",
+        "serie"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "fornecedor",
+    "faturado",
+    "numero_nota",
+    "data_emissao",
+    "itens",
+    "quantidade_parcelas",
+    "parcelas",
+    "valor_total",
+    "tipo_despesa",
+    "validacoes",
+    "documento_fiscal"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "documento": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "valido",
+            "invalido",
+            "ausente"
+          ]
+        },
+        "motivo": {
+          "enum": [
+            null,
+            "digitos_verificadores_invalidos"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "motivo"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "invalido"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "motivo": {
+                "const": "digitos_verificadores_invalidos"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "motivo": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "chave": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "valido",
+            "invalido",
+            "ausente"
+          ]
+        },
+        "motivo": {
+          "enum": [
+            null,
+            "chave_acesso_invalida"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "motivo"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "invalido"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "motivo": {
+                "const": "chave_acesso_invalida"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "motivo": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
