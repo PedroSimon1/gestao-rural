@@ -55,6 +55,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Atualização posterior                   | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit                                                                                                                                                                                                                        |
 | Estado da `develop` (27/10/2026)        | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
 | Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35                                                                                                         |
+| GR-22, F-6 (27/10/2026)                 | branch `feature/gr-22-f6-cadastro-pendente` sobre `develop` `b70ee9a` (G-01/P-09 integradas, PR #46): salvar, listar e regularizar cadastro pendente, sem rota nem tela; sem commit; `python manage.py test` → **Ran 985 tests — OK** (local); seção 15.1.18 |
 | GR-51 G-01/P-09 backend (27/10/2026)    | branch `feature/gr-51-fiscal-v2-backend` sobre `develop` `37b41e7` (F-5 integrada, PR #45): análise aceita JSON v1 e v2, chave de acesso e modelo corrigíveis, F-3 lendo o bloco fiscal; notas válidas deixam de ficar em `identidade_fiscal_insuficiente` no backend; tela ainda não ligada; sem commit; `python manage.py test` → **Ran 963 tests — OK** (local); seção 15.1.17 |
 | GR-22, F-5 (27/10/2026)                 | branch `feature/gr-22-f5-lancamento` sobre `develop` `59a92d9` (F-1 a F-4, JSON v2 opt-in e campos fiscais do Lopes integrados): lançamento transacional implementado, sem commit; fluxo real **bloqueado** pela identidade fiscal (G-01/P-09 pendentes no backend); `python manage.py test` → **Ran 940 tests — OK** (local); seção 15.1.16 |
 | GR-22, F-4 (27/10/2026)                 | branch `feature/gr-22-f4-resolucao-pessoas` sobre `develop` `ea4b5f9` (F-1 a F-3, GR-41/42/44 e GR-45 com GR-43 integradas, PRs #31 a #40): resolução de pessoas implementada, sem commit; `python manage.py test` → **Ran 878 tests — OK** (local); seção 15.1.15                                                                                                                                                                                                         |
@@ -1816,6 +1817,69 @@ Supabase, QA e PROD não foram acessados; nenhuma migration aplicada. Emissão v
 
 **Git:** branch `feature/gr-51-fiscal-v2-backend`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
+## 15.1.18 - GR-22, etapa F-6: cadastro pendente e regularização (27/10/2026, branch `feature/gr-22-f6-cadastro-pendente`, sem commit)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_TEST_*`, banco descartável); **não integrado**; **sem migration**; **sem rota nem tela**. Branch criada a partir da `develop` em `b70ee9a` (merge do PR #46, G-01/P-09).
+
+**Objetivo:** ação "Salvar cadastro pendente", separada da confirmação financeira e com consentimento explícito; listagem dos incompletos para seleção manual; regularização avulsa. O lançamento continua bloqueado até a regularização.
+
+**O que já existia e foi reutilizado (sem mudança):** `Pessoa(situacao_documental=INCOMPLETO)` e as constraints (GR-35); `Pessoa.regularizar()` (mesmo registro, recusa documento de outra pessoa); `Pessoa.objects.incompletas()`; `atribuir_papel`; o bloqueio `pessoa_incompleta` em `registrar_movimento` (GR-37) e na F-4; a seleção de incompleto no lançamento (F-4: `pessoa_incompleta_id` + `REGULARIZAR`, levada pela F-5 em `DecisoesDaParte`); os códigos de bloqueio da F-4.
+
+**Decisões:** aplicadas DQ-05 (incompleto só sem CPF/CNPJ válido; documento inválido nunca guardado), D-04/DQ-13 (ação separada com consentimento, lançamento bloqueado, seleção manual, sem mesclagem por nome) e T-05 deixada em aberto (o serviço não lê nem altera a análise). Os nomes seguem a proposta da seção 5.6 do contrato (`salvar_cadastro_pendente`, `listar_incompletos`); o arquivo é `cadastros/pendentes.py` (o contrato sugeria `cadastros/servicos.py`, nome genérico demais ao lado de `resolucao.py`). **Regra derivada, a confirmar:** com documento válido na nota, salvar como pendente é recusado (`documento_valido`), porque a DQ-05 só prevê o incompleto para quem não tem CPF/CNPJ válido.
+
+**Contrato** (`cadastros/pendentes.py`):
+
+```python
+salvar_cadastro_pendente(razao_social, papel, *, consentimento, documento_extraido=None) -> CadastroPendente
+listar_incompletos(papel=None) -> tuple[CadastroPendente, ...]
+regularizar_cadastro_pendente(pessoa_id, documento) -> Pessoa
+
+CadastroPendente(id, razao_social, status, papeis)   # papeis: ((papel, status), ...)
+```
+
+| Função | Regras | Erros (`ValidationError.code`) |
+| ------ | ------ | ------------------------------ |
+| `salvar_cadastro_pendente` | `consentimento` precisa ser exatamente `True` (argumento obrigatório); papel escolhido pelo usuário, nunca deduzido; nome com espaços normalizados; `documento_extraido` (o da nota, como veio) só serve para recusar documento válido e **nunca é guardado**; pessoa e papel numa transação; não toca análise nem financeiro | `consentimento_ausente`, `documento_valido`, `nome_ausente`, `nome_invalido` (> 255 ou caractere de controle) |
+| `listar_incompletos` | só `INCOMPLETO`, ordem de nome e id; com `papel`, os que têm esse papel em qualquer status; status da pessoa e dos papéis na saída (usar um inativo exige a decisão de reativar da F-4); sem busca nem filtro por nome; 2 consultas para qualquer tamanho | — |
+| `regularizar_cadastro_pendente` | ação avulsa, fora do lançamento; bloqueia a linha (`select_for_update`) e chama `Pessoa.regularizar`; mesmo registro, papéis preservados | `documento_ausente`, `documento_invalido`, `documento_em_uso`, `selecao_invalida` (inexistente ou já completo) |
+
+Uso indevido: `ValueError` (papel desconhecido), `TypeError` (tipos errados, `consentimento` ausente). Mensagens sem valores.
+
+**Duplicidade:** pessoa com documento é única pelo índice do banco; um pendente nunca recebe documento a não ser pela regularização, que recusa documento de outra pessoa, inclusive em corrida (`documento_em_uso`). Dois pendentes com o mesmo nome **não** são unidos (D-04): a listagem mostra os dois para a escolha do usuário. Um duplo clique em "salvar pendente" cria dois cadastros (ver Pendências).
+
+**Arquivos:** `cadastros/pendentes.py` (novo), `cadastros/test_pendentes.py` (novo, 22 testes), `ContextoProjeto.md` (esta seção, linha em 1.2, resultado em 21.1). F-1 a F-5, models, migrations, Agents, views, rotas e templates **não** foram alterados.
+
+**Testes** (`cadastros/test_pendentes.py`, 22): salvar autorizado; documento ausente ou inválido nunca guardado; sem consentimento (5 valores) e sem o argumento; documento válido recusado (CPF, formatado, CNPJ, alfanumérico); mesmo nome não identifica pessoa; nome inválido; entradas mal formadas; falha ao atribuir o papel desfaz a pessoa; análise e financeiro intocados; listagem (só incompletos, ordem, papéis e status, filtro por papel, regularizado sai, consultas constantes, papel desconhecido); regularização (mesmo registro com papéis, documento ausente ou inválido, documento de outra pessoa, seleção inválida); bloqueio do lançamento (`registrar_movimento` recusa; F-5 com seleção sem `REGULARIZAR` → `pessoa_incompleta`, com `REGULARIZAR` lança no mesmo registro; regularizado antes é encontrado pelo documento); concorrência real (mesmo cadastro regularizado duas vezes → `selecao_invalida`; dois cadastros com o mesmo documento → `documento_em_uso`, um só fica com o documento).
+
+Mutações de controle, todas detectadas (8): sem consentimento; documento válido aceito; regularização sem bloqueio; `unique` sem tradução; listagem sem filtro de papel; salvar sem transação; listagem com completos; regularizar cadastro já completo.
+
+| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
+| ----------------------------------------- | --------- |
+| `python manage.py test cadastros.test_pendentes` | `Ran 22 tests — OK` |
+| `python manage.py test cadastros.test_pendentes.ConcorrenciaTests` (3 vezes) | OK nas 3 |
+| `python manage.py check` | sem problemas |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final) | `Ran 985 tests — OK` (963 da `develop` + 22) |
+| `git diff --check` | sem problemas |
+
+Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
+
+**Contrato para o Lopes (tela, GR-45):**
+
+- Botão "Salvar cadastro pendente" por parte da nota, só quando o documento da parte está ausente ou inválido, com confirmação explícita: `salvar_cadastro_pendente(nome, papel_da_parte, consentimento=True, documento_extraido=documento_da_parte)`. Traduzir os códigos acima por mensagem fixa.
+- Seleção manual: `listar_incompletos(papel)`, mostrando id, nome, status e papéis; a escolha vai para a confirmação como `DecisoesDaParte(pessoa_incompleta_id=..., decisoes={REGULARIZAR, ...})` (F-5), com o CPF/CNPJ corrigido na conferência.
+- Regularização fora do lançamento: `regularizar_cadastro_pendente(id, documento)`.
+- Avaliação antes de confirmar: `avaliar_partes` (F-4) informa as decisões que faltam.
+
+**Pendências (não decididas pelo agente):**
+
+1. **T-05:** depois de salvar o cadastro pendente, a análise continua PENDENTE (regulariza e confirma em 30 min) ou é cancelada? O serviço não decide; a rota terá de seguir a decisão.
+2. **Duplo envio de "salvar pendente":** sem documento, não há chave natural; evitar dois cadastros exigiria uma chave de idempotência (coluna ou tabela nova, com migration) ou proteção na tela (botão desabilitado, POST com redirect). Decisão da equipe.
+3. **`documento_valido`** (regra derivada da DQ-05): confirmar com a equipe.
+4. **Contrato GR-51 e matriz** (seção 5.6, B-05, DQ-13): atualizar na revisão documental conjunta.
+
+**Git:** branch `feature/gr-22-f6-cadastro-pendente`, sem commit. Commit, push e PR para `develop` ficam com o usuário.
+
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
 Diagrama conceitual derivado **somente** das entidades e atributos citados pelo professor (ENT-01 a ENT-04 na [matriz](docs/requisitos/matriz-n2-etapa2.md)); nomes de campos adicionais, chaves e cardinalidades exatas ainda precisam ser decididos. Banco previsto: Supabase PostgreSQL ([ADR-001](docs/arquitetura/ADR-001-supabase.md)).
@@ -2119,7 +2183,7 @@ Outros: `LANGUAGE_CODE = "pt-br"`, `TIME_ZONE = "America/Sao_Paulo"`, `USE_TZ = 
 
 Ambiente: `.venv` (Python 3.14.8), `.env` local em modo de desenvolvimento.
 
-**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40); com G-01/P-09 sobre `develop` `37b41e7` (15.1.17): **Ran 963 tests — OK** (940 + 23).
+**Atualização de 27/10/2026 (`develop` `a6f929f`, seção 34):** `python manage.py test` → **Ran 650 tests — OK** no PostgreSQL local 18.6 (`DB_TEST_*`, `127.0.0.1`), com `DB_HOST` inalcançável; `check` sem problemas; `makemigrations --check --dry-run` sem mudanças. A tabela acima é a de 24/10/2026 (HISTÓRICO). Repetido em `develop` `4fe9051` (análise da GR-22, 15.1.11): **Ran 650 tests — OK**, `check` e `makemigrations --check` sem problemas. Na branch da GR-22 com a F-1 (15.1.12): **Ran 691 tests — OK**; com a F-2 (15.1.13): **Ran 725 tests — OK**; com a F-3 (15.1.14): **Ran 760 tests — OK**; com a F-4 sobre `develop` `ea4b5f9` (15.1.15): **Ran 878 tests — OK** (834 da `develop` + 44); com a F-5 sobre `develop` `59a92d9` (15.1.16): **Ran 940 tests — OK** (900 da base + 40); com G-01/P-09 sobre `develop` `37b41e7` (15.1.17): **Ran 963 tests — OK** (940 + 23); com a F-6 sobre `develop` `b70ee9a` (15.1.18): **Ran 985 tests — OK** (963 + 22).
 
 ## 21.2 - Distribuição
 
