@@ -48,6 +48,13 @@
   {% if json_resultado %}
     <section class="cartao">
       <h2>Resultado — {{ nome_arquivo }}</h2>
+      {% if aguardando_classificacao %}
+        <div class="aviso" role="status">
+          <p><strong>Aguardando classificação</strong></p>
+          <p>A extração foi preservada. A categoria da despesa precisa ser definida manualmente na revisão antes do lançamento.</p>
+          <p>Nenhum lançamento financeiro foi realizado.</p>
+        </div>
+      {% endif %}
       <dl class="resumo">
         <div class="resumo__item"><dt>Tipo de despesa</dt><dd>{{ resumo.tipo_despesa|default:"—" }}</dd></div>
         <div class="resumo__item"><dt>Valor total</dt><dd>{{ resumo.valor_total|default:"—" }}</dd></div>

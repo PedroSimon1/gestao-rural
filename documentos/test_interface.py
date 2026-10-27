@@ -480,12 +480,18 @@ class IntegracaoTests(IntegracaoTestBase):
     def test_classificacao_inconclusiva(self):
         self.respostas({"tipo_despesa": None, "justificativa": "Itens fora das categorias."})
 
-        with self.assertLogs("documentos.processamento", "WARNING"):
+        with self.assertLogs("agents.classificador.agent", "WARNING"):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "A despesa não se encaixa nas categorias disponíveis no MVP.")
-        self.assertContains(resposta, views.SUGESTOES_ERRO["classificacao_inconclusiva"])
-        self.assertNotContains(resposta, "JSON final")
+        self.assertContains(resposta, "Aguardando classificação")
+        self.assertContains(resposta, "A extração foi preservada.")
+        self.assertContains(resposta, "JSON final")
+        self.assertContains(resposta, "Filtro de oleo")
+        self.assertContains(resposta, "Itens fora das categorias.")
+        self.assertContains(resposta, '&quot;tipo_despesa&quot;: null')
+        self.assertNotContains(resposta, "não foi concluído")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertEqual(self.generate_content.call_count, 2)
 
 
 class GeminiApiKeyFormularioTests(InterfaceTestBase):

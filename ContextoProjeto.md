@@ -2310,3 +2310,26 @@ Validação sobre `a8dc0a2`: **737 testes, OK**, PostgreSQL local
 isolado, DB_HOST inalcançável, banco descartável ausente antes e depois por
 SELECT. Inclui 11 testes novos da GR-41. Sem Gemini real, QA/PROD, models,
 migrations ou scripts de deploy alterados. Commit, push, PR e merge humanos.
+
+
+## 34.17 - Lopes: classificação inconclusiva preserva extração (GR-42 parcial)
+
+27/10/2026. Base `develop` `d814469`, com GR-41 integrada no PR #33.
+Incremento local preparado para revisão, sem commit/PR/merge pelo agente.
+
+A exceção ClassificacaoInconclusivaError preserva a classificação validada e
+sua justificativa, mantendo a API de exceção existente do classificador.
+O processamento retorna a extração com tipo_despesa=null e a propriedade
+situacao=AGUARDANDO_CLASSIFICACAO. Esse estado é derivado, sem nova chave
+principal no JSON. A interface mostra a pendência e preserva JSON/justificativa.
+Falhas de rede, API ou schema continuam erros; não viram classificação pendente.
+
+Entrega parcial: seleção manual persistida, serviços de correções da análise e
+integração com conferência dependem do alinhamento GR-43/45. Não há gravação da
+análise neste incremento. Rever consumidores que presumam tipo_despesa não nulo.
+GR-44/45, models, migrations, deploy e bancos QA/PROD ficam fora deste patch.
+
+Validação: **745 testes, OK**, em 53.57 s, incluindo oito novos
+da GR-42, apenas PostgreSQL local, DB_HOST inalcançável e banco descartável
+ausente antes/depois por SELECT. Gemini simulado. Patch validado por git apply
+--check --whitespace=error sobre a base exportada. Stash anterior preservado.

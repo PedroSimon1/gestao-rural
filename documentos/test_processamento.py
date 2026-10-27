@@ -302,7 +302,6 @@ class ProcessarPdfErrosTests(ProcessarPdfTestBase):
         for excecao in (
             ClassificacaoIndisponivelError(),
             ClassificacaoInvalidaError(),
-            ClassificacaoInconclusivaError(),
         ):
             with self.subTest(excecao=type(excecao).__name__):
                 self.classificador.classificar.side_effect = excecao
