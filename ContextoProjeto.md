@@ -55,7 +55,7 @@ Toda afirmação relevante usa uma destas marcas:
 | Atualização posterior                   | 24/10/2026, só documentação: decisão Supabase ([ADR-001](docs/arquitetura/ADR-001-supabase.md)), criação de `docs/` e de [`ContextoFluxoGit.md`](ContextoFluxoGit.md); `develop` substitui `qa` (excluída do remoto). Código inalterado, sem commit                                                                                                                                                                                                                        |
 | Estado da `develop` (27/10/2026)        | `develop` = `origin/develop` em `a6f929f`: GR-33 a GR-38, GR-40 e GR-43 integradas (PRs #22 a #29; GR-43: PR #29, commit `54897d5`, merge `a6f929f`). A `main` continua em `f7786e8` (Etapa 1, produção): nada da Etapa 2 foi publicado. Contrato GR-51 (minuta 0.2) na branch `docs/gr-51-contrato-integracao`, sem commit (15.1.8 a 15.1.10). As linhas de 24/10 e 25/10 abaixo e as seções escritas sobre `f7786e8` são **HISTÓRICO** da Etapa 1, salvo quando indicado |
 | Auditoria de sincronização (27/10/2026) | `develop` = `origin/develop` em `ad91c9c` (PRs #33 GR-41, #34 **F-3**, #35 GR-42, #36 GR-44, #37 GR-45 parcial; PR #38 fechado sem merge). A F-3 **já está integrada** (merge `3fdb204`); `feature/gr-22-f3-revalidacao` (`8485457`) não tem commit à frente da `develop`. Suíte da `develop` exportada: **Ran 822 tests — OK** (local). Só documentação; seção 35                                                                                                         |
-| GR-22, F-4 (27/10/2026)                 | branch `feature/gr-22-f4-resolucao-pessoas` sobre `develop` `ea4b5f9` (F-1 a F-3, GR-41/42/44 e GR-45 com GR-43 integradas, PRs #31 a #40): resolução de pessoas implementada, sem commit; `python manage.py test` → **Ran 878 tests — OK** (local); seção 15.1.15 |
+| GR-22, F-4 (27/10/2026)                 | branch `feature/gr-22-f4-resolucao-pessoas` sobre `develop` `ea4b5f9` (F-1 a F-3, GR-41/42/44 e GR-45 com GR-43 integradas, PRs #31 a #40): resolução de pessoas implementada, sem commit; `python manage.py test` → **Ran 878 tests — OK** (local); seção 15.1.15                                                                                                                                                                                                         |
 | GR-22, F-3 (27/10/2026)                 | branch `feature/gr-22-f3-revalidacao` sobre `develop` `fb18872` (F-1 e F-2 integradas, PR #31): combinação e revalidação implementadas, sem commit; `python manage.py test` → **Ran 760 tests — OK** (local); seção 15.1.14                                                                                                                                                                                                                                                |
 | GR-22, F-2 (27/10/2026)                 | mesma branch: correções em `AnalisePendente` implementadas, sem commit; `python manage.py test` → **Ran 725 tests — OK** (local); seção 15.1.13                                                                                                                                                                                                                                                                                                                            |
 | GR-22, F-1 (27/10/2026)                 | branch `feature/gr-22-confirmacao-transacional`: identidade fiscal implementada, sem commit; `python manage.py test` → **Ran 691 tests — OK** (local); seção 15.1.12                                                                                                                                                                                                                                                                                                       |
@@ -1549,28 +1549,28 @@ Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_T
 
 **Implementação** (novo `cadastros/resolucao.py`; reutiliza `normalizar_documento`, `validar_documento`, `Pessoa.objects.create`, `atribuir_papel`, `reativar` e `regularizar`, sem reimplementar regras):
 
-| Peça | Contrato |
-| ---- | -------- |
-| `ParteNota(papel, documento, nome=None, decisoes=frozenset(), pessoa_incompleta_id=None)` | entrada por parte, com os valores finais da F-3 (`NotaConferida.fornecedor/faturado`) |
-| `Decisao` (`StrEnum`) | `REGULARIZAR`, `CRIAR_PESSOA`, `REATIVAR_PESSOA`, `ATRIBUIR_PAPEL`, `REATIVAR_PAPEL`; texto equivalente aceito |
-| `avaliar_partes(partes) -> tuple[AvaliacaoParte, ...]` | **só leitura** (só `SELECT`, sem `FOR UPDATE`); `AvaliacaoParte(papel, documento, pessoa_id, decisoes_necessarias, decisoes_faltando, bloqueio)` e `pronta` |
-| `resolver_partes(partes) -> tuple[PessoaResolvida, ...]` | **escrita**, em `transaction.atomic()` (savepoint dentro da transação da F-5); `PessoaResolvida(papel, pessoa, papel_pessoa, acoes)`, uma por parte, na mesma ordem |
-| Recusas (`ValidationError`, `params={"papel": ...}`) | decisão ausente, com os **mesmos códigos de `registrar_movimento`**: `pessoa_incompleta`, `pessoa_inexistente`, `pessoa_inativa`, `papel_ausente`, `papel_inativo` (`CODIGO_SEM_DECISAO`); bloqueios (nenhuma decisão resolve): `documento_ausente`, `documento_invalido`, `nome_ausente`, `nome_invalido` (> 255), `nomes_divergentes`, `documento_em_uso`, `selecao_invalida`; corrida persistente: `cadastro_concorrente` |
-| Uso indevido | `ValueError` (papel ou decisão desconhecidos), `TypeError` (documento/nome não texto, `pessoa_incompleta_id` não inteiro, parte que não é `ParteNota`) |
+| Peça                                                                                      | Contrato                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ParteNota(papel, documento, nome=None, decisoes=frozenset(), pessoa_incompleta_id=None)` | entrada por parte, com os valores finais da F-3 (`NotaConferida.fornecedor/faturado`)                                                                                                                                                                                                                                                                                                                                        |
+| `Decisao` (`StrEnum`)                                                                     | `REGULARIZAR`, `CRIAR_PESSOA`, `REATIVAR_PESSOA`, `ATRIBUIR_PAPEL`, `REATIVAR_PAPEL`; texto equivalente aceito                                                                                                                                                                                                                                                                                                               |
+| `avaliar_partes(partes) -> tuple[AvaliacaoParte, ...]`                                    | **só leitura** (só `SELECT`, sem `FOR UPDATE`); `AvaliacaoParte(papel, documento, pessoa_id, decisoes_necessarias, decisoes_faltando, bloqueio)` e `pronta`                                                                                                                                                                                                                                                                  |
+| `resolver_partes(partes) -> tuple[PessoaResolvida, ...]`                                  | **escrita**, em `transaction.atomic()` (savepoint dentro da transação da F-5); `PessoaResolvida(papel, pessoa, papel_pessoa, acoes)`, uma por parte, na mesma ordem                                                                                                                                                                                                                                                          |
+| Recusas (`ValidationError`, `params={"papel": ...}`)                                      | decisão ausente, com os **mesmos códigos de `registrar_movimento`**: `pessoa_incompleta`, `pessoa_inexistente`, `pessoa_inativa`, `papel_ausente`, `papel_inativo` (`CODIGO_SEM_DECISAO`); bloqueios (nenhuma decisão resolve): `documento_ausente`, `documento_invalido`, `nome_ausente`, `nome_invalido` (> 255), `nomes_divergentes`, `documento_em_uso`, `selecao_invalida`; corrida persistente: `cadastro_concorrente` |
+| Uso indevido                                                                              | `ValueError` (papel ou decisão desconhecidos), `TypeError` (documento/nome não texto, `pessoa_incompleta_id` não inteiro, parte que não é `ParteNota`)                                                                                                                                                                                                                                                                       |
 
 **Regras aplicadas:**
 
-| # | Situação | Resultado |
-| - | -------- | --------- |
-| 1 | Pessoa ativa com papel ativo | mesmo ID, nenhuma escrita (`acoes == ()`); nome diferente na nota não altera o cadastro |
-| 2 | Documento válido sem pessoa | `CRIAR_PESSOA` cria pessoa COMPLETA com o papel; sem a decisão → `pessoa_inexistente`; sem nome → `nome_ausente` |
-| 3 | Pessoa sem o papel | `ATRIBUIR_PAPEL` no mesmo registro; `CRIAR_PESSOA` **não** autoriza papel em pessoa existente |
-| 4 | Pessoa ou papel inativo | `REATIVAR_PESSOA` / `REATIVAR_PAPEL`; sem a decisão, nada muda |
-| 5 | Documento ausente ou inválido | bloqueio, mesmo com todas as decisões; nada gravado |
-| 6 | Incompleto selecionado | só com `REGULARIZAR` (+ papel/status, se faltarem): `regularizar(documento)` no mesmo registro; sem a decisão → `pessoa_incompleta`; documento de outra pessoa → `documento_em_uso`; id inexistente ou já completo → `selecao_invalida`. Nenhuma pessoa incompleta é devolvida |
-| 7 | CPF e CNPJ | a F-4 recebe um único documento (o escolhido); qualquer papel aceita CPF ou CNPJ |
-| 8 | Mesmo documento nas duas partes | uma pessoa, um papel por parte; pessoa nova exige `CRIAR_PESSOA` em **cada** parte e nomes iguais (ou um só informado), senão `nomes_divergentes`; decisões de reativação exigidas em cada parte |
-| — | Decisão desnecessária | ignorada (decisão é autorização, não ordem) |
+| #   | Situação                        | Resultado                                                                                                                                                                                                                                                                      |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Pessoa ativa com papel ativo    | mesmo ID, nenhuma escrita (`acoes == ()`); nome diferente na nota não altera o cadastro                                                                                                                                                                                        |
+| 2   | Documento válido sem pessoa     | `CRIAR_PESSOA` cria pessoa COMPLETA com o papel; sem a decisão → `pessoa_inexistente`; sem nome → `nome_ausente`                                                                                                                                                               |
+| 3   | Pessoa sem o papel              | `ATRIBUIR_PAPEL` no mesmo registro; `CRIAR_PESSOA` **não** autoriza papel em pessoa existente                                                                                                                                                                                  |
+| 4   | Pessoa ou papel inativo         | `REATIVAR_PESSOA` / `REATIVAR_PAPEL`; sem a decisão, nada muda                                                                                                                                                                                                                 |
+| 5   | Documento ausente ou inválido   | bloqueio, mesmo com todas as decisões; nada gravado                                                                                                                                                                                                                            |
+| 6   | Incompleto selecionado          | só com `REGULARIZAR` (+ papel/status, se faltarem): `regularizar(documento)` no mesmo registro; sem a decisão → `pessoa_incompleta`; documento de outra pessoa → `documento_em_uso`; id inexistente ou já completo → `selecao_invalida`. Nenhuma pessoa incompleta é devolvida |
+| 7   | CPF e CNPJ                      | a F-4 recebe um único documento (o escolhido); qualquer papel aceita CPF ou CNPJ                                                                                                                                                                                               |
+| 8   | Mesmo documento nas duas partes | uma pessoa, um papel por parte; pessoa nova exige `CRIAR_PESSOA` em **cada** parte e nomes iguais (ou um só informado), senão `nomes_divergentes`; decisões de reativação exigidas em cada parte                                                                               |
+| —   | Decisão desnecessária           | ignorada (decisão é autorização, não ordem)                                                                                                                                                                                                                                    |
 
 **Transação, integridade e concorrência:**
 
@@ -1582,11 +1582,11 @@ Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local de `DB_T
 
 **Arquivos:**
 
-| Arquivo | Alteração |
-| ------- | --------- |
-| `cadastros/resolucao.py` | novo: serviço da F-4 |
-| `cadastros/test_resolucao.py` | novo: 44 testes |
-| `ContextoProjeto.md` | esta seção; linha em 1.2; resultado em 21.1; remoção de uma linha órfã de marcador de conflito (`> > > > > > > origin/develop`) no fim do arquivo, herdada do merge `6bfda0e` |
+| Arquivo                       | Alteração                                                                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cadastros/resolucao.py`      | novo: serviço da F-4                                                                                                                                                          |
+| `cadastros/test_resolucao.py` | novo: 44 testes                                                                                                                                                               |
+| `ContextoProjeto.md`          | esta seção; linha em 1.2; resultado em 21.1; remoção de uma linha órfã de marcador de conflito (`> > > > > > > origin/develop`) no fim do arquivo, herdada do merge `6bfda0e` |
 
 Não alterados: models, migrations, `cadastros/consultas.py`, `documentos/*` (inclusive `conferencia.py`, `correcoes.py`, `analises.py`, views, templates e formulários), `financeiro/*`, `agents/*`, `processamento.py`, configuração, contrato GR-51 e matriz.
 
@@ -1594,14 +1594,14 @@ Não alterados: models, migrations, `cadastros/consultas.py`, `documentos/*` (in
 
 Mutações de controle, todas detectadas (9): sem exigir reativação de pessoa; papel ausente sem decisão; papel inativo sem decisão; incompleto sem regularização; sem `nomes_divergentes`; sem nova tentativa; `documento_em_uso` ignorado; exigências conferidas só depois de gravar; sem bloqueio de linhas (detectada depois do teste de bloqueio acrescentado).
 
-| Comando (27/10/2026, `DJANGO_DEBUG=True`) | Resultado |
-| ----------------------------------------- | --------- |
-| `python manage.py test cadastros.test_resolucao` | `Ran 44 tests — OK` |
-| `python manage.py test cadastros.test_resolucao.ConcorrenciaTests` (5 vezes) | `Ran 3 tests — OK` nas 5 |
-| `python manage.py check` | sem problemas |
-| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected` |
-| `python manage.py test` (final) | `Ran 878 tests — OK` (834 da `develop` + 44) |
-| `git diff --check` | sem problemas |
+| Comando (27/10/2026, `DJANGO_DEBUG=True`)                                    | Resultado                                    |
+| ---------------------------------------------------------------------------- | -------------------------------------------- |
+| `python manage.py test cadastros.test_resolucao`                             | `Ran 44 tests — OK`                          |
+| `python manage.py test cadastros.test_resolucao.ConcorrenciaTests` (5 vezes) | `Ran 3 tests — OK` nas 5                     |
+| `python manage.py check`                                                     | sem problemas                                |
+| `DB_HOST=db-teste.invalid python manage.py makemigrations --check --dry-run` | `No changes detected`                        |
+| `python manage.py test` (final)                                              | `Ran 878 tests — OK` (834 da `develop` + 44) |
+| `git diff --check`                                                           | sem problemas                                |
 
 O Supabase, QA e PROD não foram acessados; nenhuma migration aplicada.
 
@@ -2785,11 +2785,6 @@ expiração, cancelamento, CSRF, campos inválidos, banco indisponível, sessão
 código e categoria inconclusiva. PostgreSQL local isolado; DB_HOST inalcançável;
 banco descartável ausente antes/depois por SELECT. Agents simulados. Sem alterações
 nos serviços de Simon, models, migrations, configurações ou QA/PROD.
-<<<<<<< HEAD
-=======
-
-> > > > > > > origin/develop
-
 
 ## 34.22 - Lopes: componentes fiscais G-01 antecipados (GR-45 parcial)
 
@@ -2798,7 +2793,7 @@ Gustavo autorizou adiantar a interface enquanto Simon fecha o contrato v2.
 Simon aprovou G-01 (edição de chave/modelo/série/número) e P-09 (v1 acessível
 até expirar, sem conversão silenciosa). Schema definitivo ainda sob revisão.
 
-Novos forms_fiscais.py, test_campos_fiscais.py e parcial _campos_fiscais.html.
+Novos forms_fiscais.py, test_campos_fiscais.py e parcial \_campos_fiscais.html.
 Não ligados às rotas existentes. CamposFiscaisForm usa identificar_nota da
 GR-22, sem novo algoritmo fiscal nem consulta/escrita. Trata chave numérica
 ou alfanumérica, DV inválido, divergência e fallback completo; mensagens fixas
@@ -2824,7 +2819,6 @@ componentes. Suíte completa no PostgreSQL local isolado; DB_HOST inalcançável
 banco descartável ausente antes/depois por SELECT. Agents simulados. Patch
 verificado sem erro de whitespace; todos os arquivos de código preexistentes
 preservados byte a byte. Sem operações de publicação, migrations ou QA/PROD.
-
 
 ## 34.23 - Lopes: contrato fiscal v2 alinhado e emissão opt-in
 
@@ -2876,4 +2870,3 @@ depois por SELECT. Gemini simulado; schema JSON conferido em sintaxe/estrutura,
 sem validador de metaschema instalado. Sem alterações nos serviços do Simon,
 models, migrations, configurações ou QA/PROD. Nenhum commit/push/PR/merge/deploy
 ou migration remota executado por agente.
->>>>>>> origin/develop
