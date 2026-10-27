@@ -2787,3 +2787,28 @@ depois por SELECT. Gemini simulado; schema JSON conferido em sintaxe/estrutura,
 sem validador de metaschema instalado. Sem alterações nos serviços do Simon,
 models, migrations, configurações ou QA/PROD. Nenhum commit/push/PR/merge/deploy
 ou migration remota executado por agente.
+
+
+## 34.24 - Lopes: SHA do deploy visível na home (GR-50 parcial, DEL-05)
+
+27/10/2026. Base develop `8ccc8ec` (PR #42 integrado). No Jira, critério
+"SHA da versão visível na home" pertence à GR-50, que segue Próximas e tem
+homologação/publicação ainda pendentes. Este incremento não encerra a tarefa.
+
+Nova tag commit_publicado lê somente RENDER_GIT_COMMIT, aceita SHA hexadecimal
+completo de 40 caracteres e retorna vazio se não disponível/válido. O template
+base exibe o SHA integral e link ao commit no GitHub; sem valor, informa versão
+não informada neste ambiente. Não executa Git, consulta rede/banco ou altera
+settings, .env, build/start ou ambiente do Render. Nenhum SHA fixo no código.
+
+Fonte oficial consultada: https://render.com/docs/environment-variables —
+RENDER_GIT_COMMIT identifica o commit do serviço/deploy, em build e runtime.
+Após deploy humano, comparar a home com o SHA do deploy e do commit de release
+no GitHub. Testes locais não comprovam versão publicada nem homologação.
+
+Validação: **856 testes, OK**, 43.41 s; dois testes novos
+de home com SHA/link e fallback para SHA ausente/inválido. PostgreSQL local
+isolado, DB_HOST inalcançável e banco descartável ausente antes/depois por
+SELECT. Gemini simulado; serviços de Simon preservados. Patch validado sem
+whitespace. Sem commit, push, PR, merge, deploy ou migration remota por agente.
+DEL-05 passa a PARCIAL (implementação local, conferência após publicação pendente).
