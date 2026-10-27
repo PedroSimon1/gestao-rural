@@ -322,3 +322,39 @@ class BancoDeTesteTests(SimpleTestCase):
     def test_executor_sem_testes_de_banco_nao_exige_db_test(self):
         with sem_variaveis_db_test():
             self.assertEqual(ExecutorDeTestes(verbosity=0).setup_databases(aliases=set()), [])
+
+    def conexoes_falsas(self):
+        """Conexões simuladas com destino remoto: nada real é fechado ou alterado."""
+        remota = {**copy.deepcopy(connections["default"].settings_dict),
+                  "HOST": "banco-remoto.invalid", "NAME": "postgres"}
+        falsa = mock.Mock(settings_dict=remota)
+        return {"default": falsa}, falsa
+
+    def test_executor_sem_aliases_para_antes_de_conectar_sem_db_test(self):
+        falsas, falsa = self.conexoes_falsas()
+        with sem_variaveis_db_test(), \
+                mock.patch("config.banco_de_teste.connections", falsas), \
+                mock.patch("django.test.runner.DiscoverRunner.setup_databases") as criar:
+            with self.assertRaises(ImproperlyConfigured):
+                ExecutorDeTestes(verbosity=0).setup_databases()
+
+        criar.assert_not_called()
+        falsa.close.assert_not_called()
+        self.assertEqual(falsa.settings_dict["HOST"], "banco-remoto.invalid")
+
+    def test_executor_sem_aliases_troca_todas_as_conexoes_para_o_banco_local(self):
+        falsas, falsa = self.conexoes_falsas()
+        destinos = []
+
+        def criar(**kwargs):
+            destinos.append((kwargs["aliases"], falsa.settings_dict["HOST"],
+                             falsa.settings_dict["NAME"], falsa.close.called))
+            return []
+
+        with mock.patch.dict(os.environ, AMBIENTE_TESTE_VALIDO), \
+                mock.patch("config.banco_de_teste.connections", falsas), \
+                mock.patch("django.test.runner.DiscoverRunner.setup_databases",
+                           side_effect=criar):
+            ExecutorDeTestes(verbosity=0).setup_databases()
+
+        self.assertEqual(destinos, [({"default"}, "127.0.0.1", "test_gestao_rural", True)])

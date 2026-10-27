@@ -216,7 +216,7 @@ class MovimentoConta(RegistroFinanceiro):
     # Status entra na lista até existir a operação de cancelamento.
     campos_imutaveis = (
         "tipo", "origem", "status", "contraparte", "faturado", "valor_total",
-        "analise_origem_id", "criado_em",
+        "analise_origem_id", "chave_idempotencia", "criado_em",
     )
 
     tipo = models.CharField(max_length=8, choices=TipoMovimento)
@@ -236,6 +236,9 @@ class MovimentoConta(RegistroFinanceiro):
     valor_total = models.DecimalField(max_digits=12, decimal_places=2)
     # Análise que originou o lançamento; também impede lançá-la duas vezes.
     analise_origem_id = models.UUIDField(null=True, blank=True, unique=True)
+    # Lançamento manual (P08): chave gerada pela tela para cada solicitação;
+    # o índice único impede gravar a mesma solicitação duas vezes.
+    chave_idempotencia = models.UUIDField(null=True, blank=True, unique=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -272,6 +275,15 @@ class MovimentoConta(RegistroFinanceiro):
                 ),
                 name="movimento_apagar_com_faturado",
                 violation_error_message="Conta a pagar exige o faturado.",
+            ),
+            # A nota fiscal já é identificada pela análise (analise_origem_id).
+            models.CheckConstraint(
+                condition=(
+                    models.Q(origem=OrigemMovimento.MANUAL)
+                    | models.Q(chave_idempotencia__isnull=True)
+                ),
+                name="movimento_chave_idempotencia_so_manual",
+                violation_error_message="Só lançamentos manuais usam chave de idempotência.",
             ),
         ]
 

@@ -8,6 +8,11 @@ banco de teste que já existe. Sem configuração válida, a execução para ant
 de abrir qualquer conexão; não há banco substituto.
 
 Testes que não usam banco (SimpleTestCase) não dependem de nada disso.
+
+setup_databases() chamado sem aliases (fora do `manage.py test`) também troca
+todas as conexões para o banco local antes de conectar: em 27/10/2026, um
+script auxiliar que fez essa chamada criou um banco de teste no servidor de
+DB_* (ContextoProjeto.md, 15.1.20 e 15.1.21).
 """
 
 import os
@@ -88,7 +93,12 @@ class ExecutorDeTestes(DiscoverRunner):
     """DiscoverRunner que só cria banco de teste no PostgreSQL local de DB_TEST_*."""
 
     def setup_databases(self, **kwargs):
-        aliases = kwargs.get("aliases") or set()
+        aliases = kwargs.get("aliases")
+        if aliases is None:
+            # Chamada sem aliases (script auxiliar, por exemplo): o Django
+            # prepararia todas as conexões com as DB_*, que podem ser remotas.
+            # Todas passam pelo banco local; sem DB_TEST_* válidas, para aqui.
+            aliases = kwargs["aliases"] = set(connections)
         if aliases:
             for alias in aliases:
                 conexao = connections[alias]

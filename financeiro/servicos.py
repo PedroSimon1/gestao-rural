@@ -13,7 +13,9 @@ uma única transação, depois de validar as regras entre entidades:
   parcelas é exatamente o valor_total. O gatilho diferido da migration 0002
   confere a mesma regra no COMMIT.
 - Com analise_origem_id, repetir a chamada com os mesmos dados devolve o
-  movimento já gravado, sem duplicar; com dados diferentes, recusa.
+  movimento já gravado, sem duplicar; com dados diferentes, recusa. O
+  lançamento manual tem a mesma proteção com chave_idempotencia (P08), que
+  só vale para a origem MANUAL e nunca junto de analise_origem_id.
 
 Os registros são relidos com select_for_update dentro da transação: uma
 inativação concorrente não passa entre a validação e a gravação, e uma
@@ -77,6 +79,7 @@ class DadosMovimento:
     faturado: Pessoa | None = None
     analise_origem_id: UUID | None = None
     parcelas: tuple[ItemParcela, ...] = field(default_factory=tuple)
+    chave_idempotencia: UUID | None = None
 
 
 def registrar_movimento(dados):
@@ -94,12 +97,11 @@ def registrar_movimento(dados):
     dados = replace(dados, classificacoes=itens, parcelas=parcelas)
     _validar_dados(dados)
 
-    if dados.analise_origem_id is not None:
-        existente = MovimentoConta.objects.filter(
-            analise_origem_id=dados.analise_origem_id
-        ).first()
+    chave = _chave(dados)
+    if chave is not None:
+        existente = MovimentoConta.objects.filter(**chave).first()
         if existente is not None:
-            return _mesma_analise(existente, dados), False
+            return _mesmo_lancamento(existente, dados), False
 
     try:
         with transaction.atomic():
@@ -111,6 +113,7 @@ def registrar_movimento(dados):
                 faturado_id=dados.faturado.pk if dados.faturado else None,
                 valor_total=dados.valor_total,
                 analise_origem_id=dados.analise_origem_id,
+                chave_idempotencia=dados.chave_idempotencia,
             )
             MovimentoClassificacao.objects.bulk_create([
                 MovimentoClassificacao(
@@ -130,16 +133,24 @@ def registrar_movimento(dados):
                 for parcela in dados.parcelas
             ])
     except IntegrityError:
-        # Outra requisição gravou a mesma análise entre a busca e a gravação.
-        if dados.analise_origem_id is None:
+        # Outra requisição gravou a mesma análise (ou a mesma solicitação
+        # manual) entre a busca e a gravação.
+        if chave is None:
             raise
-        existente = MovimentoConta.objects.filter(
-            analise_origem_id=dados.analise_origem_id
-        ).first()
+        existente = MovimentoConta.objects.filter(**chave).first()
         if existente is None:
             raise
-        return _mesma_analise(existente, dados), False
+        return _mesmo_lancamento(existente, dados), False
     return movimento, True
+
+
+def _chave(dados):
+    """Filtro da idempotência: pela análise de origem ou pela chave manual."""
+    if dados.analise_origem_id is not None:
+        return {"analise_origem_id": dados.analise_origem_id}
+    if dados.chave_idempotencia is not None:
+        return {"chave_idempotencia": dados.chave_idempotencia}
+    return None
 
 
 def _erro(mensagem, codigo):
@@ -186,6 +197,12 @@ def _validar_dados(dados):
         raise _erro("Conta a pagar exige o faturado já cadastrado.", "faturado")
     if dados.analise_origem_id is not None and not isinstance(dados.analise_origem_id, UUID):
         raise _erro("O identificador da análise de origem é inválido.", "analise_origem")
+    if dados.chave_idempotencia is not None and (
+        not isinstance(dados.chave_idempotencia, UUID)
+        or dados.origem != OrigemMovimento.MANUAL
+        or dados.analise_origem_id is not None
+    ):
+        raise _erro("A chave da solicitação é inválida.", "chave_idempotencia")
 
     itens = dados.classificacoes
     if not itens:
@@ -327,8 +344,8 @@ def _validar_no_banco(dados):
             )
 
 
-def _mesma_analise(movimento, dados):
-    """A mesma análise só pode corresponder ao mesmo lançamento."""
+def _mesmo_lancamento(movimento, dados):
+    """A mesma análise (ou solicitação manual) só corresponde ao mesmo lançamento."""
     principal = movimento.classificacoes.filter(principal=True).values_list(
         "classificacao_id", flat=True
     ).first()
@@ -352,5 +369,10 @@ def _mesma_analise(movimento, dados):
         {(p.numero, p.data_vencimento, p.valor) for p in dados.parcelas},
     )
     if gravado != pedido:
-        raise _erro("Esta análise já foi lançada com outros dados.", "analise_ja_lancada")
+        if dados.analise_origem_id is not None:
+            raise _erro("Esta análise já foi lançada com outros dados.", "analise_ja_lancada")
+        raise _erro(
+            "Esta solicitação já foi registrada com outros dados; recarregue o formulário.",
+            "solicitacao_ja_registrada",
+        )
     return movimento
