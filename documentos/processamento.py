@@ -152,7 +152,9 @@ def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=Non
     except ProcessamentoError:
         raise
     except Exception:
-        logger.exception("Erro inesperado ao processar o documento.")
+        # A exceção e suas causas podem conter chave, texto do PDF ou JSON.
+        # Preservar o diagnóstico fixo, sem serializar traceback/payload.
+        logger.error("Processamento falhou (processamento/erro_interno).")
         raise ProcessamentoError(
             "processamento", "erro_interno", MENSAGEM_ERRO_INTERNO
         ) from None

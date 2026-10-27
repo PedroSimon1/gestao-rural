@@ -35,7 +35,8 @@ def analise_criar(request):
     codigo = request.session.get(CHAVE_DA_SESSAO)
     if not isinstance(codigo, str) or not codigo:
         return _erro_analise(request, AnaliseError('sessao_sem_codigo'))
-    form = DocumentoUploadForm(request.POST, request.FILES)
+    form = DocumentoUploadForm(request.POST, request.FILES,
+        upload_interrompido=getattr(request, "pdf_upload_interrompido", False))
     contexto = {'form': form, 'limite_upload_mb': settings.MAX_PDF_UPLOAD_SIZE_MB}
     if not form.is_valid():
         return render(request, 'documentos/inicio.html', contexto, status=400)

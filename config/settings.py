@@ -80,6 +80,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     # Serve os arquivos estáticos em produção (sem servidor web separado).
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'config.privacidade.RespostasPrivadasMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -198,6 +199,10 @@ STORAGES = {
 
 MAX_PDF_UPLOAD_SIZE_MB = int(os.getenv("MAX_PDF_UPLOAD_SIZE_MB", "10"))
 MAX_PDF_UPLOAD_SIZE = MAX_PDF_UPLOAD_SIZE_MB * 1024 * 1024
+
+# PDFs ficam somente em memória na aplicação; o handler limita os bytes
+# recebidos e não possui fallback para TemporaryFileUploadHandler.
+FILE_UPLOAD_HANDLERS = ['documentos.uploads.PDFEmMemoriaUploadHandler']
 
 # Gemini
 # A validação acontece somente quando agents.gemini_client.GeminiClient é criado.
