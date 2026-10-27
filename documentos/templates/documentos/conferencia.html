@@ -8,6 +8,7 @@
   {% if expira_em %}<p>Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}.</p>{% endif %}
   {% if correcoes_salvas %}<p role="status">Correções salvas. Nenhum lançamento financeiro foi realizado.</p>{% endif %}
   {% if erro_tela %}<p class="aviso" role="alert">{{ erro_tela }}</p>{% endif %}
+  {% if cadastro_criado %}<p role="status">Classificação {{ cadastro_criado.codigo }} disponível no formulário. Os campos em edição foram preservados. Salve as correções antes de confirmar; nenhum lançamento financeiro foi realizado.</p>{% endif %}
   {% if analise_id %}<p><a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a></p>{% endif %}
   {% if revisao.nota.problemas %}
     <p class="aviso" role="alert">Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal.</p>
@@ -40,7 +41,16 @@
       {% endfor %}
     </fieldset>
   {% if analise_id %}
-    <button type="submit" class="botao">Salvar correções</button>
+    <button type="submit" class="botao" name="acao" value="salvar">Salvar correções</button>
+    {% if nova_classificacao %}
+    <fieldset>
+      <legend>Cadastrar nova classificação de despesa</legend>
+      <p>Se a classificação estiver ausente, cadastre um código e uma descrição explícitos. O cadastro não altera os dados extraídos, não salva as correções e não lança a nota.</p>
+      <p>A classificação ficará no catálogo mesmo se esta análise encerrar. Para usar ou reativar um cadastro existente, acesse <a href="{% url 'classificacoes' %}">Classificações</a>.</p>
+      {{ nova_classificacao.as_p }}
+      <button type="submit" class="botao" name="acao" value="criar_classificacao" formnovalidate>Cadastrar classificação e continuar conferindo</button>
+    </fieldset>
+    {% endif %}
   </form>
   {% if not revisao.nota.problemas %}
     <p>Salve suas alterações antes de prosseguir. A confirmação usa apenas os dados salvos.</p>
