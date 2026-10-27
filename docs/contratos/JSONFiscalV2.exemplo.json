@@ -1,0 +1,53 @@
+{
+  "fornecedor": {
+    "razao_social": "Fornecedor fictício de teste",
+    "nome_fantasia": null,
+    "cnpj": "11222333000181",
+    "cpf": null
+  },
+  "faturado": {
+    "nome": "Faturado fictício de teste",
+    "cpf": "12345678909",
+    "cnpj": null
+  },
+  "numero_nota": "123",
+  "data_emissao": "2026-10-27",
+  "itens": [],
+  "quantidade_parcelas": 1,
+  "parcelas": [
+    {
+      "numero": 1,
+      "data_vencimento": "2026-11-27",
+      "valor": "150.00"
+    }
+  ],
+  "valor_total": "150.00",
+  "tipo_despesa": "MANUTENCAO_E_OPERACAO",
+  "validacoes": {
+    "fornecedor_cnpj": {
+      "status": "valido",
+      "motivo": null
+    },
+    "faturado_cpf": {
+      "status": "valido",
+      "motivo": null
+    },
+    "faturado_cnpj": {
+      "status": "ausente",
+      "motivo": null
+    },
+    "fornecedor_cpf": {
+      "status": "ausente",
+      "motivo": null
+    },
+    "chave_acesso": {
+      "status": "ausente",
+      "motivo": null
+    }
+  },
+  "documento_fiscal": {
+    "chave_acesso": null,
+    "modelo": "55",
+    "serie": "1"
+  }
+}

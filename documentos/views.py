@@ -21,6 +21,8 @@ ROTULOS_TIPO_DESPESA = {
 }
 
 AVISOS_VALIDACAO = (
+    ("fornecedor_cpf", "CPF do fornecedor com dígitos verificadores inválidos."),
+    ("chave_acesso", "Chave de acesso inválida. Confira o documento antes da confirmação."),
     ("fornecedor_cnpj", "CNPJ do fornecedor com dígitos verificadores inválidos."),
     ("faturado_cpf", "CPF do faturado com dígitos verificadores inválidos."),
     ("faturado_cnpj", "CNPJ do faturado com dígitos verificadores inválidos."),

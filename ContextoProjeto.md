@@ -2785,3 +2785,95 @@ expiração, cancelamento, CSRF, campos inválidos, banco indisponível, sessão
 código e categoria inconclusiva. PostgreSQL local isolado; DB_HOST inalcançável;
 banco descartável ausente antes/depois por SELECT. Agents simulados. Sem alterações
 nos serviços de Simon, models, migrations, configurações ou QA/PROD.
+<<<<<<< HEAD
+=======
+
+> > > > > > > origin/develop
+
+
+## 34.22 - Lopes: componentes fiscais G-01 antecipados (GR-45 parcial)
+
+27/10/2026. Base develop `ea4b5f9`, após PR #40 (auditoria F-3 de Simon).
+Gustavo autorizou adiantar a interface enquanto Simon fecha o contrato v2.
+Simon aprovou G-01 (edição de chave/modelo/série/número) e P-09 (v1 acessível
+até expirar, sem conversão silenciosa). Schema definitivo ainda sob revisão.
+
+Novos forms_fiscais.py, test_campos_fiscais.py e parcial _campos_fiscais.html.
+Não ligados às rotas existentes. CamposFiscaisForm usa identificar_nota da
+GR-22, sem novo algoritmo fiscal nem consulta/escrita. Trata chave numérica
+ou alfanumérica, DV inválido, divergência e fallback completo; mensagens fixas
+não refletem exceções/valores. Nenhum modelo, série ou documento é inventado.
+Documento do emitente é recebido explicitamente do chamador; não se escolhe
+CPF/CNPJ nem se infere papel neste componente.
+
+preparar_campos_fiscais lê v1 ou bloco documento_fiscal da v2 proposta e
+preenche correções salvas sem mutar o original. proposta_correcoes retorna
+somente campos preenchidos, em nomes planos provisórios chave_acesso/modelo/
+serie/numero_nota. Não decide apagar correções existentes, não grava na GR-43
+e não altera consumidores da F-3. A liberação desses nomes na lista oficial
+de correções depende da entrega de Simon. Não incluir o parcial na tela ativa
+antes de compatibilizar formulário, payload, reabertura e backend no mesmo PR.
+
+Pendente após revisão: conciliar nomes/tipos finais do v2; conectar o componente
+à conferência sem duplicar número/série já existentes; persistir e reabrir pelo
+contrato oficial; tratar remoção de correção; apresentar erros da F-3 e exercitar
+o fluxo real v1/v2. Confirmação financeira permanece indisponível.
+
+Validação: **842 testes, OK**, 37.94 s, oito novos testes dos
+componentes. Suíte completa no PostgreSQL local isolado; DB_HOST inalcançável;
+banco descartável ausente antes/depois por SELECT. Agents simulados. Patch
+verificado sem erro de whitespace; todos os arquivos de código preexistentes
+preservados byte a byte. Sem operações de publicação, migrations ou QA/PROD.
+
+
+## 34.23 - Lopes: contrato fiscal v2 alinhado e emissão opt-in
+
+27/10/2026. Base develop `b13ccb8`, com componentes fiscais integrados no PR #41.
+Simon aprovou os nomes, estrutura e compatibilidade v1/v2 com dois ajustes:
+valor_total e parcelas[].valor aceitam null quando não identificados na extração.
+Schema completo atualizado em docs/contratos/JSONFiscalV2.schema.json; exemplo e
+proposta acompanham este registro. O contrato de dados está alinhado com esses
+ajustes, mas a compatibilidade do backend e a ativação ainda não estão entregues.
+
+Preservadas as dez chaves anteriores, com documento_fiscal como décima primeira
+(chave_acesso/modelo/serie). Número canônico numero_nota; emitente canônico
+fornecedor.cnpj; acrescentado fornecedor.cpf; CPF/CNPJ preservados sem escolha
+automática de papel. versao_dados 1/2 permanece fora do JSON, responsabilidade
+da GR-43. Ausências não são inventadas; valores presentes seguem validação.
+
+G-01: edição de chave/modelo/série/número aprovada, correções separadas; formato,
+DV e divergência validados no backend oficial. P-09: v1 já armazenada acessível
+até expirar naturalmente em 30 minutos, sem converter dados nem estender prazo.
+Preencher faltantes nas correções; confirmação exige revalidação financeira,
+identidade suficiente, duplicidade e transação explícita. Este adendo substitui
+qualquer sugestão anterior de rejeitar automaticamente a v1 no corte.
+
+Implementação de Lopes: novo schemas_v2.py (schema do Extrator 3), habilitado por
+AgentExtrator(versao_schema=3). O legado schemas.py (schema 2) permanece intacto.
+Prompt v2 contempla CPF do emitente, campos fiscais e valores null. Validação
+da chave calculada pelo serviço oficial GR-22, sem duplicar algoritmo e sem
+corrigir leitura inválida silenciosamente. Classificador recebe total null real,
+não string "None". Avisos incluem CPF do fornecedor e chave inválida.
+
+montar_resultado/processar_pdf têm versao_dados=2 opt-in, com compatibilidade
+schema/versão conferida. O padrão continua 1, com dez chaves; rotas não foram
+ativadas para v2 porque GR-43/F-3 atuais ainda não a aceitam. Novos schema/prompt
+e funções opt-in NÃO equivalem a emissão v2 já ativada na aplicação.
+
+Divisão confirmada: Simon implementa AnalisePendente v1/v2, correções G-01 e F-3;
+Lopes implementa Agents/processamento/interface. Após a entrega de Simon, falta
+conectar os campos fiscais às rotas e payload oficial, tratar valores ausentes e
+ambiguidade documental nos consumidores da interface, testar armazenamento/leitura/
+correção/expiração de v1/v2 e então ativar emissão. F-4/F-5 e confirmação financeira
+não são implementadas aqui. Nenhum movimento foi criado automaticamente.
+
+Validação: **854 testes, OK**, 34.73 s; 12 novos testes cobrem
+valores null, positivos quando presentes, fontes canônicas/11 chaves, CPF/CNPJ,
+chave numérica/alfanumérica, chave inválida preservada, validações recalculadas,
+prompt/schema, classificação, pipeline v2, caminho v1 e reabertura sem mutação.
+PostgreSQL local isolado; DB_HOST inalcançável; banco descartável ausente antes/
+depois por SELECT. Gemini simulado; schema JSON conferido em sintaxe/estrutura,
+sem validador de metaschema instalado. Sem alterações nos serviços do Simon,
+models, migrations, configurações ou QA/PROD. Nenhum commit/push/PR/merge/deploy
+ou migration remota executado por agente.
+>>>>>>> origin/develop
