@@ -210,7 +210,7 @@ Caminhos que podem andar em paralelo desde o início, depois de acordado o contr
 | Dependências          | P02; contrato C-02, C-03, C-05, C-06 |
 | Critérios de aceite   | 1. Para cada um dos três itens, o serviço devolve "existe com ID" ou "não existe", no formato acordado em C-05.<br>2. A consulta **não grava nada**.<br>3. Testes cobrem: existente, inexistente, documento ausente, documento com DV inválido e registro INATIVO (comportamento acordado em C-02). |
 | Entregáveis           | serviço de consulta em camada de serviço (não na view); testes de serviço |
-| Situação atual        | IMPLEMENTADO NA BRANCH (GR-40, 27/10/2026; `feature/gr-40-consultas`, não integrada): `cadastros/consultas.py` e 32 testes no PostgreSQL local; regras na matriz (DQ-08). Formato do resultado a confirmar em C-05; uso no fluxo da nota na GR-51 ([`ContextoProjeto.md`](../../ContextoProjeto.md), 15.1.6). Antes: NÃO INICIADO |
+| Situação atual        | IMPLEMENTADO E INTEGRADO À `develop` (GR-40, 27/10/2026, PR #28): `cadastros/consultas.py` e 32 testes no PostgreSQL local; regras na matriz (DQ-08). Formato do resultado a confirmar em C-05; uso no fluxo da nota na GR-51 ([`ContextoProjeto.md`](../../ContextoProjeto.md), 15.1.6). Antes: NÃO INICIADO |
 
 ### P04 — Persistência de cadastros, movimentos e parcelas
 
@@ -329,7 +329,7 @@ Questões novas desta fase (T-*) e questões herdadas da matriz que bloqueiam pa
 | T-01 | Como tratar nota sem parcelas, parcelas sem vencimento ou soma das parcelas diferente do valor total?          | C-04, P04, P06 |
 | T-02 | Na conferência, o usuário só confirma ou também pode corrigir dados (por exemplo, a classificação)? Se puder corrigir, o que é revalidado? | C-08, P06, P04 |
 | T-03 | Qual o critério de nota já lançada (por exemplo, documento do fornecedor + número da nota)? O que fazer quando a nota não tem número? | C-09, P02, P04 |
-| T-04 | Onde guardar os dados entre a consulta e a confirmação? Opções a avaliar: sessão no servidor (exige banco de sessões), registro provisório no banco, ou dados reenviados pelo formulário com assinatura e revalidação completa. O cookie assinado atual expõe o conteúdo ao navegador e tem limite de tamanho | C-10, P06, P07 |
+| T-04 | Onde guardar os dados entre a consulta e a confirmação? Opções a avaliar: sessão no servidor (exige banco de sessões), registro provisório no banco, ou dados reenviados pelo formulário com assinatura e revalidação completa. O cookie assinado atual expõe o conteúdo ao navegador e tem limite de tamanho **DECIDIDA em 27/10/2026 (DQ-09, GR-43):** registro provisório no banco (`AnalisePendente`), ligado à sessão por código aleatório; ver [`ContextoProjeto.md`](../../ContextoProjeto.md), 15.1.7 | C-10, P06, P07 |
 | T-05 | Um registro INATIVO encontrado na consulta é exibido como "EXISTE" e reutilizado, é reativado ou gera um novo? | C-02, P03, P04 |
 | T-06 | Os bancos de desenvolvimento e de testes automatizados: Supabase de desenvolvimento, PostgreSQL local ou outro? Testes com banco nunca rodam contra produção. **APROVADA em 26/10/2026:** testes no PostgreSQL local de cada desenvolvedor (`DB_TEST_*`); DEV e QA no Supabase de homologação compartilhado; produção em projeto Supabase independente, a criar ([ADR-001](../arquitetura/ADR-001-supabase.md), seção 13.2) | P01, P02, P09 |
 | Q-03 | Identificação de pessoa existente (matriz)                                                                     | C-02, P03     |

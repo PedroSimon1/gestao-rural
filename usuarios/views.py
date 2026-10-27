@@ -24,7 +24,7 @@ MENSAGEM_LOGIN_INDISPONIVEL = (
 @sensitive_post_parameters("senha")
 @require_http_methods(["GET", "POST"])
 def login_demo(request):
-    """Tela de login da demonstração (credenciais do ambiente, sem banco)."""
+    """Tela de login da demonstração (credenciais do ambiente, sem tabela de usuários)."""
     if demo_autenticado(request):
         return redirect("documento_inicio")
 
