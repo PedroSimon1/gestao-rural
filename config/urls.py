@@ -21,4 +21,5 @@ urlpatterns = [
     path("", RedirectView.as_view(pattern_name="documento_inicio"), name="inicio"),
     path("", include("usuarios.urls")),
     path("documentos/", include("documentos.urls")),
+    path("cadastros/", include("cadastros.urls")),
 ]

@@ -1,0 +1,27 @@
+{% extends 'cadastros/base.html' %}
+{% block titulo %}Pessoas e papéis — Gestão Rural{% endblock %}
+{% block conteudo %}
+<h1>Pessoas e papéis</h1>
+<p><a class="botao" href="{% url 'pessoa_nova' %}">Cadastrar pessoa</a></p>
+<form method="get" class="cartao formulario-cadastro">
+  {{ form.as_p }}
+  <button class="botao" type="submit" name="modo" value="buscar">Pesquisar</button>
+  <a href="{% url 'pessoas' %}?modo=todos">TODOS (ativos)</a>
+</form>
+{% if pesquisou %}
+<p>{{ pagina.paginator.count }} cadastro(s). Os papéis têm situação independente da pessoa.</p>
+<div class="tabela-responsiva"><table class="tabela-cadastros">
+  <thead><tr>{% for cabecalho in cabecalhos %}<th scope="col"><a href="?{{ cabecalho.query }}">{{ cabecalho.rotulo }}</a></th>{% endfor %}<th scope="col">Papéis</th><th scope="col">Ações</th></tr></thead>
+  <tbody>{% for pessoa in pagina %}<tr>
+    <td>{{ pessoa.razao_social }}</td><td>{{ pessoa.documento|default:'Pendente' }}</td><td>{{ pessoa.get_status_display }}</td>
+    <td>{% for vinculo in pessoa.papeis.all %}{{ vinculo.get_papel_display }}: {{ vinculo.get_status_display }}{% if not forloop.last %}; {% endif %}{% empty %}Sem papéis{% endfor %}</td>
+    <td><a href="{% url 'pessoa_detalhe' pessoa.pk %}">Abrir</a> · <a href="{% url 'pessoa_editar' pessoa.pk %}">Editar</a> · {% if pessoa.ativo %}<a href="{% url 'pessoa_status' pessoa.pk 'inativar' %}">Inativar</a>{% else %}<a href="{% url 'pessoa_status' pessoa.pk 'reativar' %}">Reativar</a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="5">Nenhum cadastro encontrado.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if pagina.has_other_pages %}<nav aria-label="Páginas de pessoas">
+  {% if pagina.has_previous %}<a href="?{{ filtros }}&amp;pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+  Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
+  {% if pagina.has_next %}<a href="?{{ filtros }}&amp;pagina={{ pagina.next_page_number }}">Próxima</a>{% endif %}
+</nav>{% endif %}
+{% else %}<p>A lista começa vazia. Pesquise ou selecione TODOS para carregar as pessoas ativas.</p>{% endif %}
+{% endblock %}
