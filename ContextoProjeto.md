@@ -2283,3 +2283,30 @@ antes e depois, confirmado por SELECT. Os 651 testes da base anterior
 Trabalhos de GR-41/42/44/45 ficam fora desta entrega. As alterações anteriores
 estão preservadas no stash humano `backup-lopes-antes-prs` e em backups locais.
 Sem acesso a QA/PROD, migrations remotas ou publicação nesta correção.
+
+
+## 34.16 - Lopes: CNPJ opcional do faturado (GR-41)
+
+27/10/2026. Implementado e validado localmente sobre `develop` `a8dc0a2`,
+que integra a correção Windows pelo PR #32. Esta GR-41 ainda sem commit/PR,
+integração, homologação ou publicação na data deste registro.
+
+Adicionado `faturado.cnpj` opcional, com normalização numérica/alfanumérica,
+preservando CPF. `validacoes.faturado_cnpj` é calculado localmente; prompt e
+aviso da tela atualizados. Estrutura impossível é recusada; DV inválido é
+preservado na extração e sinalizado. Ausência não gera documento fictício.
+CPF e CNPJ simultâneos ficam separados para escolha explícita na conferência.
+
+O schema do Extrator passa a 2; as dez chaves principais do JSON são mantidas.
+Não se trata do JSON fiscal v2 completo proposto na GR-51: extração de chave
+de acesso/modelo/série e CPF do fornecedor ainda pendentes. VERSAO_DADOS e os
+serviços de análise/consulta do Simon não foram alterados nesta entrega.
+
+Arquivos: `agents/extrator/agent.py`, `schemas.py`, `test_schemas.py`,
+`test_faturado_pj.py`, `documentos/test_processamento.py`, `documentos/views.py`
+e este contexto. GR-42/44/45 ficam fora deste incremento.
+
+Validação sobre `a8dc0a2`: **737 testes, OK**, PostgreSQL local
+isolado, DB_HOST inalcançável, banco descartável ausente antes e depois por
+SELECT. Inclui 11 testes novos da GR-41. Sem Gemini real, QA/PROD, models,
+migrations ou scripts de deploy alterados. Commit, push, PR e merge humanos.

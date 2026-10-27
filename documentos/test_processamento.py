@@ -112,7 +112,7 @@ class MontarResultadoTests(SimpleTestCase):
             },
         )
         self.assertEqual(
-            resultado["faturado"], {"nome": "Produtor Ficticio", "cpf": "99999999999"}
+            resultado["faturado"], {"nome": "Produtor Ficticio", "cpf": "99999999999", "cnpj": None}
         )
         self.assertEqual(resultado["numero_nota"], "000123")
         self.assertEqual(
@@ -171,6 +171,7 @@ class MontarResultadoTests(SimpleTestCase):
                     "status": "invalido",
                     "motivo": "digitos_verificadores_invalidos",
                 },
+                "faturado_cnpj": {"status": "ausente", "motivo": None},
             },
         )
 

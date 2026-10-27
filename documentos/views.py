@@ -20,6 +20,7 @@ ROTULOS_TIPO_DESPESA = {
 AVISOS_VALIDACAO = (
     ("fornecedor_cnpj", "CNPJ do fornecedor com dígitos verificadores inválidos."),
     ("faturado_cpf", "CPF do faturado com dígitos verificadores inválidos."),
+    ("faturado_cnpj", "CNPJ do faturado com dígitos verificadores inválidos."),
 )
 
 SUGESTAO_ERRO_PADRAO = "Tente novamente. Se o problema persistir, avise a equipe."
@@ -72,7 +73,7 @@ def _avisos_validacao(resultado):
     return [
         aviso
         for chave, aviso in AVISOS_VALIDACAO
-        if validacoes[chave]["status"] == "invalido"
+        if validacoes.get(chave, {}).get("status") == "invalido"
     ]
 
 
