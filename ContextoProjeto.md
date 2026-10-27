@@ -2262,3 +2262,24 @@ Segue a seção 8 do contrato, com o estado atual:
 5. Abrir as tarefas de backend B-03 a B-06 e as de interface correspondentes, com dono e ordem definidos.
 
 **Validação desta seção:** `python manage.py test` → `Ran 650 tests — OK` (27/10/2026, local); `check` e `makemigrations --check` sem problemas (com `DB_HOST` inalcançável); assinaturas conferidas com `inspect`; nenhum banco remoto acessado; nenhum arquivo além do `ContextoProjeto.md` alterado por esta tarefa.
+
+
+## 34.15 - Lopes: correção dos testes para Windows (GR-34)
+
+27/10/2026. Preparação local na branch `fix/gr-34-testes-windows-pr`, base
+`fb18872` (PR #31 integrado). Ainda sem commit, PR, integração ou homologação.
+
+Somente `config/test_sem_banco.py` muda no código: os casos comuns usam
+127.0.0.1 e o socket Unix tem teste específico conforme a plataforma. O runner
+`config/banco_de_teste.py`, suas proteções e as migrations permanecem intactos.
+
+Validação atual (27/10/2026, base `fb18872`): **726 testes em 49,585 s, OK**.
+`manage.py check` e `git diff --check` sem problemas. PostgreSQL 18.6 local
+em 127.0.0.1:55432, usuário com LOGIN/CREATEDB, sem SUPERUSER/CREATEROLE;
+DB_HOST=db-teste.invalid no processo de testes. Banco descartável ausente
+antes e depois, confirmado por SELECT. Os 651 testes da base anterior
+`4fe9051` ficam como evidência histórica, substituída por esta execução.
+
+Trabalhos de GR-41/42/44/45 ficam fora desta entrega. As alterações anteriores
+estão preservadas no stash humano `backup-lopes-antes-prs` e em backups locais.
+Sem acesso a QA/PROD, migrations remotas ou publicação nesta correção.
