@@ -203,9 +203,9 @@ A especificação da equipe (V0.91) previa 11 funções: Manter Contas a Pagar; 
 | RF-02 | Extrair fornecedor, faturado, nota, data, itens, parcelas, valor      | Etapa 1                     | VALIDADO (testes com Gemini simulado) |
 | RF-03 | Classificar o tipo de despesa por IA a partir dos itens               | Etapa 1                     | VALIDADO (2 categorias)          |
 | RF-04 | Exibir o JSON na tela                                                 | Etapa 1                     | VALIDADO                         |
-| RF-05 | Consultar no banco se o fornecedor existe                             | Etapa 2                     | REQUISITO, não implementado      |
-| RF-06 | Consultar no banco se o faturado existe                               | Etapa 2                     | REQUISITO, não implementado      |
-| RF-07 | Consultar no banco se a classificação de despesa existe               | Etapa 2                     | REQUISITO, não implementado      |
+| RF-05 | Consultar no banco se o fornecedor existe                             | Etapa 2                     | PARCIAL: serviço de backend (GR-40, 15.1.6) |
+| RF-06 | Consultar no banco se o faturado existe                               | Etapa 2                     | PARCIAL: serviço de backend (GR-40, 15.1.6) |
+| RF-07 | Consultar no banco se a classificação de despesa existe               | Etapa 2                     | PARCIAL: serviço de backend (GR-40, 15.1.6) |
 | RF-08 | Exibir o resultado das consultas (EXISTE – ID / NÃO EXISTE)           | Etapa 2                     | REQUISITO, não implementado      |
 | RF-09 | Criar fornecedor, faturado e classificação inexistentes               | Etapa 2                     | REQUISITO, não implementado      |
 | RF-10 | Criar movimento (APAGAR) e sua(s) parcela(s)                          | Etapa 2                     | REQUISITO, não implementado      |
@@ -292,7 +292,7 @@ A Etapa 2 exige que a classificação exista como registro (`CLASSIFICACAO.Descr
 | Configuração de produção (Render)      | **VALIDADO** em testes; operação real registrada em 29/09    | `config/test_producao.py`                    |
 | Banco de dados                         | **inexistente** (`DATABASES = {}`) em `f7786e8`. Na branch da GR-33 (não integrada): conexão PostgreSQL configurada (15.1.1) | `config/settings.py`, `config/test_sem_banco.py` |
 | Models / migrations / admin            | **inexistentes**                                             | árvore do repositório                        |
-| Consultas de existência (Etapa 2)      | não implementado                                             | —                                            |
+| Consultas de existência (Etapa 2)      | **PARCIAL** (GR-40, branch não integrada): serviço de backend, sem tela nem integração ao fluxo | `cadastros/consultas.py`, 15.1.6 |
 | Cadastros e inativação (Etapa 2)       | não implementado                                             | —                                            |
 | Movimento e parcelas (Etapa 2)         | não implementado                                             | —                                            |
 | Versão/commit do GitHub na tela        | não implementado                                             | nenhuma ocorrência no código                 |
@@ -642,7 +642,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (branch não integrada): `ParcelaConta` e gatilho da soma, ver 15.1.5 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (integrada à `develop`, PR #27): `ParcelaConta` e gatilho da soma, ver 15.1.5. GR-40 (branch não integrada): consultas de existência, só leitura e sem models, ver 15.1.6 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -801,7 +801,7 @@ A regra "MANUAL → `analise_origem_id` NULL" **não** foi imposta, de propósit
 | Cancelamento | **pendente**: operação de cancelamento e suas regras |
 | Homologação | **pendente**: aplicar `financeiro` `0001` manualmente no projeto de homologação (PT-06) |
 
-## 15.1.5 - GR-38: ParcelaConta e integridade do lançamento (branch `feature/gr-38-parcelas-integridade`, 26/10/2026, não integrada)
+## 15.1.5 - GR-38: ParcelaConta e integridade do lançamento (branch `feature/gr-38-parcelas-integridade`, 26/10/2026, integrada à `develop`, PR #27)
 
 Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL 18.6 descartável); **PENDENTE DE HOMOLOGAÇÃO**: a migration `financeiro` `0002_parcelas_contas` **não** foi aplicada no Supabase. Decisões de modelagem aprovadas por Pedro Simon em 26/10/2026: regra garantida no serviço **e** por gatilho diferido no banco; `status` ATIVA/CANCELADA; numeração contígua 1..n (conferida no serviço); no máximo **120 parcelas** por lançamento.
 
@@ -840,6 +840,69 @@ Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL 18.6 descartá
 | Pagamento e cancelamento (GR-22 ou tarefa a definir) | **pendente**: situação de pagamento, quitação, cancelamento de movimento ou parcela, renegociação. Ao implementar: transição de status controlada (hoje imutável), revisão de `_mesma_analise` (compara só parcelas ATIVAS e exige 1..n) e da unicidade de `numero` (inclui parcelas canceladas) |
 | GR-51 | **pendente**: mapear as `parcelas` do Extrator (`numero` opcional, `data_vencimento` opcional, lista sem teto) para `ItemParcela`; tratar nota sem parcelas, sem vencimento ou com mais de 120 parcelas (T-01); exibir "ÚNICA"; traduzir os novos códigos de erro (`sem_parcela`, `parcela`, `parcela_quantidade`, `parcela_numero`, `parcela_vencimento`, `parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`, `parcela_repetida`, `parcela_numeracao`, `parcela_soma`) e os `IntegrityError` do gatilho |
 | Homologação | **pendente**: aplicar `financeiro` `0001` e `0002` manualmente (PT-06). Movimentos já existentes não são conferidos até serem alterados |
+
+## 15.1.6 - GR-40: consultas de existência (branch `feature/gr-40-consultas`, 27/10/2026, não integrada)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL local descartável), **só no backend**. Não há model nem migration novos, e nada foi aplicado em homologação ou produção. Pacote P03 (FLU-01 a FLU-03). Branch criada a partir da `develop` em `ba63321`, que já contém a GR-38 (PR #27).
+
+**Objetivo:** dado o JSON final do processamento da nota (17.3), responder se fornecedor, faturado e classificação da despesa já estão cadastrados, com o ID quando estiverem, **sem gravar nada** (Q-02/DQ-02: a gravação acontece só depois da confirmação, na GR-51).
+
+**Decisões de negócio aprovadas por Pedro Simon em 27/10/2026** (antes da implementação; matriz, DQ-08):
+
+| Questão | Decisão |
+| ------- | ------- |
+| Q-03 (chave da pessoa) | Só CPF/CNPJ normalizado, por `Pessoa.objects.por_documento()`. Não há busca pela razão social |
+| Pessoa existe sem o papel pedido, ou com papel INATIVO | `EXISTE` com o ID da pessoa, o status da pessoa e o do papel pedido (`ATIVO`, `INATIVO` ou `AUSENTE`). Nada é atribuído nem reativado (coerente com DQ-07) |
+| Documento com estrutura ou DV inválido | `DOCUMENTO_INVALIDO`, sem consultar o banco. Pelo caminho normal, documento inválido nunca é guardado (DQ-05) |
+| Escopo | Só o serviço de backend. A tela (FLU-04, P06) e a integração com o fluxo da nota (GR-51) ficam fora |
+
+**Implementação** (`cadastros/consultas.py`, camada de serviço, só leitura):
+
+| Função | Comportamento |
+| ------ | ------------- |
+| `consultar_pessoa(documento, papel, nome=None)` → `ConsultaPessoa` | normaliza e revalida o documento com `validar_documento` (não confia no bloco `validacoes` do JSON); `DOCUMENTO_AUSENTE` ou `DOCUMENTO_INVALIDO` sem query; senão `EXISTE` (`id`, `razao_social` cadastrada, `status`, `status_papel`) ou `NAO_EXISTE`. Pessoa INCOMPLETA (sem documento) nunca é encontrada |
+| `consultar_classificacao(codigo, tipo=DESPESA)` → `ConsultaClassificacao` | `Classificacao.objects.por_codigo()` em qualquer status (Q-05 parcial: o código é o valor do Enum); `EXISTE` (`id`, `descricao`, `status`), `NAO_EXISTE` ou `CLASSIFICACAO_AUSENTE` (sem query). Um código de RECEITA não conta como DESPESA |
+| `consultar_nota(resultado)` → `ResultadoConsultas` | lê `fornecedor.cnpj`/`razao_social`, `faturado.cpf`/`nome` e `tipo_despesa` do JSON final (17.3) e devolve as três consultas |
+
+- **Formato do resultado (proposta para o C-05, a validar com Gustavo Lopes na GR-51/P06):** dataclasses imutáveis com `situacao` (`Situacao`: `EXISTE`, `NAO_EXISTE`, `DOCUMENTO_AUSENTE`, `DOCUMENTO_INVALIDO`, `CLASSIFICACAO_AUSENTE`), a propriedade `existe`, os dados da nota para exibição (`nome`, `documento` normalizado, `tipo_documento`) e, quando existe, os dados cadastrados. O ID devolvido é o identificador interno do banco (C-06). A máscara de CPF/CNPJ fica com a apresentação.
+- **Entrada fora do contrato:** documento, nome ou código que não é texto, `resultado`/`fornecedor`/`faturado` que não é dicionário → `TypeError`; papel ou tipo desconhecido → `ValueError`. A view deve tratar isso (GR-51).
+- **Consultas ao banco:** no máximo 5 `SELECT` por nota (pessoa e papel para cada pessoa encontrada, mais a classificação). Não há transação: a revalidação dos dados é feita na confirmação (`registrar_movimento()`, com `select_for_update`).
+- **Reuso:** `por_documento`, `por_codigo`, `normalizar_documento`, `tipo_do_documento` e `validar_documento` (GR-35/GR-36). Nenhuma regra foi duplicada, e os models, as migrations e `financeiro` não foram alterados.
+
+**Arquivos:**
+
+| Arquivo | Alteração |
+| ------- | --------- |
+| `cadastros/consultas.py` | novo: serviço de consultas |
+| `cadastros/test_consultas.py` | novo: 32 testes |
+| `ContextoProjeto.md`, `docs/requisitos/matriz-n2-etapa2.md`, `docs/organizacao/Plano_Responsabilidades_N2_Etapa2.md` | registro da GR-40, DQ-08 e situação de FLU-01 a FLU-03/P03; a GR-38 passa a constar como integrada (PR #27) |
+
+**Testes** (`cadastros/test_consultas.py`, 32, PostgreSQL local via `DB_TEST_*`): pessoa existente (documento formatado, CNPJ alfanumérico em minúsculas, razão social cadastrada × da nota); inexistente; sem busca pela razão social; documento ausente e inválido sem nenhuma query (`assertNumQueries(0)`), inclusive registro de fixture com DV inválido; pessoa INATIVA, papel INATIVO e papel AUSENTE, sem reativar nem atribuir; mesma pessoa como fornecedor e faturado; classificação existente, normalizada, INATIVA, inexistente, de RECEITA e ausente; `validacoes` do JSON sem efeito; entrada fora do contrato; **só leitura** (todas as queries capturadas são `SELECT` e as contagens não mudam) e número de queries.
+
+| Comando | Resultado |
+| ------- | --------- |
+| `python manage.py test cadastros.test_consultas` | `Ran 31 tests — OK` (antes da auditoria) |
+| `python manage.py check` | sem problemas |
+| `python manage.py makemigrations --check --dry-run` | `No changes detected` |
+| `python manage.py test` (final) | `Ran 591 tests — OK` (559 antes da GR-40 + 32) |
+| `git diff --check` | sem problemas |
+
+O banco `test_gestao_rural` foi criado e removido pelo executor de testes. O Supabase não foi usado.
+
+**Auditoria técnica** (revisão independente, só leitura, por subagente): as cinco regras aprovadas são cumpridas e não foi encontrado nenhum bug com cenário concreto. Ajustes aplicados: blocos `fornecedor`/`faturado`/`resultado` que não são dicionário passam a levantar `TypeError` claro (antes, `AttributeError`), com teste de regressão; quebra de linhas longas; comentário sobre a normalização do código. Os documentos de teste são os exemplos fictícios já usados desde a GR-35, sem dado de cliente.
+
+**Integração:**
+- **Depende de:** GR-35 (`Pessoa`, `PapelPessoa`), GR-36 (`Classificacao` e categorias iniciais) e do JSON final da Etapa 1.
+- **Usado por:** GR-51 (fluxo da nota: chamar `consultar_nota()` após `processar_pdf()`, guardar o resultado entre a consulta e a confirmação e revalidar na gravação) e P06 (exibir "EXISTE – ID: n" / "NÃO EXISTE"). `documentos/views.py` não foi alterado.
+
+**Pendências** (não decididas pelo agente):
+- **FLU-04 / P06:** exibição na tela e mensagens para `DOCUMENTO_AUSENTE`, `DOCUMENTO_INVALIDO`, pessoa ou classificação INATIVA e papel AUSENTE.
+- **C-05/C-06:** o formato proposto precisa ser confirmado por Gustavo Lopes. Serialização para a sessão (T-04) não foi implementada.
+- **Tipo do documento por papel:** o serviço aceita CPF ou CNPJ em qualquer papel. Hoje o Extrator só entrega CNPJ para o fornecedor e CPF para o faturado, mas não há regra aprovada que amarre o tipo ao papel.
+- **Q-05:** categorias do cliente e de RECEITA continuam em aberto; uma classificação nova do Classificador chega como `NAO_EXISTE`.
+- **Q-03 para cadastros incompletos:** sem busca pela razão social, uma pessoa INCOMPLETA nunca é encontrada pela consulta; a GR-51 precisa definir como evitar um segundo cadastro incompleto da mesma pessoa.
+
+**Git:** branch `feature/gr-40-consultas`, alterações locais sem commit. Commit, push e PR para `develop` ficam com o usuário.
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
