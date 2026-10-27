@@ -15,14 +15,21 @@ das parcelas ATIVAS é igual ao valor_total. Uma parcela isolada não é um
 lançamento completo, então a regra não cabe numa constraint por linha: o
 serviço a valida antes de gravar, e um gatilho diferido do PostgreSQL
 (migration 0002) a confere de novo no COMMIT, para qualquer caminho de escrita.
+
+Identidade fiscal (D-01, GR-22): o movimento de uma nota guarda em
+NotaFiscalLancada a chave de acesso e o CNPJ do emitente, o modelo, a série e
+o número. A combinação é única no banco, o que impede lançar a mesma nota
+duas vezes, inclusive em transações concorrentes (financeiro/identidade_fiscal.py).
 """
 
 import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Cast, LPad, Substr
 
 from cadastros.models import Classificacao, ExclusaoNaoPermitida, Pessoa
+from cadastros.validators import FORMATO_CNPJ
 
 # Mesmo teto do Extrator (agents/extrator/schemas.py, LIMITE_VALOR_MONETARIO).
 LIMITE_VALOR = 10_000_000_000
@@ -46,6 +53,18 @@ class StatusMovimento(models.TextChoices):
 class StatusParcela(models.TextChoices):
     ATIVA = "ATIVA", "Ativa"
     CANCELADA = "CANCELADA", "Cancelada"
+
+
+class ModeloNota(models.TextChoices):
+    # Só NF-e e NFC-e (T-06); NFS-e e outros modelos ainda não são aceitos.
+    NFE = "55", "NF-e"
+    NFCE = "65", "NFC-e"
+
+
+# NT Conjunta 2025.001: 44 posições; letras só nas 12 primeiras do CNPJ.
+FORMATO_CHAVE_ACESSO = r"^[0-9]{6}[0-9A-Z]{12}[0-9]{26}$"
+SERIE_MAXIMA = 999
+NUMERO_MAXIMO = 999_999_999
 
 
 class ExclusaoDeMovimentoNaoPermitida(ExclusaoNaoPermitida):
@@ -367,3 +386,96 @@ class ParcelaConta(RegistroFinanceiro):
 
     def __str__(self):
         return f"Parcela {self.numero} do movimento #{self.movimento_id} — R$ {self.valor}"
+
+
+class NotaFiscalLancadaQuerySet(SemExclusaoNemAlteracaoQuerySet):
+    pass
+
+
+def _trecho_da_chave(inicio, tamanho):
+    return Substr("chave_acesso", inicio, tamanho)
+
+
+def _com_zeros(campo, tamanho):
+    # Compara texto com texto: um CAST do trecho da chave para inteiro
+    # falharia (DataError) numa chave mal formada, em vez de violar o CHECK.
+    return LPad(Cast(campo, models.CharField()), tamanho, models.Value("0"))
+
+
+class NotaFiscalLancada(RegistroFinanceiro):
+    """Identidade fiscal da nota de um movimento (D-01, GR-22).
+
+    (emitente_cnpj, modelo, serie, numero) é único em qualquer caso; com chave,
+    os quatro campos precisam ser os da chave (constraint), então a mesma nota
+    lançada com e sem chave também colide. O DV da chave é conferido no
+    serviço. Não é liberada se o movimento for cancelado (T-07).
+    """
+
+    campos_imutaveis = (
+        "movimento", "chave_acesso", "emitente_cnpj", "modelo", "serie", "numero",
+        "criado_em",
+    )
+
+    movimento = models.OneToOneField(
+        MovimentoConta, on_delete=models.PROTECT, related_name="nota_fiscal"
+    )
+    # Única quando presente (o índice único do PostgreSQL ignora NULLs).
+    chave_acesso = models.CharField(max_length=44, null=True, blank=True, unique=True)
+    emitente_cnpj = models.CharField(max_length=14)
+    modelo = models.CharField(max_length=2, choices=ModeloNota)
+    serie = models.PositiveSmallIntegerField()
+    numero = models.PositiveIntegerField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    objects = SemExclusaoNemAlteracaoManager.from_queryset(NotaFiscalLancadaQuerySet)()
+
+    class Meta:
+        db_table = "notas_fiscais_lancadas"
+        base_manager_name = "objects"
+        ordering = ["-criado_em", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["emitente_cnpj", "modelo", "serie", "numero"],
+                name="nota_fiscal_identidade_unica",
+                violation_error_message="Esta nota fiscal já foi lançada.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(emitente_cnpj__regex=FORMATO_CNPJ),
+                name="nota_fiscal_emitente_cnpj_valido",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(modelo__in=ModeloNota.values),
+                name="nota_fiscal_modelo_valido",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(serie__lte=SERIE_MAXIMA),
+                name="nota_fiscal_serie_valida",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(numero__gte=1, numero__lte=NUMERO_MAXIMO),
+                name="nota_fiscal_numero_valido",
+            ),
+            # IS NULL explícito: no PostgreSQL, CHECK com resultado NULL passa.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(chave_acesso__isnull=True)
+                    | models.Q(
+                        chave_acesso__isnull=False,
+                        chave_acesso__regex=FORMATO_CHAVE_ACESSO,
+                        emitente_cnpj=_trecho_da_chave(7, 14),
+                        modelo=_trecho_da_chave(21, 2),
+                    )
+                    & models.Q(
+                        models.lookups.Exact(_com_zeros("serie", 3), _trecho_da_chave(23, 3)),
+                        models.lookups.Exact(_com_zeros("numero", 9), _trecho_da_chave(26, 9)),
+                    )
+                ),
+                name="nota_fiscal_chave_coerente",
+                violation_error_message=(
+                    "A chave de acesso não corresponde ao emitente, modelo, série e número."
+                ),
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_modelo_display()} {self.serie}/{self.numero} — movimento #{self.movimento_id}"

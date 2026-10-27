@@ -8,6 +8,11 @@ desse código (dono_hash).
 O PDF e a Gemini API Key nunca são guardados. Os dados da nota só existem
 enquanto a análise está PENDENTE: ao confirmar, cancelar ou expirar, `dados`
 é apagado e ficam só o estado e as datas, para rastreabilidade.
+
+Correções da conferência (GR-22, F-2): ficam em `correcoes`, separadas de
+`dados`, que nunca muda. São apagadas junto com `dados`; depois da finalização
+fica só `campos_corrigidos`, com os nomes dos campos corrigidos e sem valores
+(T-03). `versao_correcoes` conta as gravações (controle otimista, T-02).
 """
 
 import uuid
@@ -37,6 +42,12 @@ class AnalisePendente(models.Model):
     versao_dados = models.PositiveSmallIntegerField()
     # JSON final do processamento (ContextoProjeto 17.3); NULL fora de PENDENTE.
     dados = models.JSONField(null=True, blank=True)
+    # Correções da conferência (documentos/correcoes.py); NULL sem correção e
+    # sempre NULL fora de PENDENTE.
+    correcoes = models.JSONField(null=True, blank=True)
+    versao_correcoes = models.PositiveIntegerField(default=0)
+    # Só os nomes dos campos corrigidos; fica depois da finalização (T-03).
+    campos_corrigidos = models.JSONField(default=list, blank=True)
     criado_em = models.DateTimeField(default=timezone.now)
     expira_em = models.DateTimeField()
     finalizado_em = models.DateTimeField(null=True, blank=True)
@@ -74,6 +85,14 @@ class AnalisePendente(models.Model):
                     )
                 ),
                 name="analise_dados_coerentes_com_status",
+            ),
+            # Correções só enquanto pendente, como os dados.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status=StatusAnalise.PENDENTE)
+                    | models.Q(status__in=ESTADOS_FINAIS, correcoes__isnull=True)
+                ),
+                name="analise_correcoes_so_pendente",
             ),
         ]
 
