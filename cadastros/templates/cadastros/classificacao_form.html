@@ -1,0 +1,16 @@
+{% extends 'cadastros/base.html' %}
+{% block titulo %}{{ titulo }} — Gestão Rural{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}</h1>
+{% if classificacao %}
+<dl><dt>Tipo</dt><dd>{{ classificacao.get_tipo_display }}</dd><dt>Código</dt><dd>{{ classificacao.codigo }}</dd><dt>Situação</dt><dd>{{ classificacao.get_status_display }}</dd></dl>
+<p>Tipo e código identificam o cadastro e não podem ser alterados. Para outra identidade, crie uma nova classificação e inative a anterior.</p>
+<p>{% if classificacao.ativo %}<a href="{% url 'classificacao_status' classificacao.pk 'inativar' %}">Inativar classificação</a>{% else %}<a href="{% url 'classificacao_status' classificacao.pk 'reativar' %}">Reativar classificação</a>{% endif %}</p>
+{% endif %}
+{% if aviso %}<p role="status">{{ aviso }}</p>{% endif %}
+<form method="post" class="cartao formulario-cadastro">{% csrf_token %}
+  {{ form.as_p }}
+  <button class="botao" type="submit">Confirmar</button>
+  <a href="{% url 'classificacoes' %}">Voltar sem alterar</a>
+</form>
+{% endblock %}

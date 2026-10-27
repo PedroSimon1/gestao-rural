@@ -1,7 +1,12 @@
 from django.urls import path
 from . import views
+from . import views_classificacoes
 
 urlpatterns = [
+    path("classificacoes/", views_classificacoes.classificacoes, name="classificacoes"),
+    path("classificacoes/nova/", views_classificacoes.classificacao_nova, name="classificacao_nova"),
+    path("classificacoes/<int:classificacao_id>/editar/", views_classificacoes.classificacao_editar, name="classificacao_editar"),
+    path("classificacoes/<int:classificacao_id>/status/<str:acao>/", views_classificacoes.classificacao_status, name="classificacao_status"),
     path("pessoas/", views.pessoas, name="pessoas"),
     path("pessoas/nova/", views.pessoa_nova, name="pessoa_nova"),
     path("pessoas/<int:pessoa_id>/", views.pessoa_detalhe, name="pessoa_detalhe"),
