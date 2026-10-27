@@ -9,6 +9,7 @@ não apague essa carga.
 
 import uuid
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 from unittest import mock
 
@@ -19,8 +20,10 @@ from django.test.utils import CaptureQueriesContext
 
 from cadastros.models import Classificacao, Papel, Pessoa, SituacaoDocumental
 
-from .models import MovimentoClassificacao, MovimentoConta, StatusMovimento
-from .servicos import DadosMovimento, ItemClassificacao, registrar_movimento
+from .models import MovimentoClassificacao, MovimentoConta, ParcelaConta, StatusMovimento
+from .servicos import DadosMovimento, ItemClassificacao, ItemParcela, registrar_movimento
+
+VENCIMENTO = date(2026, 11, 30)
 
 
 def pessoa(documento, razao_social, *papeis):
@@ -47,7 +50,7 @@ class DadosDeServico:
             faturado=self.faturado, valor_total=Decimal("1250.40"),
             classificacoes=(ItemClassificacao(self.manutencao, principal=True),),
         )
-        return replace(dados, **alteracoes)
+        return self._com_parcela_unica(replace(dados, **alteracoes), alteracoes)
 
     def areceber(self, **alteracoes):
         dados = DadosMovimento(
@@ -55,7 +58,13 @@ class DadosDeServico:
             valor_total=Decimal("900.00"),
             classificacoes=(ItemClassificacao(self.venda, principal=True),),
         )
-        return replace(dados, **alteracoes)
+        return self._com_parcela_unica(replace(dados, **alteracoes), alteracoes)
+
+    def _com_parcela_unica(self, dados, alteracoes):
+        # Sem parcelas informadas, uma parcela "ÚNICA" com o valor total (GR-38).
+        if "parcelas" in alteracoes:
+            return dados
+        return replace(dados, parcelas=(ItemParcela(1, VENCIMENTO, dados.valor_total),))
 
     def assert_recusado(self, dados, codigo):
         with self.assertRaises(ValidationError) as contexto:
@@ -63,6 +72,7 @@ class DadosDeServico:
         self.assertEqual(contexto.exception.code, codigo)
         self.assertEqual(MovimentoConta.objects.count(), 0)
         self.assertEqual(MovimentoClassificacao.objects.count(), 0)
+        self.assertEqual(ParcelaConta.objects.count(), 0)
 
 
 class ServicoTestBase(DadosDeServico, TestCase):

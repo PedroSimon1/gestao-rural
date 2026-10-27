@@ -642,7 +642,7 @@ A tabela acima e o parágrafo abaixo descrevem `f7786e8`. O estado da branch da 
 | Conexões                 | `CONN_MAX_AGE = 0` (uma por requisição), pelo limite do Session Pooler e pelas requisições longas ao Gemini |
 | Uso do Supabase          | só PostgreSQL: Data API desativada, sem Auth e sem Storage; o navegador não acessa o banco |
 | Limitação de TLS         | `require` criptografa, mas não valida o certificado do servidor                    |
-| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (branch não integrada): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4 |
+| Models / migrations      | nenhum até a GR-34; `build.sh` e `start.sh` sem `migrate`, verificado por teste (GR-34). GR-35 (integrada à `develop`, PR #24): `Pessoa` e `PapelPessoa`, ver 15.1.2. GR-36 (integrada à `develop`, PR #25): `Classificacao` e categorias iniciais, ver 15.1.3. GR-37 (integrada à `develop`, PR #26): `MovimentoConta` e `MovimentoClassificacao` (app `financeiro`), ver 15.1.4. GR-38 (branch não integrada): `ParcelaConta` e gatilho da soma, ver 15.1.5 |
 | Render                   | **sem** as variáveis `DB_*` (GR-20): publicar esta mudança sem elas impede a inicialização (falha intencional) |
 | Validação da conexão     | Validada em 25/10/2026 na branch `feature/gr-33-configurar-supabase`: `SELECT 1` pelo Django ORM (`connection.cursor()`) no projeto de homologação retornou `1`, PostgreSQL 17, porta 5432, `sslmode=require` e TLS ativo na sessão; somente leitura, nenhum dado ou tabela alterado                                     |
 
@@ -742,7 +742,7 @@ Model `Classificacao` no app `cadastros` (`cadastros/models.py`), com as migrati
 - **Testes futuros:** um `TransactionTestCase` apaga as categorias iniciais no `flush`; testes desse tipo que dependam delas devem criá-las ou usar `serialized_rollback=True`.
 - **Movimentos (decisões futuras):** FKs com `PROTECT`; se o vínculo N classificações por movimento (RN-04) também segue RN-01; conferir o `tipo` com a natureza do movimento; bloquear classificação INATIVA em movimento novo.
 
-## 15.1.4 - GR-37: MovimentoConta e MovimentoClassificacao (branch `feature/gr-37-movimento-classificacao`, 26/10/2026, não integrada)
+## 15.1.4 - GR-37: MovimentoConta e MovimentoClassificacao (branch `feature/gr-37-movimento-classificacao`, 26/10/2026, integrada à `develop`, PR #26)
 
 Novo app `financeiro` (`financeiro/models.py`, `financeiro/servicos.py`, migration `financeiro/migrations/0001_initial.py`). O app depende de `cadastros`, e não o contrário. As migrations de `cadastros` não foram alteradas. Decisões aprovadas por Pedro Simon e Gustavo Lopes em 26/10/2026.
 
@@ -795,11 +795,51 @@ A regra "MANUAL → `analise_origem_id` NULL" **não** foi imposta, de propósit
 
 | Escopo | Situação |
 | ------ | -------- |
-| GR-37 (implementado na branch) | `MovimentoConta`, `MovimentoClassificacao`, constraints, sem exclusão, imutabilidade dos campos essenciais, `registrar_movimento()` com validação de papéis, pessoas, classificações, valor e idempotência |
-| GR-38 | **pendente**: `ParcelaConta`; soma das parcelas × `valor_total` (T-01); o status de pagamento pertence às parcelas |
+| GR-37 (integrada à `develop`, PR #26) | `MovimentoConta`, `MovimentoClassificacao`, constraints, sem exclusão, imutabilidade dos campos essenciais, `registrar_movimento()` com validação de papéis, pessoas, classificações, valor e idempotência |
+| GR-38 | implementada na branch `feature/gr-38-parcelas-integridade` (ver 15.1.5) |
 | GR-51 | **pendente**: quem gera o `analise_origem_id`; mapeamento nota → movimento (C-01), inclusive `numero_documento` e `data_emissao` (fora da GR-37); critério de duplicidade (T-03); armazenamento entre consulta e confirmação (T-04); edições (T-02); consentimento para pessoa incompleta; Q-06; Q-10; possível `analise_origem_id` NOT NULL para NOTA_FISCAL |
 | Cancelamento | **pendente**: operação de cancelamento e suas regras |
 | Homologação | **pendente**: aplicar `financeiro` `0001` manualmente no projeto de homologação (PT-06) |
+
+## 15.1.5 - GR-38: ParcelaConta e integridade do lançamento (branch `feature/gr-38-parcelas-integridade`, 26/10/2026, não integrada)
+
+Situação: **IMPLEMENTADO** e **TESTADO LOCALMENTE** (PostgreSQL 18.6 descartável); **PENDENTE DE HOMOLOGAÇÃO**: a migration `financeiro` `0002_parcelas_contas` **não** foi aplicada no Supabase. Decisões de modelagem aprovadas por Pedro Simon em 26/10/2026: regra garantida no serviço **e** por gatilho diferido no banco; `status` ATIVA/CANCELADA; numeração contígua 1..n (conferida no serviço); no máximo **120 parcelas** por lançamento.
+
+| Entidade | Tabela | Campos | Constraints no banco |
+| -------- | ------ | ------ | -------------------- |
+| `ParcelaConta` (ENT-04, RN-06) | `parcelas_contas` | `id`, `identificador` (UUID, **único**, gerado na criação), `movimento` (FK `MovimentoConta`, `PROTECT`, `related_name="parcelas"`), `numero` (≥ 1), `data_vencimento` (obrigatória), `valor` (Decimal 12,2), `status` (ATIVA, padrão / CANCELADA), `criado_em`, `atualizado_em` | `parcela_numero_unico_no_movimento` (`movimento`, `numero`); `parcela_numero_positivo`; `parcela_valor_positivo` (> 0 e < R$ 10 bilhões); `parcela_status_valido` |
+
+- **Identificacao do professor:** "ÚNICA" é apresentação (GR-51); o registro guarda o `numero`.
+- **Regras do model:** as mesmas da GR-37 (`RegistroFinanceiro`): sem exclusão física; `identificador`, `movimento`, `numero`, `data_vencimento`, `valor`, `status` e `criado_em` imutáveis após a gravação, inclusive por `update()`, `bulk_update()`, upsert, `_base_manager` e `movimento.parcelas.add/set`.
+- **Status:** nasce ATIVA e não muda. Cancelamento, renegociação e situação de pagamento **não** foram implementados (sem contrato aprovado).
+
+**Regra do lançamento:** movimento CONFIRMADO tem **pelo menos uma parcela ATIVA**, e a **soma das parcelas ATIVAS é exatamente o `valor_total`**. Uma parcela isolada não é um lançamento completo (o movimento e as parcelas são gravados em comandos separados), então a regra é conferida em dois pontos:
+
+| Ponto | Como |
+| ----- | ---- |
+| Serviço `registrar_movimento()` | antes de gravar e dentro do mesmo `transaction.atomic` do movimento e das classificações: pelo menos uma parcela (`sem_parcela`) e no máximo 120 (`parcela_quantidade`); itens `ItemParcela` (`parcela`); `numero` inteiro ≥ 1 (`parcela_numero`); `data_vencimento` do tipo `date` (`parcela_vencimento`); valor `Decimal` válido (`parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`); sem número repetido (`parcela_repetida`); numeração 1..n (`parcela_numeracao`); soma igual ao `valor_total` (`parcela_soma`) |
+| Banco (migration `0002`) | `CONSTRAINT TRIGGER` `DEFERRABLE INITIALLY DEFERRED` em `movimentos_contas` e `parcelas_contas` (função `financeiro_conferir_parcelas`): no COMMIT, recusa com `check_violation` (`IntegrityError` no Django) movimento CONFIRMADO sem parcela ATIVA (`movimento_com_parcela_ativa`) ou com soma diferente (`movimento_soma_das_parcelas`), por qualquer caminho de escrita (ORM ou SQL). Movimento CANCELADO não é conferido. Parcela nova precisa estar ATIVA (`parcela_nasce_ativa`). A função bloqueia o movimento (`FOR NO KEY UPDATE`): sem isso, uma transação que reconfirma o movimento e outra que cancela uma parcela confeririam, cada uma, um estado sem a mudança da outra (testado com threads). As funções têm `search_path` fixo (`public, pg_temp`): uma tabela temporária homônima não engana a conferência |
+
+- **Idempotência:** `_mesma_analise` também compara as parcelas ATIVAS (número, vencimento, valor); outras parcelas com a mesma análise → `analise_ja_lancada`.
+- **Atomicidade:** falha em qualquer parcela desfaz movimento, classificações e parcelas.
+- **Concorrência:** testada com threads reais (`TransactionTestCase`): mesma análise em paralelo grava um só movimento, uma só vez cada parcela; lançamentos com papéis cruzados não entram em deadlock.
+- **Efeito nos testes:** o `TestCase` do Django chama `connection.check_constraints()` ao terminar, o que dispara o gatilho; por isso as fixtures da GR-37 criam o movimento com uma parcela única.
+- **Contrato de `registrar_movimento()`:** `DadosMovimento.parcelas` tem padrão vazio só pela ordem dos campos do dataclass; uma chamada sem parcelas é recusada com `sem_parcela` (quebra intencional; não há chamador fora dos testes).
+- **Limites do gatilho (documentados, não corrigidos):** a numeração 1..n só é conferida no serviço (pelo ORM ou por SQL, parcelas 1 e 3 que somam o total passam); `TRUNCATE` não dispara gatilho de linha (um gatilho de `TRUNCATE` quebraria o flush dos `TransactionTestCase`), e quem pode truncar também pode desligar gatilhos; uma futura operação que altere parcelas de vários movimentos na mesma transação deve percorrê-los em ordem de `pk`, porque o bloqueio do gatilho segue a ordem dos eventos; a mensagem do erro traz id e valores: a GR-51 deve traduzir o `IntegrityError`, nunca exibi-lo.
+- **T-01 (parcial):** a GR-38 fixou a regra do backend (pelo menos uma parcela, vencimento obrigatório, soma exata). Continua aberto **como a interface trata** a nota sem parcelas ou sem vencimento (GR-51).
+
+**Migration e testes:**
+- **Migration:** `financeiro/migrations/0002_parcelas_contas.py` (`CreateModel` + `RunSQL` do gatilho, com operação reversa), depende de `financeiro` `0001`. As migrations anteriores não foram alteradas. Validada **só** no banco local descartável dos testes.
+- **Testes:** `financeiro/test_parcelas.py` (73), mais as fixtures adaptadas em `financeiro/test_models.py` e `financeiro/test_servicos.py`. As classes de concorrência e autocommit passaram em execuções repetidas. Mutações de controle, todas detectadas: sem a soma no serviço; sem o gatilho; sem o bloqueio do movimento; sem o `search_path`; sem a regra da parcela nova ATIVA; sem o teto de parcelas.
+- **Suíte completa:** `Ran 559 tests — OK`.
+
+**Pendências:**
+
+| Escopo | Situação |
+| ------ | -------- |
+| Pagamento e cancelamento (GR-22 ou tarefa a definir) | **pendente**: situação de pagamento, quitação, cancelamento de movimento ou parcela, renegociação. Ao implementar: transição de status controlada (hoje imutável), revisão de `_mesma_analise` (compara só parcelas ATIVAS e exige 1..n) e da unicidade de `numero` (inclui parcelas canceladas) |
+| GR-51 | **pendente**: mapear as `parcelas` do Extrator (`numero` opcional, `data_vencimento` opcional, lista sem teto) para `ItemParcela`; tratar nota sem parcelas, sem vencimento ou com mais de 120 parcelas (T-01); exibir "ÚNICA"; traduzir os novos códigos de erro (`sem_parcela`, `parcela`, `parcela_quantidade`, `parcela_numero`, `parcela_vencimento`, `parcela_valor_tipo`, `parcela_valor`, `parcela_valor_centavos`, `parcela_repetida`, `parcela_numeracao`, `parcela_soma`) e os `IntegrityError` do gatilho |
+| Homologação | **pendente**: aplicar `financeiro` `0001` e `0002` manualmente (PT-06). Movimentos já existentes não são conferidos até serem alterados |
 
 ## 15.2 - Modelo exigido pela Etapa 2 (REQUISITO — não implementado)
 
