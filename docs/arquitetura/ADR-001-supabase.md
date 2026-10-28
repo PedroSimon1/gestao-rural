@@ -267,3 +267,24 @@ A decisão só passa para **IMPLEMENTADO** quando houver evidência de que:
 - [`docs/requisitos/matriz-n2-etapa2.md`](../requisitos/matriz-n2-etapa2.md).
 - Código: `config/settings.py`, `config/test_sem_banco.py`, `config/test_producao.py`, `build.sh`, `requirements.txt`.
 - Histórico: PRs #1–#14 usaram PostgreSQL com `psycopg` 3.3.6; o PR #15 (`69b7ca4`) removeu o banco.
+
+## 16. Estado de implementação auditado em aaa80cc — 27/10/2026
+
+Adendo factual da GR-16; **não altera as decisões aprovadas de ambiente ou
+migrations**. O código PostgreSQL/ORM, runner local, nove migrations e
+interfaces da Etapa 2 estão integrados à develop. Suíte atual: 1.153 testes
+OK no PostgreSQL local de Gustavo; banco descartável ausente antes/depois.
+
+A conexão normal exige TLS; TEST local usa prefer no loopback. A validação
+de TEST não comprova DEV local com TLS. A PT-05 histórica de DEV/QA
+compartilhado permanece uma decisão existente: mudança para DEV local
+obrigatório deve ser alinhada explicitamente, sem reinterpretar este adendo.
+
+QA/PROD e aplicação remota das migrations não foram acessados/reverificados.
+Build/start continuam sem migrate; PT-06 de execução humana coordenada
+permanece. O check --deploy local apontou W004/W008, cuja cobertura no
+proxy/publicação depende de evidência. Não declarar o ADR integralmente
+implementado em produção apenas pelos testes locais.
+
+[Auditoria](../organizacao/GR-16-auditoria-aaa80cc.md) e
+[guia operacional](../operacao/GuiaOperacaoN2.md) consolidam o estado atual.

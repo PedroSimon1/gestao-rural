@@ -1,5 +1,7 @@
 # Índice Documental — Gestão Rural
 
+> Estado atual: auditoria integrada de 27/10/2026 em `aaa80cc`. Entradas antigas abaixo preservam a organização histórica. Use os documentos atuais da seção final para operação e evidências.
+
 ## 1. Identificação
 
 | Item                    | Valor                                                                                  |
@@ -130,3 +132,18 @@ Classes de documentos que **nunca** podem ser publicadas no repositório (que é
 - Ao criar, mover, renomear ou arquivar um documento, atualize as seções 3 a 9 no mesmo commit.
 - Não registre conteúdo restrito aqui, só a existência da classe.
 - As regras gerais estão no [plano de organização](organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md), seções 6 a 8.
+
+## 11. Atualização integrada GR-16 — 27/10/2026
+
+| Documento | Finalidade atual |
+| --- | --- |
+| [README](../README.md) | Instalar/iniciar com PostgreSQL/TLS, testes, fluxos, limites e publicação humana |
+| [Contexto](../ContextoProjeto.md#auditoria-gr16) | Auditoria completa na seção 36; histórico anterior preservado |
+| [Matriz](requisitos/matriz-n2-etapa2.md) | 49 requisitos com evidências e pendências atuais |
+| [Auditoria GR-16](organizacao/GR-16-auditoria-aaa80cc.md) | Base, método, testes, divergências do Jira e bloqueios |
+| [Operação](operacao/GuiaOperacaoN2.md) | DEV/TEST/QA/PROD, migrations, validação, limpeza e entrega restrita |
+| [Contrato GR-51](contratos/ContratoIntegracaoGR51.md) | Adendo integrado, T-05/P-09 e fronteiras de F-6 |
+| [Alinhamento F-6](contratos/F6-idempotencia-alinhamento.md) | Lacuna reproduzida e proposta não aprovada de operação idempotente |
+
+Implementado/integrado/validado localmente não significa homologado ou publicado.
+O documento restrito de credenciais permanece fora do Git e não foi lido.

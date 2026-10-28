@@ -1,5 +1,7 @@
 # Contrato de Integração GR-51 — Gestão Rural, N2 Etapa 2
 
+> Atualização verificada em `aaa80cc`: consultar o adendo GR-16 ao final. Metadados/minutas anteriores preservam seu contexto histórico; a assinatura F-6 proposta ainda não está aprovada.
+
 | Item | Valor |
 | ---- | ----- |
 | Versão | **MINUTA 0.5 — D-01 A D-05, T-01 A T-04, T-06, T-07 E G-03 APROVADAS; DEMAIS DECISÕES AGUARDANDO RATIFICAÇÃO** |
@@ -555,7 +557,7 @@ Decisões da minuta 0.1 resolvidas por elas: item 1 (duplicidade) → D-01; item
 | T-02 | Onde e como guardar as correções (D-02) | **APROVADA (DQ-19):** campo `correcoes` em `AnalisePendente`, separado de `dados`; cada gravação substitui o conjunto inteiro, com controle otimista por `versao_correcoes` | — | implementada na F-2 (4.3.1) |
 | T-03 | Rastreabilidade depois da confirmação (D-02) | **APROVADA (DQ-20):** ficam só os nomes dos campos corrigidos (`campos_corrigidos`), sem valores; correções apagadas nos estados finais | perde os valores extraídos depois da finalização (como já acontecia) | implementada na F-2 |
 | T-04 | Chave inválida ou divergente dos campos informados (D-01) | **APROVADA (DQ-16):** bloquear os dois (`chave_acesso_invalida`, `identidade_fiscal_divergente`) | correção da chave depende de G-01 | implementada na F-1 |
-| T-05 | Análise depois de "Salvar cadastro pendente" (D-04) | (a) continua PENDENTE (regulariza e confirma em 30 min); (b) é cancelada | (a) prazo curto; (b) reprocessamento com o Gemini | (a) |
+| T-05 | Análise depois de Salvar cadastro pendente | **APROVADA:** manter PENDENTE até o prazo original de 30 minutos | não renovar validade nem cancelar implicitamente | comunicação humana Simon/Lopes; integração F-6 idempotente pendente |
 | T-06 | Documentos aceitos (D-01) | **APROVADA (DQ-17):** só NF-e (55) e NFC-e (65) com emitente CNPJ; NFS-e, outros modelos e emitente CPF → `identidade_fiscal_nao_suportada` | notas de serviço e de produtor PF não são lançadas | implementada na F-1 |
 | T-07 | Movimento CANCELADO libera a identidade fiscal? | **APROVADA (DQ-18):** não libera | relançamento depende de decisão futura com o cancelamento | implementada na F-1 (unicidade incondicional) |
 
@@ -568,7 +570,7 @@ Decisões da minuta 0.1 resolvidas por elas: item 1 (duplicidade) → D-01; item
 | P-06 | Limpeza e retenção das análises | (a) como está; (b) Cron com `expirar_analises`; (c) expurgo das finalizadas | (a) dados vencidos ficam até o próximo evento | (b) + política de expurgo |
 | P-07 | Compatibilidade com GR-41, GR-42, GR-44 (e GR-22, GR-45) | conferir no Jira | sobreposição de escopo | revisar com o Jira aberto |
 | P-08 | Dono do serviço de lançamento e arquivos compartilhados | (a) view; (b) serviço de backend (Pedro) | (a) regra de negócio na view | (b) |
-| P-09 | Versionamento do JSON | (a) `VERSAO_DADOS` + `CHAVES_DOS_DADOS` + `montar_resultado` juntos; v1 em andamento recusada | (b) sem versão | (a); **necessária** para D-01/D-03 |
+| P-09 | Versionamento do JSON | **APROVADA/INTEGRADA:** v1 armazenada segue até expirar; v2 explícita, versão fora do JSON | sem conversão silenciosa ou dados fictícios | PRs #42/46/48; adendos G-01/P-09 e auditoria GR-16 |
 | P-10 | Sessão e logout | (a) como está; (b) reduzir `SESSION_COOKIE_AGE`; (c) sessão no servidor (ADR); (d) logout só por POST | cópia do cookie autentica até 2 semanas | (b) + (d) |
 | P-11 | Significado de `campos_corrigidos` (T-03) | (a) a tela envia só os campos diferentes do extraído; (b) o backend compara com `dados` (exige o mapeamento da F-3: `fornecedor.documento` ↔ `fornecedor.cnpj`; `serie` não existe no JSON v1); (c) aceitar como está (chaves enviadas) | (c) exagera a rastreabilidade se a tela mandar o formulário inteiro | (a) agora; (b) na F-3 |
 | P-12 | Número da nota impresso com separadores (ex.: `000.012.345`) | (a) recusar e exigir correção (comportamento atual da F-3); (b) remover pontos e espaços só do número extraído | (a) quase toda NF-e real exige correção manual do número; (b) aceita leituras que talvez não sejam o número | (b), por não haver ambiguidade como em valores |
@@ -699,3 +701,33 @@ check e verificação de migrations sem alteração. Falta homologação conjunt
 e publicação humana. O fluxo não deve ser apresentado como publicado por esses
 testes. Seções anteriores permanecem como histórico; este adendo descreve esta
 integração e não dispensa critérios de aceite restantes da GR-51/entrega.
+
+## Adendo — estado integrado após PR #56 / GR-16 (`aaa80cc`)
+
+27/10/2026. Este adendo descreve código verificado; minutas, propostas e
+adendos anteriores continuam históricos, com seus estados na época.
+Não equivale à aprovação global do contrato ou à publicação da aplicação.
+
+- Emissão v2 ativa nas rotas; v1 existente aceita até expirar sem conversão
+  ou prazo novo. G-01/P-09 integradas; F-5 oficial ligada à interface.
+- Pessoas/Papéis, Classificações, contas manuais e consultas integradas.
+  GR-49 ainda parcial: leitura não implementa histórico/manutenção financeira.
+- FLU-07 integrada: criação administrativa explícita, preserva rascunho,
+  seguida de salvar correções e confirmação oficial. Código humano usa
+  validador de `Classificacao`, sem ampliar o Enum do Classificador.
+- T-05 aprovada: salvar pendente mantém análise PENDENTE e prazo original.
+  Não cancelar, renovar validade ou inventar documentos implicitamente.
+- F-6 primitiva existente não é idempotente: repetição atual cria duas pessoas.
+  Botão permanece pendente até operação oficial do backend que cubra chave,
+  dono/estado/prazo/versão, repetição e concorrência. Não deduplicar por nome.
+  [Alinhamento F-6](F6-idempotencia-alinhamento.md) é **proposta**, não assinatura
+  implementada ou ratificada. Backend/contrato: Simon; integração/tela: Lopes.
+- P-06 de retenção continua com agendamento operacional não instalado;
+  expiração de acesso não significa apagamento físico pontual sem execução.
+- P-10: logout agora POST/CSRF; cookies assinados continuam sem revogação
+  central. Não declarar esse limite resolvido por trocar o método HTTP.
+
+Validação integrada `aaa80cc`: 1.153 testes OK, check OK, sem novas migrations,
+somente PostgreSQL local. Sem homologação, deploy ou migrations remotas.
+[Auditoria](../organizacao/GR-16-auditoria-aaa80cc.md) e
+[operação](../operacao/GuiaOperacaoN2.md) detalham pendências de publicação.
