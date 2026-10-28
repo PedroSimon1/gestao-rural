@@ -77,6 +77,17 @@ class InterfaceTestBase(SimpleTestCase):
         configuracao.enable()
         self.addCleanup(configuracao.disable)
 
+        # Estes testes da apresentação/Agents não acessam banco. A integração
+        # real das consultas tem TestCase próprio em test_interface_consultas.
+        from cadastros.consultas import ResultadoConsultas, consultar_pessoa, consultar_classificacao
+        consulta_vazia = ResultadoConsultas(
+            consultar_pessoa(None, "FORNECEDOR"), consultar_pessoa(None, "FATURADO"),
+            consultar_classificacao(None),
+        )
+        consulta_patcher = mock.patch("documentos.views.consultar_resultado", return_value=consulta_vazia)
+        consulta_patcher.start()
+        self.addCleanup(consulta_patcher.stop)
+
         for alvo, mensagem in (
             ("agents.gemini_client.genai.Client", "O SDK real do Gemini não deve ser usado."),
             ("django.core.files.storage.FileSystemStorage._save", "Nenhum arquivo deve ser gravado."),
@@ -152,7 +163,7 @@ class TelaTests(InterfaceTestBase):
         self.assertTemplateUsed(resposta, "documentos/inicio.html")
         self.assertContains(
             resposta,
-            '<form method="post" enctype="multipart/form-data" class="formulario" '
+            f'<form method="post" action="{reverse("analise_criar")}" enctype="multipart/form-data" class="formulario" '
             'data-submit-lock data-submit-texto="Processando...">',
             html=False,
         )
@@ -220,7 +231,7 @@ class ProcessamentoTests(InterfaceTestBase):
     def test_processa_os_bytes_exatos_do_pdf(self):
         _, processar = self.enviar(pdf(conteudo=PDF + b"conteudo"), retorno=processamento())
 
-        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO)
+        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2)
 
     def test_resumo_justificativa_e_json(self):
         resposta, _ = self.enviar(retorno=processamento())
@@ -386,6 +397,7 @@ class IntegracaoTestBase(InterfaceTestBase):
 
     def respostas(self, classificacao):
         nota = dados_nota(parcelas=[{"data_vencimento": "2026-10-20", "valor": 1500}])
+        nota['documento_fiscal'] = {'chave_acesso': None, 'modelo': None, 'serie': None}
         self.generate_content.side_effect = [
             mock.Mock(text=json.dumps(nota)),
             mock.Mock(text=json.dumps(classificacao)),
@@ -480,12 +492,18 @@ class IntegracaoTests(IntegracaoTestBase):
     def test_classificacao_inconclusiva(self):
         self.respostas({"tipo_despesa": None, "justificativa": "Itens fora das categorias."})
 
-        with self.assertLogs("documentos.processamento", "WARNING"):
+        with self.assertLogs("agents.classificador.agent", "WARNING"):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "A despesa não se encaixa nas categorias disponíveis no MVP.")
-        self.assertContains(resposta, views.SUGESTOES_ERRO["classificacao_inconclusiva"])
-        self.assertNotContains(resposta, "JSON final")
+        self.assertContains(resposta, "Aguardando classificação")
+        self.assertContains(resposta, "A extração foi preservada.")
+        self.assertContains(resposta, "JSON final")
+        self.assertContains(resposta, "Filtro de oleo")
+        self.assertContains(resposta, "Itens fora das categorias.")
+        self.assertContains(resposta, '&quot;tipo_despesa&quot;: null')
+        self.assertNotContains(resposta, "não foi concluído")
+        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertEqual(self.generate_content.call_count, 2)
 
 
 class GeminiApiKeyFormularioTests(InterfaceTestBase):
@@ -543,7 +561,7 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
             with self.subTest(chave=chave):
                 _, processar = self.enviar(chave=chave, retorno=processamento())
 
-                processar.assert_called_once_with(PDF, chave)
+                processar.assert_called_once_with(PDF, chave, versao_dados=2)
 
     def test_chave_nao_reaparece_apos_sucesso(self):
         resposta, _ = self.enviar(retorno=processamento())
@@ -659,11 +677,12 @@ class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
         self.assertFalse(hasattr(settings, "GEMINI_API_KEY"))
         self.assertNotIn(CHAVE_FORMULARIO, repr(dict(os.environ)))
 
-    def test_sem_banco(self):
-        # SimpleTestCase já falha em qualquer consulta; aqui só se confirma o backend.
+    def test_processamento_nao_abre_conexao_com_o_banco(self):
+        # SimpleTestCase já falha em qualquer consulta; aqui se confirma que o
+        # processamento nem chega a abrir conexão com o PostgreSQL.
         self.processar_com_logs()
 
-        self.assertEqual(connections["default"].settings_dict["ENGINE"], "django.db.backends.dummy")
+        self.assertIsNone(connections["default"].connection)
 
 
 class JavaScriptTests(InterfaceTestBase):

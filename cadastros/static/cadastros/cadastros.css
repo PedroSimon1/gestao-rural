@@ -1,0 +1,30 @@
+/* Manutenção administrativa: mantém as cores e componentes da aplicação. */
+.formulario-cadastro input[type="text"],
+.formulario-cadastro select {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+  color: inherit;
+  font: inherit;
+}
+.formulario-cadastro label { font-weight: 600; }
+.formulario-cadastro .helptext { display: block; color: var(--cor-texto-suave); }
+.formulario-cadastro .errorlist { color: var(--cor-erro-texto); }
+.formulario-cadastro button { margin-right: 12px; }
+.tabela-cadastros { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.tabela-cadastros th, .tabela-cadastros td {
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--cor-borda);
+  padding: 10px;
+}
+.tabela-cadastros th { background: var(--cor-superficie); }
+.tabela-responsiva { overflow-x: auto; }
+@media (max-width: 480px) {
+  .topo__conteudo { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
+  .topo__nav { flex-wrap: wrap; }
+}

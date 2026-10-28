@@ -1,0 +1,28 @@
+{% extends 'cadastros/base.html' %}
+{% block titulo %}Contas — Gestão Rural{% endblock %}
+{% block conteudo %}
+<h1>Contas a pagar e a receber</h1>
+<p><a class="botao" href="{% url 'conta_manual_nova' %}">Registrar conta manual</a></p>
+<p>Consulte lançamentos de notas fiscais e manuais. Confirmado não significa pago ou recebido.</p>
+<form method="get" class="cartao formulario-cadastro">
+  {{ form.as_p }}
+  <button class="botao" type="submit" name="modo" value="buscar">Pesquisar</button>
+  <a href="{% url 'contas' %}?modo=todos">TODOS (confirmados)</a>
+</form>
+{% if erro %}<p role="alert">{{ erro }}</p>{% elif pesquisou %}
+<p>{{ pagina.total|default:0 }} lançamento(s). Mais recentes primeiro.</p>
+<div class="tabela-responsiva"><table class="tabela-cadastros">
+  <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col">Valor total</th><th scope="col">Parcelas ativas</th><th scope="col">Próximo vencimento ativo</th><th scope="col">Ações</th></tr></thead>
+  <tbody>{% for linha in linhas %}<tr>
+    <td>{{ linha.tipo }} / {{ linha.origem }}</td><td>{{ linha.dados.contraparte_nome }}</td><td>{{ linha.status }}</td>
+    <td>R$ {{ linha.dados.valor_total|floatformat:2 }}</td><td>{{ linha.dados.quantidade_parcelas }}</td><td>{{ linha.dados.proximo_vencimento|date:'d/m/Y'|default:'—' }}</td>
+    <td><a href="{% url 'conta_detalhe' linha.dados.id %}">Detalhar</a></td>
+  </tr>{% empty %}<tr><td colspan="7">Nenhum lançamento encontrado.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if pagina.total_paginas > 1 %}<nav aria-label="Páginas de contas">
+  {% if anterior %}<a href="?{{ filtros }}&amp;pagina={{ anterior }}">Anterior</a>{% endif %}
+  Página {{ pagina.pagina }} de {{ pagina.total_paginas }}
+  {% if proxima %}<a href="?{{ filtros }}&amp;pagina={{ proxima }}">Próxima</a>{% endif %}
+</nav>{% endif %}
+{% else %}<p>A lista começa vazia. Use a pesquisa ou TODOS para carregar os lançamentos confirmados.</p>{% endif %}
+{% endblock %}

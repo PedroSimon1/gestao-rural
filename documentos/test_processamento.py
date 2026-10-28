@@ -112,7 +112,7 @@ class MontarResultadoTests(SimpleTestCase):
             },
         )
         self.assertEqual(
-            resultado["faturado"], {"nome": "Produtor Ficticio", "cpf": "99999999999"}
+            resultado["faturado"], {"nome": "Produtor Ficticio", "cpf": "99999999999", "cnpj": None}
         )
         self.assertEqual(resultado["numero_nota"], "000123")
         self.assertEqual(
@@ -171,6 +171,7 @@ class MontarResultadoTests(SimpleTestCase):
                     "status": "invalido",
                     "motivo": "digitos_verificadores_invalidos",
                 },
+                "faturado_cnpj": {"status": "ausente", "motivo": None},
             },
         )
 
@@ -301,7 +302,6 @@ class ProcessarPdfErrosTests(ProcessarPdfTestBase):
         for excecao in (
             ClassificacaoIndisponivelError(),
             ClassificacaoInvalidaError(),
-            ClassificacaoInconclusivaError(),
         ):
             with self.subTest(excecao=type(excecao).__name__):
                 self.classificador.classificar.side_effect = excecao
@@ -340,8 +340,9 @@ class ProcessarPdfErrosTests(ProcessarPdfTestBase):
                 )
                 self.assertIsNone(erro.__cause__)
                 self.assertTrue(erro.__suppress_context__)
-                # O traceback completo fica só no log do servidor.
-                self.assertIn("Traceback", "\n".join(logs.output))
+                # GR-18: traceback/cadeia de causas podem conter chave e JSON.
+                self.assertNotIn("Traceback", "\n".join(logs.output))
+                self.assertNotIn(DETALHE_INTERNO, "\n".join(logs.output))
 
     def test_chave_ausente_vira_servico_indisponivel_sem_chamar_o_gemini(self):
         # Agents reais, sem chave: nenhuma chamada real possível.

@@ -1,0 +1,12 @@
+{% extends 'cadastros/base.html' %}
+{% block titulo %}{{ titulo }} — Gestão Rural{% endblock %}
+{% block conteudo %}
+<h1>{{ titulo }}</h1>
+{% if pessoa %}<p>{{ pessoa.razao_social }} · {{ pessoa.get_status_display }}</p>{% endif %}
+{% if aviso %}<p role="status">{{ aviso }}</p>{% endif %}
+<form method="post" class="cartao formulario-cadastro">{% csrf_token %}
+  {{ form.as_p }}
+  <button class="botao" type="submit">Confirmar</button>
+  {% if pessoa %}<a href="{% url 'pessoa_detalhe' pessoa.pk %}">Voltar sem alterar</a>{% else %}<a href="{% url 'pessoas' %}">Voltar sem alterar</a>{% endif %}
+</form>
+{% endblock %}

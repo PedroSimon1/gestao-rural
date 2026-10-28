@@ -77,6 +77,12 @@ class ClassificacaoInconclusivaError(ClassificadorError):
     )
 
 
+    def __init__(self, mensagem=None, *, classificacao=None):
+        super().__init__(mensagem)
+        # Resultado já validado; preserva a justificativa para a conferência.
+        self.classificacao = classificacao
+
+
 def _campos_invalidos(erro):
     """Retorna somente caminhos de campos inválidos, nunca seus valores."""
     caminhos = {
@@ -109,7 +115,7 @@ def _montar_contexto(nota):
             }
             for item in nota.itens
         ],
-        "valor_total": str(nota.valor_total),
+        "valor_total": str(nota.valor_total) if nota.valor_total is not None else None,
     }
 
 
@@ -179,6 +185,6 @@ class AgentClassificador:
             logger.warning(
                 "Despesa fora das categorias disponíveis no MVP."
             )
-            raise ClassificacaoInconclusivaError()
+            raise ClassificacaoInconclusivaError(classificacao=classificacao)
 
         return classificacao

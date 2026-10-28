@@ -279,6 +279,9 @@ h3 {
 }
 
 @media (max-width: 480px) {
+  .topo__conteudo { flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; }
+  .topo__nav { flex-wrap: wrap; }
+
   .cartao {
     padding: 16px;
   }

@@ -7,7 +7,7 @@
     <h1>Processar nota fiscal</h1>
     <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB). O arquivo é usado só neste processamento e não é guardado.</p>
 
-    <form method="post" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
+    <form method="post" action="{% url 'analise_criar' %}" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
       {% csrf_token %}
 
       <label for="{{ form.gemini_api_key.id_for_label }}" class="formulario__rotulo">{{ form.gemini_api_key.label }}</label>
@@ -48,6 +48,13 @@
   {% if json_resultado %}
     <section class="cartao">
       <h2>Resultado — {{ nome_arquivo }}</h2>
+      {% if aguardando_classificacao %}
+        <div class="aviso" role="status">
+          <p><strong>Aguardando classificação</strong></p>
+          <p>A extração foi preservada. A categoria da despesa precisa ser definida manualmente na revisão antes do lançamento.</p>
+          <p>Nenhum lançamento financeiro foi realizado.</p>
+        </div>
+      {% endif %}
       <dl class="resumo">
         <div class="resumo__item"><dt>Tipo de despesa</dt><dd>{{ resumo.tipo_despesa|default:"—" }}</dd></div>
         <div class="resumo__item"><dt>Valor total</dt><dd>{{ resumo.valor_total|default:"—" }}</dd></div>
@@ -70,6 +77,24 @@
         <h3>Justificativa da classificação</h3>
         <p class="justificativa">{{ justificativa }}</p>
       {% endif %}
+    </section>
+
+    <section class="cartao">
+      <h2>Consulta aos cadastros</h2>
+      {% if erro_consultas %}
+        <p class="aviso" role="alert">{{ erro_consultas }}</p>
+      {% else %}
+        {% for consulta in consultas %}
+          <h3>{{ consulta.rotulo }}</h3>
+          <dl class="resumo">
+            <div class="resumo__item"><dt>Situação</dt><dd>{{ consulta.situacao }}{% if consulta.id %} — ID: {{ consulta.id }}{% endif %}</dd></div>
+            <div class="resumo__item"><dt>Nome ou descrição</dt><dd>{{ consulta.nome|default:"—" }}</dd></div>
+            {% if consulta.status %}<div class="resumo__item"><dt>Status do cadastro</dt><dd>{{ consulta.status }}</dd></div>{% endif %}
+            {% if consulta.status_papel %}<div class="resumo__item"><dt>Papel solicitado</dt><dd>{{ consulta.status_papel }}</dd></div>{% endif %}
+          </dl>
+        {% endfor %}
+      {% endif %}
+      <p class="texto-apoio">Esta consulta não cria nem reativa cadastros e não realiza lançamento financeiro.</p>
     </section>
 
     <section class="cartao">

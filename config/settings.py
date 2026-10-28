@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -69,7 +70,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Apps do projeto
+    'cadastros',
     'documentos',
+    'financeiro',
     'usuarios',
 ]
 
@@ -77,6 +80,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     # Serve os arquivos estáticos em produção (sem servidor web separado).
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'config.privacidade.RespostasPrivadasMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -102,9 +106,56 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
-# Nenhum banco: o Django usa o backend "dummy", que recusa qualquer consulta.
+# PostgreSQL gerenciado pelo Supabase (ADR-001), acessado só pelo Django ORM com
+# Psycopg 3. Conexão pelo Session Pooler (porta 5432). As credenciais vêm só do
+# ambiente; sem elas o Django não inicia (nada de SQLite ou outro banco no lugar).
 
-DATABASES = {}
+_variaveis_db_faltando = [
+    nome for nome in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD")
+    if not os.getenv(nome, "").strip()
+]
+if _variaveis_db_faltando:
+    raise ImproperlyConfigured(
+        "Variáveis de banco ausentes: " + ", ".join(_variaveis_db_faltando)
+    )
+
+# TLS obrigatório: modos que aceitam conexão sem criptografia são recusados.
+_db_sslmode = os.getenv("DB_SSLMODE", "").strip() or "require"
+if _db_sslmode not in {"require", "verify-ca", "verify-full"}:
+    raise ImproperlyConfigured(
+        "DB_SSLMODE deve ser require, verify-ca ou verify-full."
+    )
+
+_db_connect_timeout = os.getenv("DB_CONNECT_TIMEOUT", "").strip() or "10"
+if not _db_connect_timeout.isdigit() or int(_db_connect_timeout) < 1:
+    raise ImproperlyConfigured("DB_CONNECT_TIMEOUT deve ser um inteiro positivo (segundos).")
+
+_opcoes_db = {
+    "sslmode": _db_sslmode,
+    "connect_timeout": int(_db_connect_timeout),
+}
+# Certificado da CA do Supabase, necessário para verify-ca e verify-full.
+if os.getenv("DB_SSLROOTCERT", "").strip():
+    _opcoes_db["sslrootcert"] = os.getenv("DB_SSLROOTCERT").strip()
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.getenv("DB_HOST").strip(),
+        "PORT": os.getenv("DB_PORT", "").strip() or "5432",
+        "NAME": os.getenv("DB_NAME").strip(),
+        "USER": os.getenv("DB_USER").strip(),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        # O Session Pooler limita as conexões simultâneas: cada requisição
+        # abre e fecha a sua (padrão do Django), sem conexões persistentes.
+        "CONN_MAX_AGE": 0,
+        "OPTIONS": _opcoes_db,
+    }
+}
+
+# Testes com banco usam só o PostgreSQL local de DB_TEST_*, nunca o de DB_*
+# (config/banco_de_teste.py).
+TEST_RUNNER = "config.banco_de_teste.ExecutorDeTestes"
 
 
 # Sessão
@@ -148,6 +199,10 @@ STORAGES = {
 
 MAX_PDF_UPLOAD_SIZE_MB = int(os.getenv("MAX_PDF_UPLOAD_SIZE_MB", "10"))
 MAX_PDF_UPLOAD_SIZE = MAX_PDF_UPLOAD_SIZE_MB * 1024 * 1024
+
+# PDFs ficam somente em memória na aplicação; o handler limita os bytes
+# recebidos e não possui fallback para TemporaryFileUploadHandler.
+FILE_UPLOAD_HANDLERS = ['documentos.uploads.PDFEmMemoriaUploadHandler']
 
 # Gemini
 # A validação acontece somente quando agents.gemini_client.GeminiClient é criado.

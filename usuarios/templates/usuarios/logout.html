@@ -1,0 +1,11 @@
+{% extends 'documentos/base.html' %}
+{% block titulo %}Sair — Gestão Rural{% endblock %}
+{% block navegacao %}{% endblock %}
+{% block conteudo %}
+<h1>Sair da demonstração</h1>
+<p>Ao sair, as análises pendentes desta sessão serão canceladas e os dados temporários serão apagados.</p>
+<form method="post" class="cartao">{% csrf_token %}
+  <button class="botao" type="submit">Confirmar saída</button>
+  <a href="{% url 'documento_inicio' %}">Continuar trabalhando</a>
+</form>
+{% endblock %}

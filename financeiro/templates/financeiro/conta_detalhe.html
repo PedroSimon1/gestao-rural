@@ -1,0 +1,19 @@
+{% extends 'cadastros/base.html' %}
+{% block titulo %}Detalhe da conta — Gestão Rural{% endblock %}
+{% block conteudo %}
+<h1>Detalhe da conta</h1>
+{% if erro %}<p role="alert">{{ erro }}</p>{% else %}
+<dl><dt>Tipo</dt><dd>{{ tipo }}</dd><dt>Origem</dt><dd>{{ origem }}</dd><dt>Situação do lançamento</dt><dd>{{ status }}</dd>
+<dt>Contraparte</dt><dd>{{ detalhe.contraparte_nome }}</dd><dt>Faturado</dt><dd>{{ detalhe.faturado_nome|default:'Não informado' }}</dd>
+<dt>Valor total</dt><dd>R$ {{ detalhe.valor_total|floatformat:2 }}</dd><dt>Registrado em</dt><dd>{{ detalhe.criado_em|date:'d/m/Y H:i' }}</dd></dl>
+<h2>Classificações</h2>
+<ul>{% for c in detalhe.classificacoes %}<li>{{ c.descricao }} ({{ c.codigo }}){% if c.principal %} — Principal{% endif %}</li>{% endfor %}</ul>
+<h2>Parcelas</h2>
+<p>Confirmado e Ativa são estados do lançamento e da parcela; não representam quitação.</p>
+<div class="tabela-responsiva"><table class="tabela-cadastros">
+<thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col">Valor</th><th scope="col">Situação</th></tr></thead>
+<tbody>{% for p in parcelas %}<tr><td>{{ p.dados.numero }}</td><td>{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td>R$ {{ p.dados.valor|floatformat:2 }}</td><td>{{ p.status }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+<p><a href="{% url 'contas' %}">Voltar à pesquisa</a></p>
+{% endblock %}

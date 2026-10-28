@@ -1,0 +1,33 @@
+{% extends "documentos/base.html" %}
+{% block titulo %}Confirmar lançamento — Gestão Rural{% endblock %}
+{% block conteudo %}
+<section class="cartao">
+  <h1>Confirmar lançamento financeiro</h1>
+  <p>Confira os dados salvos e marque somente as ações de cadastro que você autoriza.</p>
+  <dl class="resumo">
+    <dt>Fornecedor</dt><dd>{{ nota.fornecedor.nome|default:"—" }} — {{ nota.fornecedor.documento|default:"Documento pendente" }}</dd>
+    <dt>Faturado</dt><dd>{{ nota.faturado.nome|default:"—" }} — {{ nota.faturado.documento|default:"Documento pendente" }}</dd>
+    <dt>Classificação</dt><dd>{{ nota.classificacao.descricao|default:nota.classificacao.codigo }}</dd>
+    <dt>Número da nota</dt><dd>{{ nota.numero_nota|default_if_none:"—" }}</dd>
+    <dt>Modelo e série</dt><dd>{{ nota.identidade_fiscal.modelo|default:"—" }} / {{ nota.serie|default_if_none:"—" }}</dd>
+    <dt>Total</dt><dd>{{ nota.valor_total|default_if_none:"—" }}</dd>
+  </dl>
+  <h2>Parcelas</h2>
+  <ul>{% for parcela in nota.parcelas %}<li>{{ parcela.numero }} — {{ parcela.data_vencimento|date:"d/m/Y"|default:"Vencimento pendente" }} — {{ parcela.valor }}</li>{% endfor %}</ul>
+  {% if pendencias %}<ul role="alert">{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>{% endif %}
+  {% for avaliacao in avaliacoes %}
+    <h2>{{ avaliacao.rotulo }}</h2>
+    {% if avaliacao.bloqueio %}<p role="alert">{{ avaliacao.bloqueio }}</p>{% endif %}
+    {% if avaliacao.acoes %}<p>Ações necessárias:</p><ul>{% for acao in avaliacao.acoes %}<li>{{ acao }}</li>{% endfor %}</ul>{% else %}<p>Nenhuma ação de cadastro necessária para os dados atuais.</p>{% endif %}
+  {% endfor %}
+  {{ form_confirmacao.non_field_errors }}
+  {% if not pendencias %}
+  <form method="post" class="formulario" data-submit-lock data-submit-texto="Confirmando...">
+    {% csrf_token %}
+    {{ form_confirmacao.as_p }}
+    <button type="submit" class="botao">Confirmar lançamento financeiro</button>
+  </form>
+  {% endif %}
+  <a href="{% url 'analise_conferencia' analise_id=analise_id %}">Voltar e corrigir a nota</a>
+</section>
+{% endblock %}

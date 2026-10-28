@@ -1,23 +1,29 @@
 import logging
 import re
+from unittest import mock
 
 from django.conf import settings
 from django.contrib.sessions.serializers import JSONSerializer
 from django.core import signing
-from django.test import Client, SimpleTestCase, override_settings
+from django.db import InterfaceError, OperationalError
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from documentos.analises import (
+    CHAVE_DA_SESSAO, AnaliseError, criar_analise, descartar_analises, obter_analise,
+)
+from documentos.models import AnalisePendente, StatusAnalise
+from documentos.testing import resultado_da_nota
+
 from .demo import SESSAO_DEMO, credenciais_validas
-from .testing import CREDENCIAIS_TESTE
+from .testing import CREDENCIAIS_TESTE, autenticar_demo
 from .views import MENSAGEM_CREDENCIAIS_INVALIDAS, MENSAGEM_LOGIN_INDISPONIVEL
 
 LOGIN = CREDENCIAIS_TESTE["DEMO_LOGIN"]
 SENHA = CREDENCIAIS_TESTE["DEMO_PASSWORD"]
 
 
-# SimpleTestCase: não há banco, e qualquer consulta faria o teste falhar.
-@override_settings(**CREDENCIAIS_TESTE)
-class LoginDemoTestBase(SimpleTestCase):
+class LoginDemo:
     url_login = "/login/"
     url_logout = "/logout/"
     url_documentos = "/documentos/"
@@ -29,6 +35,20 @@ class LoginDemoTestBase(SimpleTestCase):
 
     def autenticado(self, client=None):
         return (client or self.client).session.get(SESSAO_DEMO) is True
+
+
+# SimpleTestCase: qualquer consulta ao banco faria o teste falhar. Login e
+# logout de uma sessão sem o código das análises não consultam o banco.
+@override_settings(**CREDENCIAIS_TESTE)
+class LoginDemoTestBase(LoginDemo, SimpleTestCase):
+    pass
+
+
+# TestCase (PostgreSQL local, DB_TEST_*): o logout cancela as análises
+# pendentes da sessão (GR-43).
+@override_settings(**CREDENCIAIS_TESTE)
+class LoginDemoComBancoTestBase(LoginDemo, TestCase):
+    pass
 
 
 class RotasTests(LoginDemoTestBase):
@@ -181,7 +201,7 @@ class SigiloTests(LoginDemoTestBase):
         self.assertNotIn("senha-digitada-xyz", texto)
         self.assertNotIn(SENHA, texto)
 
-    def test_sessao_guarda_somente_o_indicador(self):
+    def test_sessao_nao_guarda_credenciais(self):
         self.entrar()
 
         valores = [str(valor) for valor in self.client.session.values()]
@@ -230,9 +250,9 @@ class ConfiguracaoAusenteTests(LoginDemoTestBase):
         self.assertRedirects(resposta, self.url_login, fetch_redirect_response=False)
 
 
-class LogoutTests(LoginDemoTestBase):
+class LogoutTests(LoginDemoComBancoTestBase):
     def test_logout_remove_a_autenticacao_e_volta_para_o_login(self):
-        for metodo in ("get", "post"):
+        for metodo in ("post",):
             with self.subTest(metodo=metodo):
                 self.entrar()
 
@@ -243,7 +263,7 @@ class LogoutTests(LoginDemoTestBase):
 
     def test_depois_do_logout_documentos_volta_para_o_login(self):
         self.entrar()
-        self.client.get(self.url_logout)
+        self.client.post(self.url_logout)
 
         resposta = self.client.get(self.url_documentos)
 
@@ -252,14 +272,14 @@ class LogoutTests(LoginDemoTestBase):
     def test_logout_apaga_o_cookie_de_sessao(self):
         self.entrar()
 
-        resposta = self.client.get(self.url_logout)
+        resposta = self.client.post(self.url_logout)
 
         cookie = resposta.cookies[settings.SESSION_COOKIE_NAME]
         self.assertEqual(cookie.value, "")
         self.assertEqual(cookie["max-age"], 0)
 
     def test_logout_sem_sessao_nao_quebra(self):
-        resposta = self.client.get(self.url_logout)
+        resposta = self.client.post(self.url_logout)
 
         self.assertRedirects(resposta, self.url_login)
 
@@ -269,6 +289,17 @@ class LogoutTests(LoginDemoTestBase):
         resposta = self.client.get(self.url_documentos)
 
         self.assertContains(resposta, f'<a href="{reverse("logout")}">Sair</a>', html=True)
+
+
+class LogoutSemBancoTests(LoginDemoTestBase):
+    def test_sessao_sem_codigo_sai_sem_consultar_o_banco(self):
+        # Cookie anterior à GR-43, como o de autenticar_demo: só o indicador.
+        autenticar_demo(self.client)
+
+        resposta = self.client.post(self.url_logout)
+
+        self.assertRedirects(resposta, self.url_login)
+        self.assertFalse(self.autenticado())
 
 
 class CsrfTests(LoginDemoTestBase):
@@ -304,12 +335,17 @@ class SessaoEmCookieTests(LoginDemoTestBase):
             settings.SESSION_ENGINE, "django.contrib.sessions.backends.signed_cookies"
         )
 
-    def test_cookie_contem_somente_o_indicador(self):
+    def test_cookie_contem_somente_o_indicador_e_o_codigo_das_analises(self):
         self.entrar()
 
         conteudo = signing.loads(self.cookie().value, salt=self.SALT, serializer=JSONSerializer)
 
-        self.assertEqual(conteudo, {SESSAO_DEMO: True})
+        self.assertEqual(set(conteudo), {SESSAO_DEMO, CHAVE_DA_SESSAO})
+        self.assertIs(conteudo[SESSAO_DEMO], True)
+        # Código aleatório e opaco: nada de credenciais nem dados da nota.
+        self.assertRegex(conteudo[CHAVE_DA_SESSAO], r"^[A-Za-z0-9_-]{43}$")
+        self.assertNotIn(LOGIN, str(conteudo))
+        self.assertNotIn(SENHA, str(conteudo))
 
     def test_cookie_e_httponly(self):
         resposta = self.entrar()
@@ -337,3 +373,182 @@ class SessaoEmCookieTests(LoginDemoTestBase):
         resposta = self.client.get(self.url_documentos)
 
         self.assertRedirects(resposta, self.url_login, fetch_redirect_response=False)
+
+
+class AnalisesNoLoginELogoutTests(LoginDemoComBancoTestBase):
+    """Ciclo de vida das análises pendentes (GR-43) ligado ao login e ao logout."""
+
+    def codigo(self, client=None):
+        return (client or self.client).session.get(CHAVE_DA_SESSAO)
+
+    def criar(self, client=None):
+        return criar_analise((client or self.client).session, resultado_da_nota())
+
+    def assert_cancelada_sem_dados(self, analise):
+        analise.refresh_from_db()
+        self.assertEqual(analise.status, StatusAnalise.CANCELADA)
+        self.assertIsNone(analise.dados)
+
+    def test_login_cria_o_codigo_da_sessao(self):
+        self.entrar()
+
+        self.assertRegex(self.codigo(), r"^[A-Za-z0-9_-]{43}$")
+
+    def test_criar_analise_nao_muda_a_sessao_do_login(self):
+        # O código já existe: a requisição de processamento não regrava o cookie.
+        self.entrar()
+        sessao = self.client.session
+
+        self.criar()
+        criar_analise(sessao, resultado_da_nota())
+
+        self.assertFalse(sessao.modified)
+
+    def test_cada_login_recebe_um_codigo_novo(self):
+        self.entrar()
+        primeiro = self.codigo()
+        self.client.post(self.url_logout)
+
+        self.entrar()
+
+        self.assertNotEqual(self.codigo(), primeiro)
+
+    def test_codigo_de_sessao_nao_autenticada_nao_e_reaproveitado(self):
+        # Cookie válido com código e sem o indicador de login. Não acontece pelo
+        # caminho normal (o logout limpa tudo) e não protege contra quem planta
+        # um cookie já autenticado: esse vai direto para /documentos/.
+        sessao = self.client.session
+        sessao[CHAVE_DA_SESSAO] = "codigo-conhecido-por-outra-pessoa"
+        sessao.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = sessao.session_key
+        plantada = criar_analise({CHAVE_DA_SESSAO: "codigo-conhecido-por-outra-pessoa"}, resultado_da_nota())
+
+        self.entrar()
+
+        self.assertNotEqual(self.codigo(), "codigo-conhecido-por-outra-pessoa")
+        self.assert_cancelada_sem_dados(plantada)
+        nova = self.criar()
+        with self.assertRaises(AnaliseError):
+            obter_analise({CHAVE_DA_SESSAO: "codigo-conhecido-por-outra-pessoa"}, nova.id)
+
+    def test_logout_cancela_as_pendentes_da_sessao(self):
+        self.entrar()
+        primeira, segunda = self.criar(), self.criar()
+        outro = Client()
+        self.entrar(client=outro)
+        de_outro_navegador = self.criar(outro)
+
+        self.client.post(self.url_logout)
+
+        self.assert_cancelada_sem_dados(primeira)
+        self.assert_cancelada_sem_dados(segunda)
+        de_outro_navegador.refresh_from_db()
+        self.assertEqual(de_outro_navegador.status, StatusAnalise.PENDENTE)
+
+    def test_navegadores_diferentes_nao_veem_as_analises_um_do_outro(self):
+        self.entrar()
+        outro = Client()
+        self.entrar(client=outro)
+        analise = self.criar()
+
+        self.assertNotEqual(self.codigo(), self.codigo(outro))
+        with self.assertRaises(AnaliseError) as contexto:
+            obter_analise(outro.session, analise.id)
+        self.assertEqual(contexto.exception.codigo, "analise_nao_encontrada")
+
+    def test_varias_abas_do_mesmo_navegador_compartilham_as_analises(self):
+        self.entrar()
+        aba = Client()
+        aba.cookies = self.client.cookies  # mesmo cookie de sessão
+        da_primeira, da_segunda = self.criar(), self.criar(aba)
+
+        self.assertEqual(obter_analise(aba.session, da_primeira.id).pk, da_primeira.pk)
+        self.assertEqual(obter_analise(self.client.session, da_segunda.id).pk, da_segunda.pk)
+
+        aba.post(self.url_logout)
+
+        self.assert_cancelada_sem_dados(da_primeira)
+        self.assert_cancelada_sem_dados(da_segunda)
+
+    def test_cookie_antigo_reenviado_depois_do_logout(self):
+        self.entrar()
+        analise = self.criar()
+        cookie_antigo = self.client.cookies[settings.SESSION_COOKIE_NAME].value
+
+        self.client.post(self.url_logout)
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = cookie_antigo
+
+        # Limite conhecido: cookie assinado não é revogável no servidor e a
+        # cópia continua autenticando até expirar (SESSION_COOKIE_AGE).
+        self.assertTrue(self.autenticado())
+        # Mas as análises daquela sessão foram canceladas e não têm mais dados.
+        with self.assertRaises(AnaliseError) as contexto:
+            obter_analise(self.client.session, analise.id)
+        self.assertEqual(contexto.exception.codigo, "analise_cancelada")
+        self.assert_cancelada_sem_dados(analise)
+
+    def test_logout_com_banco_indisponivel_ainda_limpa_a_sessao(self):
+        for erro in (OperationalError("sem conexão"), InterfaceError("conexão fechada")):
+            with self.subTest(erro=type(erro).__name__):
+                self.entrar()
+                analise = self.criar()
+
+                with mock.patch("usuarios.demo.descartar_analises", side_effect=erro), \
+                        self.assertLogs("usuarios.demo", level="WARNING") as logs:
+                    resposta = self.client.post(self.url_logout)
+
+                self.assertRedirects(resposta, self.url_login)
+                self.assertFalse(self.autenticado())
+                self.assertNotIn(str(erro), "\n".join(logs.output))
+                # Continua PENDENTE: deixa de ser usável em 30 minutos, mas os
+                # dados só são apagados na próxima limpeza.
+                analise.refresh_from_db()
+                self.assertEqual(analise.status, StatusAnalise.PENDENTE)
+
+    def test_login_com_banco_indisponivel_ainda_entra_com_codigo_novo(self):
+        sessao = self.client.session
+        sessao[CHAVE_DA_SESSAO] = "codigo-anterior"
+        sessao.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = sessao.session_key
+
+        with mock.patch(
+            "usuarios.demo.descartar_analises", side_effect=InterfaceError("conexão fechada")
+        ), self.assertLogs("usuarios.demo", level="WARNING"):
+            resposta = self.entrar()
+
+        self.assertRedirects(resposta, self.url_documentos, fetch_redirect_response=False)
+        self.assertTrue(self.autenticado())
+        self.assertNotEqual(self.codigo(), "codigo-anterior")
+
+    def test_cookie_anterior_a_gr43_nao_cria_analise(self):
+        # Autentica, mas sem código: precisa de novo login para criar análises.
+        autenticar_demo(self.client)
+        sessao = self.client.session
+
+        with self.assertRaises(AnaliseError) as contexto:
+            criar_analise(sessao, resultado_da_nota())
+
+        self.assertEqual(contexto.exception.codigo, "sessao_sem_codigo")
+        self.assertFalse(sessao.modified)
+        self.assertTrue(self.autenticado())
+        self.assertEqual(AnalisePendente.objects.count(), 0)
+
+    def test_analise_criada_depois_do_logout_por_cookie_antigo(self):
+        # Limite documentado: sem revogação completa, a cópia do cookie cria
+        # análises novas com o mesmo código, que ficam pendentes.
+        self.entrar()
+        cookie_antigo = self.client.cookies[settings.SESSION_COOKIE_NAME].value
+        self.client.post(self.url_logout)
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = cookie_antigo
+
+        nova = self.criar()
+
+        self.assertEqual(obter_analise(self.client.session, nova.id).status, StatusAnalise.PENDENTE)
+
+    def test_logout_sem_analises_nao_altera_nada(self):
+        self.entrar()
+
+        self.client.post(self.url_logout)
+
+        self.assertEqual(AnalisePendente.objects.count(), 0)
+        self.assertEqual(descartar_analises({}), 0)
