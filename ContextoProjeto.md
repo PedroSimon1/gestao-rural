@@ -1,5 +1,7 @@
 # Gestão Rural - Contexto do Projeto
 
+> **Estado atual verificado:** auditoria integrada de 27/10/2026 em `aaa80cc`, na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
+
 > **Fonte central de verdade do projeto.** Descreve o estado **real e verificado** do Gestão Rural: o que o produto pretende ser, o que a disciplina exige em cada entrega, o que o código faz hoje e o que ainda falta.
 >
 > Nunca registrar aqui: segredos, valores do `.env`, conteúdo do `README.txt`, chaves de API, URL privada, credenciais ou dados pessoais reais.
@@ -3380,3 +3382,103 @@ atendidos, evidências, migrations humanas coordenadas e publicação. FLU-07
 (criar classificação inédita) segue sem serviço/autorização novos: a tela
 seleciona categoria ativa existente e a F-3 bloqueia código inexistente.
 Os testes locais não provam homologação ou publicação da versão.
+
+<a id="auditoria-gr16"></a>
+
+# 36 - Auditoria integrada após PR #56 (GR-16)
+
+**27/10/2026 — referência `origin/develop` `aaa80cc`.** Esta seção consolida
+o estado atual. As seções anteriores preservam auditorias e decisões de suas
+respectivas datas; afirmações antigas de “não integrado” não descrevem esta base.
+Relatório detalhado: [GR-16-auditoria-aaa80cc](docs/organizacao/GR-16-auditoria-aaa80cc.md).
+
+## 36.1 - Implementação e integração verificadas
+
+| Frente | Estado na base auditada |
+| --- | --- |
+| GR-33/34 | PostgreSQL configurado, TEST local isolado e runner protegido; testes Windows integrados |
+| GR-35/36/46/47 | Modelos e telas de Pessoas/Papéis e Classificações; CPF/CNPJ independentes do papel, identidades únicas e sem hard delete |
+| GR-41/42/15 | Agents e contratos v1/v2; inconclusiva preserva extração; 12 testes de composição novos integrados no PR #52 |
+| GR-43/45/51 + GR-22 F-1 a F-5 | Análise por sessão, correções separadas, identidade fiscal, decisões explícitas e confirmação transacional oficiais |
+| GR-18 | Proteções de logs/upload/cache e logout POST integradas no PR #53 |
+| GR-49 parcial | Filtros, lista/detalhe de contas, classificações e parcelas, sem manutenção/histórico; PR #54 |
+| GR-48/P08 | Backend PR #50 e interface PR #55: APAGAR/ARECEBER, principal, parcelas, confirmação e UUID idempotente |
+| FLU-07 | PR #56: cadastro explícito de classificação na conferência, preserva rascunho e exige salvar/confirmar em etapas separadas |
+
+A composição local anterior foi confirmada no código efetivamente integrado.
+As sete funcionalidades listadas pelo professor possuem interfaces básicas;
+isso não encerra todos os cenários, a homologação nem a entrega.
+
+## 36.2 - Contratos e decisões vigentes
+
+- JSON fiscal v2 com onze chaves; versão armazenada fora do JSON. Valores
+  financeiros ausentes continuam null até correção. Não inventar documentos,
+  parcelas, valores ou datas. V1 existente segue até seu prazo original.
+- G-01/P-09: correções fiscais editáveis, separadas do extraído e revalidadas
+  no serviço oficial. Campos principais/fiscais são preservados conjuntamente.
+- T-05 foi aprovada na comunicação humana: após salvar pendente, análise
+  continua PENDENTE sem renovar seus 30 minutos. Não reabrir essa decisão
+  como se estivesse indefinida; falta implementar a ação idempotente.
+- Código humano válido de classificação não está limitado ao Enum do Agent;
+  FLU-07 demonstrada até F-5 sem alterar prompts/schemas/serviços.
+- Criação de classificação é cadastro independente; seu registro pode
+  permanecer no catálogo após encerrar a análise. Não lança dinheiro.
+- Conta manual usa chave UUID/prova do formulário, mas idempotência financeira
+  continua no serviço/índice oficial. Reenvios não duplicam; nova conta usa UUID novo.
+
+## 36.3 - Bloqueios reais e coordenação
+
+**F-6:** `salvar_cadastro_pendente()` ainda não recebe chave idempotente ou
+vínculo de sessão/análise/versão. Reprodução atual separada, TEST local:
+duas chamadas iguais geram duas Pessoas INCOMPLETAS, zero movimentos.
+Não deduplicar por nome nem criar persistência paralela na tela. Simon deve
+definir a operação oficial; [proposta de alinhamento](docs/contratos/F6-idempotencia-alinhamento.md),
+explicitamente não aprovada como API. Lopes integra depois do contrato.
+
+**GR-39/49:** não há serviço/histórico de edição de parcelas nem ações de
+manutenção aprovadas para a interface. Parcelas atuais não são histórico.
+A GR-49 aparece Feito no Jira, mas tecnicamente permanece parcial; a GR-48
+aparece pendente apesar da integração do PR #55. Auditoria não alterou tickets.
+
+**GR-20/50:** Simon coordena migrations remotas, Supabase/Render e publicação.
+Não há evidência nova de esquema remoto, deploy, URL/HTTPS ou execução periódica
+da limpeza. `origin/main` observado em `f7786e8`; não se inferiu o SHA do Render.
+
+## 36.4 - Ambientes, segurança e operação
+
+TEST validado no PostgreSQL local de Gustavo, separado de `DB_*`. A conexão
+normal continua exigindo TLS, inclusive para eventual DEV local; TEST usa
+`prefer` no loopback. Não foi alterada a PT-05 histórica de DEV/QA compartilhado
+do ADR. QA e PROD continuam com bancos/credenciais separados.
+
+Migrations versionadas atuais: `cadastros` 0001–0003, `documentos` 0001–0002,
+`financeiro` 0001–0004. README antigo que dizia não haver migrations foi
+corrigido. Build/start não executam migrate; aplicação remota é humana.
+
+Expiração bloqueia acesso em 30 minutos; dados/correções são apagados em
+operações de expiração/cancelamento/confirmação/logout. Abandonadas sem atividade
+precisam do comando oficial `expirar_analises`. Agenda ainda não instalada,
+proposta de cinco minutos deve ser fechada na GR-50. Retenção de backups/WAL
+e buffers externos não é controlada por esses métodos.
+
+Login demo compartilhado, cookie assinado sem revogação central e descarte
+que pode falhar com banco indisponível continuam limites documentados. QA só
+com dados fictícios. Credenciais da entrega apenas no canal restrito humano.
+
+## 36.5 - Evidências desta auditoria
+
+- **1.153 testes, OK**, em exportação exata de `aaa80cc`, PostgreSQL 18.6 em
+  `127.0.0.1:55432`, papel LOGIN/CREATEDB sem SUPERUSER/CREATEROLE; banco
+  descartável ausente antes/depois. Nenhuma API real ou banco remoto.
+- Check OK e nenhuma migration nova detectada. Host fictício impede leitura
+  de histórico remoto na verificação de migrations.
+- `check --deploy` com DEBUG=False/host fictício: W004 (HSTS) e W008 (HTTPS
+  redirect). A cobertura no proxy/publicação precisa de evidência humana.
+- Diagnóstico F-6 de um teste separado comprova duplicação; não é adicionado
+  à contagem versionada e não será commitado como teste de aceitação.
+- Nenhuma instalação limpa, navegação em navegador, publicação, operação
+  de QA/PROD ou entrega no Classroom foi executada nesta auditoria.
+
+Documentação GR-16 ainda precisa de PR/revisão/integração. Após F-6 e manutenção
+financeira, atualizar este fechamento com novas evidências. **Implementado,
+integrado, validado localmente, homologado e publicado permanecem estados distintos.**
