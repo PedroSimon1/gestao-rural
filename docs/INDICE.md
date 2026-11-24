@@ -1,6 +1,6 @@
 # Índice Documental — Gestão Rural
 
-> Estado atual: auditoria integrada de 27/10/2026 em `aaa80cc`. Entradas antigas abaixo preservam a organização histórica. Use os documentos atuais da seção final para operação e evidências.
+> Estado atual: auditoria de 24/11/2026 em `5f19ce0` (seção 12), que sucede a GR-16 de 27/10/2026 (seção 11). Entradas antigas abaixo preservam a organização histórica. Use os documentos atuais das seções 11 e 12 para operação e evidências.
 
 ## 1. Identificação
 
@@ -9,7 +9,7 @@
 | Projeto                 | Gestão Rural (Projeto Administrativo-Financeiro) — ESW424, UniRV                        |
 | Finalidade deste índice | dizer **quais documentos existem, para que servem, onde estão e qual a autoridade de cada um** |
 | Data da organização     | 24/10/2026                                                                             |
-| Estado da documentação  | Fase 1 (organização documental) integrada à `develop` pelo PR #20; Fase 2 (escopo e responsabilidades) em revisão local na branch `docs/n2-etapa2-escopo-responsabilidades`, sem commit |
+| Estado da documentação  | Fases 1 e 2 integradas à `develop`; auditorias GR-16 (27/10/2026) e de 24/11/2026 em `docs/organizacao/` e `docs/auditoria/`. Defasagens remanescentes listadas em [`auditoria/Auditoria-2026-11-24.md`](auditoria/Auditoria-2026-11-24.md), item B-01 |
 | Mantido junto com       | [`../ContextoProjeto.md`](../ContextoProjeto.md) e [`organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md`](organizacao/Plano_Organizacao_Documental_Gestao_Rural_N2_Etapa2.md) |
 
 **Como ler os caminhos:**
@@ -31,6 +31,7 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | quem faz o quê na Etapa 2, pacotes e tarefas do Jira | [`organizacao/Plano_Responsabilidades_N2_Etapa2.md`](organizacao/Plano_Responsabilidades_N2_Etapa2.md) |
 | como criar branches, commitar e abrir PRs          | [`ContextoFluxoGit.md`](../ContextoFluxoGit.md)                           |
 | como os componentes de Pedro e Gustavo se integram na GR-51 | [`contratos/ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) |
+| o estado do projeto, riscos e ações recomendadas mais recentes | [`auditoria/Auditoria-2026-11-24.md`](auditoria/Auditoria-2026-11-24.md) |
 
 ## 3. Documentos oficiais (professor e Classroom)
 
@@ -55,13 +56,13 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 
 | Documento                                                        | Finalidade                                                             | Localização | Estado |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------- | ------ |
-| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; auditoria de 24/10/2026 | repositório | atualizado em 24/10/2026; em 25/10/2026, estado da GR-33 (branch `feature/gr-33-configurar-supabase`, não integrada) |
-| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33, branch `feature/gr-33-configurar-supabase`, não integrada); antes: ACEITO PARA PLANEJAMENTO |
+| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; seção 36 = auditoria GR-16 (27/10/2026) | repositório | seção 37 registra a auditoria de 24/11/2026; seções antigas são histórico datado |
+| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO; implementado (GR-33, PR #22). O texto de contexto e a seção de implementação ainda descrevem `DATABASES = {}` e a GR-33 como não integrada (defasagem registrada na auditoria de 24/11/2026) |
 | [`ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) | contrato técnico de integração da GR-51 (Agents, GR-40, GR-43, financeiro) | repositório | **MINUTA 0.2** (27/10/2026): decisões D-01 a D-05 incorporadas; demais aguardando ratificação |
 | [`matriz-n2-etapa2.md`](requisitos/matriz-n2-etapa2.md)           | rastreabilidade dos requisitos da Etapa 2                              | repositório | novo |
 | `tecnologias.pdf`                                                | stack da Etapa 2 com Render + **Neon** (out/2026)                      | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/` | localizado; **histórico quanto ao Neon** (substituído pelo ADR-001) |
 | `MVPcompleto.pdf`                                                | arquitetura e execução do MVP da Etapa 1                               | `../Documentos/Att-01--21-09-Agent IA/Documentação/` | localizado; histórico (anterior ao PR #15) |
-| Código e testes                                                  | implementação real                                                     | `agents/`, `documentos/`, `usuarios/`, `config/`, `build.sh`, `start.sh` | referência `f7786e8` |
+| Código e testes                                                  | implementação real                                                     | `agents/`, `cadastros/`, `documentos/`, `financeiro/`, `usuarios/`, `config/`, `build.sh`, `start.sh` | referência `5f19ce0` (24/11/2026) |
 
 ## 6. Processos e gerenciamento
 
@@ -147,3 +148,15 @@ Classes de documentos que **nunca** podem ser publicadas no repositório (que é
 
 Implementado/integrado/validado localmente não significa homologado ou publicado.
 O documento restrito de credenciais permanece fora do Git e não foi lido.
+
+## 12. Auditoria de 24/11/2026
+
+Referência `5f19ce0`; `main` (`c3d4239`, PR #58) tem a mesma árvore da `develop`.
+
+| Documento | Finalidade |
+| --- | --- |
+| [Auditoria 24/11/2026](auditoria/Auditoria-2026-11-24.md) | Verificações executadas (1.153 testes OK), pontos fortes, achados A-01 a B-05 por severidade e ações recomendadas |
+
+Achados que exigem ação antes de publicar: Django 6.1.1 sem as correções de
+segurança 6.1.2/6.1.3 (A-01). Nenhuma alteração de código ou dependência foi
+feita pela auditoria. `.env` e `README.txt` não foram lidos.
