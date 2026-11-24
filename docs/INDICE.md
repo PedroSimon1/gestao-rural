@@ -32,6 +32,7 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 | como criar branches, commitar e abrir PRs          | [`ContextoFluxoGit.md`](../ContextoFluxoGit.md)                           |
 | como os componentes de Pedro e Gustavo se integram na GR-51 | [`contratos/ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) |
 | o estado do projeto, riscos e ações recomendadas mais recentes | [`auditoria/Auditoria-2026-11-24.md`](auditoria/Auditoria-2026-11-24.md) |
+| a documentação completa do sistema (visão geral, arquitetura, requisitos, regras, fluxos, dados, Agents, segurança, operação, testes, pendências) | [`documentacao/README.md`](documentacao/README.md) |
 
 ## 3. Documentos oficiais (professor e Classroom)
 
@@ -160,3 +161,25 @@ Referência `5f19ce0`; `main` (`c3d4239`, PR #58) tem a mesma árvore da `develo
 Achados que exigem ação antes de publicar: Django 6.1.1 sem as correções de
 segurança 6.1.2/6.1.3 (A-01). Nenhuma alteração de código ou dependência foi
 feita pela auditoria. `.env` e `README.txt` não foram lidos.
+
+## 13. Documentação do sistema — 24/11/2026
+
+Pasta [`documentacao/`](documentacao/README.md): documentação de referência escrita a partir do código integrado (`71297a0`).
+Descreve o que existe; o planejado e os riscos aparecem marcados. Código e testes prevalecem em caso de divergência.
+
+| Documento | Finalidade |
+| --- | --- |
+| [README](documentacao/README.md) | Índice, convenções e manutenção |
+| [01 Visão geral](documentacao/01-visao-geral.md) | Problema, escopo, estado atual, tecnologias, glossário |
+| [02 Arquitetura](documentacao/02-arquitetura.md) | Camadas, apps, dependências, ambientes |
+| [03 Requisitos](documentacao/03-requisitos.md) | RF e RNF com a situação real |
+| [04 Regras de negócio](documentacao/04-regras-de-negocio.md) | RN oficiais e regras técnicas, com o ponto do código |
+| [05 Fluxos](documentacao/05-fluxos.md) | Login, processamento, conferência, confirmação, conta manual, cadastros |
+| [06 Modelo de dados](documentacao/06-modelo-de-dados.md) | Tabelas, constraints, gatilho, migrations |
+| [07 Agents e contratos](documentacao/07-agents-e-contratos.md) | Gemini, Extrator, Classificador, JSON v1/v2, correções |
+| [08 Interface e rotas](documentacao/08-interface-e-rotas.md) | URLs, telas, formulários |
+| [09 Segurança e privacidade](documentacao/09-seguranca-e-privacidade.md) | Controles, LGPD, riscos |
+| [10 Configuração e operação](documentacao/10-configuracao-e-operacao.md) | Variáveis, migrations, publicação, rotinas |
+| [11 Testes](documentacao/11-testes.md) | Executor, organização, convenções |
+| [12 Pendências e riscos](documentacao/12-pendencias-e-riscos.md) | O que falta, decisões em aberto, achados |
+| [13 Guia do desenvolvedor](documentacao/13-guia-do-desenvolvedor.md) | Onde mexer, invariantes, receitas |
