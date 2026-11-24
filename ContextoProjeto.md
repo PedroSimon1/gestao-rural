@@ -1,6 +1,6 @@
 # Gestão Rural - Contexto do Projeto
 
-> **Estado atual verificado:** auditoria integrada de 27/10/2026 em `aaa80cc`, na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
+> **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
 
 > **Fonte central de verdade do projeto.** Descreve o estado **real e verificado** do Gestão Rural: o que o produto pretende ser, o que a disciplina exige em cada entrega, o que o código faz hoje e o que ainda falta.
 >
@@ -3482,3 +3482,77 @@ com dados fictícios. Credenciais da entrega apenas no canal restrito humano.
 Documentação GR-16 ainda precisa de PR/revisão/integração. Após F-6 e manutenção
 financeira, atualizar este fechamento com novas evidências. **Implementado,
 integrado, validado localmente, homologado e publicado permanecem estados distintos.**
+
+<a id="auditoria-2026-11-24"></a>
+
+# 37 - Auditoria do projeto (24/11/2026)
+
+Relatório detalhado: [Auditoria-2026-11-24](docs/auditoria/Auditoria-2026-11-24.md).
+
+## 37.1 - Identificação
+
+Tarefa: auditoria geral solicitada pelo usuário (sem código GR). Data: 24/11/2026.
+Branch: `docs/auditoria-24-11`, a partir de `develop` `5f19ce0`.
+
+## 37.2 - Objetivo
+
+Reauditar o projeto depois da GR-16, registrar achados e ações em `docs/auditoria/`
+e atualizar `docs/INDICE.md`. Depois, a pedido do usuário, atualizar o Django para 6.1.3 (A-01).
+
+## 37.3 - Implementação
+
+Documentação, mais a atualização da dependência `Django` de 6.1.1 para 6.1.3 em
+`requirements.txt`. Nenhum comportamento do sistema foi criado, modificado ou removido.
+
+## 37.4 - Arquivos
+
+| Arquivo | Alteração |
+| --- | --- |
+| `docs/auditoria/Auditoria-2026-11-24.md` | criado: método, verificações, pontos fortes, achados A-01 a B-05, ações |
+| `docs/INDICE.md` | cabeçalho, estado da documentação, mapa rápido, linhas da seção 5 e nova seção 12 |
+| `ContextoProjeto.md` | cabeçalho e esta seção 37 |
+| `requirements.txt` | `Django==6.1.1` → `Django==6.1.3` (correções de segurança 6.1.2 e 6.1.3) |
+
+## 37.5 - Decisões técnicas
+
+Os achados são recomendações, não decisões da equipe. A única alteração fora da
+documentação é o pin do Django, autorizada pelo usuário; `config/settings.py`,
+`build.sh` e `start.sh` não foram alterados (AGENTS.md, seções 4 e 9).
+
+## 37.6 - Banco de dados
+
+Nenhuma alteração. `makemigrations --check` sem mudanças. Nenhum banco remoto foi
+acessado (`DB_HOST` substituído por host fictício no processo); os testes usaram
+só o PostgreSQL local de `DB_TEST_*`.
+
+## 37.7 - Testes
+
+- `python manage.py test --noinput` com Django 6.1.3 e `DJANGO_DEBUG=True`: **1.153 testes, OK** (24 s).
+  Uma primeira execução teve 1 falha e 69 erros (`Missing staticfiles manifest entry`):
+  o shell ainda tinha `DJANGO_DEBUG=False` de uma verificação anterior, o que liga o
+  storage com manifesto. Não era regressão do Django; com `DJANGO_DEBUG=True` passou.
+- `manage.py check`: sem problemas. `check --deploy` (`DEBUG=False`): W004 e W008
+  (mais W020, só porque a execução não tinha hosts). `pip check`: OK.
+- `git diff --check`: limpo.
+
+## 37.8 - Integração
+
+Complementa a seção 36 (GR-16). Os resultados de código da GR-16 foram
+reconfirmados; a diferença entre `aaa80cc` e `5f19ce0` é só documentação.
+`main` (`c3d4239`, PR #58) tem árvore idêntica à `develop`.
+
+## 37.9 - Pendências
+
+- **A-01:** Django atualizado para 6.1.3 e testado localmente. Falta publicar
+  (`develop` → `main`) e confirmar a versão instalada no Render.
+- Login sem limite de tentativas e sessão de 14 dias (M-01); HSTS/HTTPS e Data API/RLS
+  do Supabase sem evidência (M-02, M-06); telas de `cadastros` sem tratamento de
+  `DatabaseError` e sem `404.html`/`500.html` (M-03); capacidade com um worker (M-04);
+  F-6 e GR-39/49 abertas (M-05).
+- Documentos defasados (ADR-001, matriz, README, numeração deste arquivo): B-01.
+- Não executados: navegador, Gemini real, `pip-audit`, cobertura, QA/PROD, Jira, Classroom.
+
+## 37.10 - Git
+
+Branch `docs/auditoria-24-11`; alterações locais: os três arquivos da seção 37.4,
+sem commit. Commit, push e PR são do usuário (PR para `develop`).
