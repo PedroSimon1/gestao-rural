@@ -12,7 +12,8 @@
 > - [`docs/requisitos/matriz-n2-etapa2.md`](docs/requisitos/matriz-n2-etapa2.md) — matriz rastreável dos requisitos da Etapa 2;
 > - [`docs/arquitetura/ADR-001-supabase.md`](docs/arquitetura/ADR-001-supabase.md) — decisão Supabase PostgreSQL;
 > - [`docs/organizacao/`](docs/organizacao/LEIA-ME-integracao.md) — regras de organização e de integração;
-> - [`ContextoFluxoGit.md`](ContextoFluxoGit.md) — fluxo Git oficial (`develop` → `main`).
+> - [`ContextoFluxoGit.md`](ContextoFluxoGit.md) — fluxo Git oficial (`develop` → `main`);
+> - [`docs/documentacao/`](docs/documentacao/README.md) — documentação completa do sistema (visão geral, arquitetura, requisitos, regras, fluxos, dados, Agents, segurança, operação, testes, pendências e guia do desenvolvedor).
 
 ## Legenda de classificação
 
@@ -3556,3 +3557,57 @@ reconfirmados; a diferença entre `aaa80cc` e `5f19ce0` é só documentação.
 
 Branch `docs/auditoria-24-11`; alterações locais: os três arquivos da seção 37.4,
 sem commit. Commit, push e PR são do usuário (PR para `develop`).
+
+# 38 - Documentação completa do sistema (24/11/2026)
+
+Documentação em [`docs/documentacao/`](docs/documentacao/README.md).
+
+## 38.1 - Identificação
+
+Tarefa: documentação-base do sistema, solicitada pelo usuário (sem código GR). Data: 24/11/2026.
+Branch de trabalho: `develop` (`71297a0`); alterações locais sem commit (ver 38.10).
+
+## 38.2 - Objetivo
+
+Criar uma pasta em `docs/` com a documentação completa do sistema, para servir de base antes de implementar funcionalidades novas ou corrigir falhas: sistema, fluxos, regras de negócio, requisitos funcionais e não funcionais.
+
+## 38.3 - Implementação
+
+Somente documentação. Nenhum comportamento do sistema foi criado, modificado ou removido.
+
+## 38.4 - Arquivos
+
+| Arquivo | Alteração |
+| --- | --- |
+| `docs/documentacao/README.md` e `01` a `13-*.md` | criados: visão geral, arquitetura, requisitos (RF/RNF), regras de negócio, fluxos, modelo de dados, Agents e contratos, interface e rotas, segurança e privacidade, configuração e operação, testes, pendências e riscos, guia do desenvolvedor |
+| `docs/INDICE.md` | linha no mapa rápido e nova seção 13 |
+| `ContextoProjeto.md` | link em "Documentação complementar" e esta seção 38 |
+
+## 38.5 - Decisões técnicas
+
+- O conteúdo foi escrito a partir da leitura do código (models, serviços, views, forms, Agents, settings, migrations, templates) e dos documentos existentes; quando houve divergência, **prevaleceu o código**.
+- Os IDs RF-01 a RF-17 e RNF-01 a RNF-09 são os da seção 5 e 6 deste arquivo, com a situação atualizada; RF-18 a RF-22 e RNF-10 a RNF-13 foram **acrescentados** na documentação nova, para comportamentos que existem no código e não tinham ID.
+- As seções 5 a 7, 15.1, 17.3, 18.5 e 28 deste arquivo continuam com trechos defasados (listados em `docs/documentacao/12-pendencias-e-riscos.md`, seção 5); **não foram reescritas** nesta tarefa.
+- Nenhuma decisão de escopo foi tomada: as dúvidas Q-01, Q-05, Q-06, Q-10 e demais seguem em aberto.
+
+## 38.6 - Banco de dados
+
+Nenhuma alteração. Nenhum banco foi acessado.
+
+## 38.7 - Testes
+
+Não executados: a tarefa não altera código. Os números de testes citados (1.153) são da auditoria de 24/11/2026, e a contagem por app na documentação foi obtida por leitura do código (`def test`), não por execução. `.env` e `README.txt` não foram lidos.
+
+## 38.8 - Integração
+
+Complementa as seções 36 e 37 e o `docs/INDICE.md`. Não depende de nenhuma tarefa de código.
+
+## 38.9 - Pendências
+
+- Revisão da equipe: a documentação descreve o código lido em 24/11/2026; qualquer mudança posterior exige atualizar a pasta.
+- Não verificados: homologação, publicação, estado das migrations em QA/PROD, comportamento com PDFs reais e Gemini real.
+- Correção das seções defasadas deste arquivo, do ADR-001, da matriz e do README (B-01).
+
+## 38.10 - Git
+
+Branch `develop`; alterações locais não versionadas: `docs/documentacao/` (14 arquivos novos), `docs/INDICE.md` e `ContextoProjeto.md`. Nenhum commit, push ou merge foi feito. Recomenda-se criar uma branch `docs/*` antes de versionar; commit, push e PR para `develop` são do usuário.
