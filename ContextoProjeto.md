@@ -3497,11 +3497,12 @@ Branch: `docs/auditoria-24-11`, a partir de `develop` `5f19ce0`.
 ## 37.2 - Objetivo
 
 Reauditar o projeto depois da GR-16, registrar achados e ações em `docs/auditoria/`
-e atualizar `docs/INDICE.md`. Sem alteração de código, dependências ou configuração.
+e atualizar `docs/INDICE.md`. Depois, a pedido do usuário, atualizar o Django para 6.1.3 (A-01).
 
 ## 37.3 - Implementação
 
-Somente documentação. Nenhum comportamento do sistema foi criado, modificado ou removido.
+Documentação, mais a atualização da dependência `Django` de 6.1.1 para 6.1.3 em
+`requirements.txt`. Nenhum comportamento do sistema foi criado, modificado ou removido.
 
 ## 37.4 - Arquivos
 
@@ -3510,11 +3511,13 @@ Somente documentação. Nenhum comportamento do sistema foi criado, modificado o
 | `docs/auditoria/Auditoria-2026-11-24.md` | criado: método, verificações, pontos fortes, achados A-01 a B-05, ações |
 | `docs/INDICE.md` | cabeçalho, estado da documentação, mapa rápido, linhas da seção 5 e nova seção 12 |
 | `ContextoProjeto.md` | cabeçalho e esta seção 37 |
+| `requirements.txt` | `Django==6.1.1` → `Django==6.1.3` (correções de segurança 6.1.2 e 6.1.3) |
 
 ## 37.5 - Decisões técnicas
 
-Os achados são recomendações, não decisões da equipe. Nada foi alterado em
-`requirements.txt`, `config/settings.py`, `build.sh` ou `start.sh` (AGENTS.md, seções 4 e 9).
+Os achados são recomendações, não decisões da equipe. A única alteração fora da
+documentação é o pin do Django, autorizada pelo usuário; `config/settings.py`,
+`build.sh` e `start.sh` não foram alterados (AGENTS.md, seções 4 e 9).
 
 ## 37.6 - Banco de dados
 
@@ -3524,7 +3527,10 @@ só o PostgreSQL local de `DB_TEST_*`.
 
 ## 37.7 - Testes
 
-- `python manage.py test --noinput`: **1.153 testes, OK** (24 s).
+- `python manage.py test --noinput` com Django 6.1.3 e `DJANGO_DEBUG=True`: **1.153 testes, OK** (24 s).
+  Uma primeira execução teve 1 falha e 69 erros (`Missing staticfiles manifest entry`):
+  o shell ainda tinha `DJANGO_DEBUG=False` de uma verificação anterior, o que liga o
+  storage com manifesto. Não era regressão do Django; com `DJANGO_DEBUG=True` passou.
 - `manage.py check`: sem problemas. `check --deploy` (`DEBUG=False`): W004 e W008
   (mais W020, só porque a execução não tinha hosts). `pip check`: OK.
 - `git diff --check`: limpo.
@@ -3537,8 +3543,8 @@ reconfirmados; a diferença entre `aaa80cc` e `5f19ce0` é só documentação.
 
 ## 37.9 - Pendências
 
-- **A-01:** Django 6.1.1 sem as correções de segurança 6.1.2 e 6.1.3; atualizar
-  e retestar (decisão da equipe).
+- **A-01:** Django atualizado para 6.1.3 e testado localmente. Falta publicar
+  (`develop` → `main`) e confirmar a versão instalada no Render.
 - Login sem limite de tentativas e sessão de 14 dias (M-01); HSTS/HTTPS e Data API/RLS
   do Supabase sem evidência (M-02, M-06); telas de `cadastros` sem tratamento de
   `DatabaseError` e sem `404.html`/`500.html` (M-03); capacidade com um worker (M-04);

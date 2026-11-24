@@ -88,8 +88,10 @@ Sem `pip-audit` não há cobertura das demais dependências. `certifi`
 têm versão nova; o `google-genai` 2.24.0 → 3.6.1 é mudança de versão maior e
 precisa de teste dos Agents antes de adotar.
 **Ação:** atualizar para `Django==6.1.3`, reexecutar a suíte e republicar.
-Não foi alterado nesta tarefa (dependências exigem autorização, e o deploy é
-humano).
+**Atualização (24/11/2026):** `requirements.txt` passou para `Django==6.1.3` e o
+ambiente local foi atualizado; `check`, `pip check`, `makemigrations --check` e
+os 1.153 testes passaram. Falta publicar pelo fluxo humano (`develop` → `main`)
+e instalar a nova versão no Render.
 
 ### M-01 — Login sem limite de tentativas e sessão de 14 dias (M)
 
