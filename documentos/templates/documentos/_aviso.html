@@ -1,0 +1,4 @@
+{% comment %}
+  Aviso padrão. Parâmetros: tipo (info, atencao, erro ou ok; padrão info); titulo (opcional); texto.
+  Erro e atenção usam role="alert"; os demais, role="status".
+{% endcomment %}<div class="aviso aviso--{{ tipo|default:'info' }}" role="{% if tipo == 'erro' or tipo == 'atencao' %}alert{% else %}status{% endif %}">{% if titulo %}<strong>{{ titulo }}</strong>{% endif %}<p>{{ texto }}</p></div>

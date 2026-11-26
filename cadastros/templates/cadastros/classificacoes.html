@@ -1,26 +1,34 @@
 {% extends 'cadastros/base.html' %}
+{% load interface %}
 {% block titulo %}Classificações — Gestão Rural{% endblock %}
 {% block conteudo %}
-<h1>Classificações de receita e despesa</h1>
-<p><a class="botao" href="{% url 'classificacao_nova' %}">Cadastrar classificação</a></p>
-<form method="get" class="cartao formulario-cadastro">
-  {{ form.as_p }}
-  <button class="botao" type="submit" name="modo" value="buscar">Pesquisar</button>
-  <a href="{% url 'classificacoes' %}?modo=todos">TODOS (ativos)</a>
+{% url 'classificacao_nova' as url_nova %}
+{% include "documentos/_cabecalho_pagina.html" with titulo="Classificações de receita e despesa" apoio="Categorias usadas para classificar notas fiscais e contas manuais." acao_url=url_nova acao_rotulo="Cadastrar classificação" %}
+<form method="get" class="cartao formulario-cadastro" aria-label="Filtros de classificações">
+  {{ form.non_field_errors }}
+  <div class="filtros">{% for campo in form.visible_fields %}{% include "documentos/_campo.html" %}{% endfor %}</div>
+  {% for campo in form.hidden_fields %}{{ campo }}{% endfor %}
+  <div class="barra-acoes">
+    <button class="botao" type="submit" name="modo" value="buscar">Pesquisar</button>
+    <a href="{% url 'classificacoes' %}?modo=todos">TODOS (ativos)</a>
+  </div>
 </form>
 {% if pesquisou %}
-<p>{{ pagina.paginator.count }} classificação(ões).</p>
+<p class="texto-apoio">{{ pagina.paginator.count }} classificação(ões).</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
   <thead><tr>{% for cabecalho in cabecalhos %}<th scope="col"><a href="?{{ cabecalho.query }}">{{ cabecalho.rotulo }}</a></th>{% endfor %}<th scope="col">Ações</th></tr></thead>
   <tbody>{% for classificacao in pagina %}<tr>
-    <td>{{ classificacao.get_tipo_display }}</td><td>{{ classificacao.codigo }}</td><td>{{ classificacao.descricao }}</td><td>{{ classificacao.get_status_display }}</td>
-    <td><a href="{% url 'classificacao_editar' classificacao.pk %}">Editar</a> · {% if classificacao.ativo %}<a href="{% url 'classificacao_status' classificacao.pk 'inativar' %}">Inativar</a>{% else %}<a href="{% url 'classificacao_status' classificacao.pk 'reativar' %}">Reativar</a>{% endif %}</td>
+    <td data-rotulo="Tipo">{{ classificacao.get_tipo_display }}</td>
+    <td data-rotulo="Código"><span class="mono">{{ classificacao.codigo }}</span></td>
+    <td class="principal">{{ classificacao.descricao }}</td>
+    <td data-rotulo="Situação">{% situacao classificacao.get_status_display %}</td>
+    <td class="acoes-linha"><a class="botao botao--secundario botao--peq" href="{% url 'classificacao_editar' classificacao.pk %}">Editar</a> {% if classificacao.ativo %}<a class="botao botao--perigo botao--peq" href="{% url 'classificacao_status' classificacao.pk 'inativar' %}">Inativar</a>{% else %}<a class="botao botao--secundario botao--peq" href="{% url 'classificacao_status' classificacao.pk 'reativar' %}">Reativar</a>{% endif %}</td>
   </tr>{% empty %}<tr><td colspan="5">Nenhuma classificação encontrada.</td></tr>{% endfor %}</tbody>
 </table></div>
-{% if pagina.has_other_pages %}<nav aria-label="Páginas de classificações">
-  {% if pagina.has_previous %}<a href="?{{ filtros }}&amp;pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
-  Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
-  {% if pagina.has_next %}<a href="?{{ filtros }}&amp;pagina={{ pagina.next_page_number }}">Próxima</a>{% endif %}
+{% if pagina.has_other_pages %}<nav aria-label="Páginas de classificações" class="paginacao">
+  {% if pagina.has_previous %}<a class="botao botao--secundario botao--peq" href="?{{ filtros }}&amp;pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+  <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a class="botao botao--secundario botao--peq" href="?{{ filtros }}&amp;pagina={{ pagina.next_page_number }}">Próxima</a>{% endif %}
 </nav>{% endif %}
-{% else %}<p>A lista começa vazia. Pesquise ou selecione TODOS para carregar as classificações ativas.</p>{% endif %}
+{% else %}<div class="vazio"><p>A lista começa vazia. Pesquise ou selecione TODOS para carregar as classificações ativas.</p></div>{% endif %}
 {% endblock %}
