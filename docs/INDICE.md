@@ -192,5 +192,5 @@ branch por tarefa: falha do banco e páginas de erro em `cadastros` (M-03),
 limite de tentativas e sessão de 8 h (M-01), CI (B-02), logs e higiene de
 configuração (B-05) e documentação (B-01, B-03). A situação por achado está em
 [`documentacao/12-pendencias-e-riscos.md`](documentacao/12-pendencias-e-riscos.md).
-Corrigido no código não equivale a publicado: nada foi publicado nem aplicado
-em banco remoto por essas tarefas.
+Corrigido no código não equivale a publicado. A única alteração em banco remoto
+foi a migration `financeiro/0005_habilitar_rls` na homologação (seção 39.7).

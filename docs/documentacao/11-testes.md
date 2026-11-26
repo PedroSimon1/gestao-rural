@@ -86,5 +86,5 @@ Observação: `config/test_sem_banco.py` mantém o nome da Etapa 1, mas hoje tes
 - **Não comprova** a precisão da extração/classificação com **PDFs reais** (SDK simulado).
 - **Não comprova** deploy, URL pública, HTTPS, migrations remotas nem o estado do Supabase/Render.
 - **Sem teste em navegador** (JavaScript de parcelas e travamento de botão não são exercitados por navegador).
-- **CI** (`.github/workflows/ci.yml`): `check`, `makemigrations --check` e `test` com PostgreSQL do próprio job; ainda não executado no GitHub (achado B-02 corrigido no código).
+- **CI** (`.github/workflows/ci.yml`): `check`, `makemigrations --check` e `test` com PostgreSQL do próprio job; passou no GitHub em 26/11/2026, depois de definir `GEMINI_MODEL` (confirmado pelo usuário; achado B-02).
 - **Sem cobertura medida** e sem *lint* configurado (`ruff`/`pyflakes` não estão no projeto).
