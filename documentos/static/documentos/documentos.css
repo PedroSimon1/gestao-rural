@@ -117,7 +117,7 @@ main :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]
   background: var(--cor-superficie); color: var(--cor-texto); font: inherit;
 }
 main input[type="file"] {
-  max-width: 100%; padding: 6px 8px; border: 1px solid var(--cor-borda-forte);
+  width: 100%; max-width: 480px; padding: 6px 8px; border: 1px solid var(--cor-borda-forte);
   border-radius: var(--raio); background: var(--cor-superficie); font: inherit;
 }
 main input[type="file"]::file-selector-button {
