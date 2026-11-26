@@ -3628,3 +3628,16 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** reaproveita o padrão de 503 de `financeiro` e `documentos`.
 - **Pendências:** nenhuma específica; o 503 não preserva o conteúdo digitado no formulário.
 - **Git:** commits na branch acima, sem co-autor; o merge na branch atual é feito ao final.
+
+## 39.2 - M-01: limite de tentativas de login e sessão de 8 horas
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/sessao-login` (a partir de `fix/erros-banco-cadastros`).
+- **Objetivo:** o login único não tinha limite de tentativas e a sessão (cookie assinado, sem revogação) valia 14 dias.
+- **Implementação:** `SESSION_COOKIE_AGE = 8 * 60 * 60` em `config/settings.py`. `usuarios/limite.py`: 5 falhas por origem e 30 no total em janela fixa de 15 minutos; excedido o teto, `login_demo` responde 429 antes de comparar credenciais (a senha certa também é recusada). Login correto zera só o contador da origem. Falhas sem `DEMO_LOGIN`/`DEMO_PASSWORD` configurados não contam. `usuarios/checks.py`: aviso `usuarios.W001` em `check --deploy` quando `DEMO_PASSWORD` tem menos de 12 caracteres.
+- **Arquivos:** novos `usuarios/limite.py`, `usuarios/checks.py`, `usuarios/test_limite.py`; alterados `usuarios/views.py`, `usuarios/apps.py`, `usuarios/tests.py` (a base de testes limpa o cache), `config/settings.py`.
+- **Decisões técnicas:** contadores no cache do Django (`LocMemCache`, memória do processo), sem tabela nem migration; cada worker conta à parte e o reinício zera, então o teto efetivo cresce com `WEB_CONCURRENCY`. Origem = último valor de `X-Forwarded-For` (o que o proxy viu), senão `REMOTE_ADDR`; o endereço só entra no cache como hash. O teto global também permite bloquear o login legítimo durante a janela (custo aceito com login compartilhado).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py test` com 1.171 testes OK (1.159 anteriores + 12 novos); `check` e `git diff --check` limpos.
+- **Integração:** depende só do login existente (`usuarios/demo.py`).
+- **Pendências:** confirmar no Render que o último valor de `X-Forwarded-For` é o endereço do cliente; verificar o tamanho de `DEMO_PASSWORD` no ambiente (o aviso só aparece com `check --deploy`); ajustar `WEB_CONCURRENCY` ciente do limite por worker.
+- **Git:** commits na branch acima, sem co-autor.
