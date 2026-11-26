@@ -3641,3 +3641,16 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** depende só do login existente (`usuarios/demo.py`).
 - **Pendências:** confirmar no Render que o último valor de `X-Forwarded-For` é o endereço do cliente; verificar o tamanho de `DEMO_PASSWORD` no ambiente (o aviso só aparece com `check --deploy`); ajustar `WEB_CONCURRENCY` ciente do limite por worker.
 - **Git:** commits na branch acima, sem co-autor.
+
+## 39.3 - B-02: CI no GitHub Actions
+
+- **Identificação:** sem código GR; 26/11/2026; branch `chore/ci-github-actions`.
+- **Objetivo:** a suíte só rodava localmente.
+- **Implementação:** `.github/workflows/ci.yml`, em PR e push para `develop` e `main`: `pip install -r requirements.txt`, `pip check`, `manage.py check`, `makemigrations --check --dry-run` e `manage.py test`, com serviço `postgres:17` do próprio job.
+- **Arquivos:** novo `.github/workflows/ci.yml`.
+- **Decisões técnicas:** nenhum segredo nem banco real: `DB_*` aponta para `host.invalid` (só para o `settings.py` iniciar) e os testes usam `DB_TEST_*` no PostgreSQL do job, como exige `config/banco_de_teste.py`. `DJANGO_DEBUG=True` no job, como nos testes locais; com `False` a suíte local deu 255 erros por falta do manifesto do `collectstatic`. Sem `ruff` nem cobertura (nenhum está no repositório).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** o workflow **não foi executado no GitHub**. Validado localmente: YAML interpretado sem erro e a suíte (1.171 testes) passa com `DJANGO_SECRET_KEY`, `DB_*` fictícios e `DJANGO_DEBUG=True`.
+- **Integração:** exige habilitar o Actions no repositório; para bloquear merge sem CI é preciso marcar o job `testes` como verificação obrigatória nas proteções de branch (ação do usuário).
+- **Pendências:** primeira execução real no PR; imagem `postgres:17` assumida compatível com a versão do Supabase usado (não verificada).
+- **Git:** commits na branch acima, sem co-autor.

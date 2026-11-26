@@ -1,0 +1,79 @@
+name: CI
+
+# Roda a suíte contra um PostgreSQL descartável do próprio job. Nenhum segredo e
+# nenhum banco real (Supabase) entram aqui: DB_* aponta para um host inexistente
+# e os testes usam só DB_TEST_* (config/banco_de_teste.py).
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: senha-descartavel-do-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DJANGO_SECRET_KEY: chave-ficticia-usada-somente-no-ci
+      # Como nos testes locais: com DEBUG=False os templates exigem o manifesto
+      # do collectstatic, que a suíte não gera.
+      DJANGO_DEBUG: "True"
+      # settings.py exige DB_*; o host não resolve de propósito.
+      DB_HOST: host.invalid
+      DB_NAME: gestao_rural_ci
+      DB_USER: ci
+      DB_PASSWORD: ficticia
+      DB_TEST_HOST: localhost
+      DB_TEST_PORT: "5432"
+      DB_TEST_NAME: test_gestao_rural_ci
+      DB_TEST_USER: postgres
+      DB_TEST_PASSWORD: senha-descartavel-do-ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Dependências consistentes
+        run: pip check
+
+      - name: Verificações do Django
+        run: python manage.py check
+
+      - name: Migrations em dia com os models
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Testes
+        run: python manage.py test
