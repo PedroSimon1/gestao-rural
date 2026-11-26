@@ -1,4 +1,4 @@
-{% load static versao_publicada %}<!DOCTYPE html>
+{% load static versao_publicada navegacao %}<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -9,22 +9,24 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
   <header class="topo">
     <div class="container topo__conteudo">
       <span class="topo__marca">Gestão Rural</span>
       {% block navegacao %}
-        <nav class="topo__nav">
-          <a href="{% url 'contas' %}">Contas</a>
-          <a href="{% url 'documento_inicio' %}">Enviar nota</a>
-          <a href="{% url 'pessoas' %}">Pessoas</a>
-          <a href="{% url 'classificacoes' %}">Classificações</a>
+        {% secao_atual as secao %}
+        <nav class="topo__nav" aria-label="Principal">
+          <a href="{% url 'contas' %}"{% if secao == 'contas' %} aria-current="page"{% endif %}>Contas</a>
+          <a href="{% url 'documento_inicio' %}"{% if secao == 'nota' %} aria-current="page"{% endif %}>Enviar nota</a>
+          <a href="{% url 'pessoas' %}"{% if secao == 'pessoas' %} aria-current="page"{% endif %}>Pessoas</a>
+          <a href="{% url 'classificacoes' %}"{% if secao == 'classificacoes' %} aria-current="page"{% endif %}>Classificações</a>
           <a href="{% url 'logout' %}">Sair</a>
         </nav>
       {% endblock %}
     </div>
   </header>
 
-  <main class="container">
+  <main id="conteudo" class="container">
     {% block conteudo %}{% endblock %}
   </main>
   {% commit_publicado as sha_publicado %}
