@@ -13,7 +13,7 @@ from usuarios.demo import demo_login_required
 from .forms import ConfirmacaoForm
 from .forms_classificacoes import DescricaoClassificacaoForm, NovaClassificacaoForm, PesquisaClassificacaoForm
 from .models import Classificacao, Status
-from .views import _entrada_valida
+from .views import _entrada_valida, _erros_de_banco
 
 
 def _erro(form, erro):
@@ -28,6 +28,7 @@ def _erro(form, erro):
 
 @demo_login_required
 @require_http_methods(["GET"])
+@_erros_de_banco
 def classificacoes(request):
     modo = request.GET.get("modo")
     form = PesquisaClassificacaoForm(request.GET if modo == "buscar" else None)
@@ -71,6 +72,7 @@ def classificacoes(request):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def classificacao_nova(request):
     form = NovaClassificacaoForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and _entrada_valida(form, request):
@@ -89,6 +91,7 @@ def classificacao_nova(request):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def classificacao_editar(request, classificacao_id):
     classificacao = get_object_or_404(Classificacao, pk=classificacao_id)
     form = DescricaoClassificacaoForm(request.POST if request.method == "POST" else None, instance=classificacao)
@@ -107,6 +110,7 @@ def classificacao_editar(request, classificacao_id):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def classificacao_status(request, classificacao_id, acao):
     if acao not in {"inativar", "reativar"}:
         raise Http404

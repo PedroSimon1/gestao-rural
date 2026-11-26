@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
+from config.erros_banco import erros_de_banco
 from usuarios.demo import demo_login_required
 
 from .forms import (
@@ -18,6 +19,11 @@ from .models import PapelPessoa, Pessoa, Status
 from .pendentes import regularizar_cadastro_pendente
 from .resolucao import Decisao, ParteNota, resolver_partes
 from .validators import normalizar_documento
+
+_erros_de_banco = erros_de_banco(
+    "cadastros/erro.html",
+    "Não foi possível acessar os cadastros agora. Tente novamente em instantes.",
+)
 
 
 def _entrada_valida(form, request):
@@ -44,6 +50,7 @@ def _erro(form, erro):
 
 @demo_login_required
 @require_http_methods(["GET"])
+@_erros_de_banco
 def pessoas(request):
     modo = request.GET.get("modo")
     form = PesquisaPessoaForm(request.GET if modo == "buscar" else None)
@@ -93,6 +100,7 @@ def pessoas(request):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def pessoa_nova(request):
     form = NovaPessoaForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and _entrada_valida(form, request):
@@ -112,6 +120,7 @@ def pessoa_nova(request):
 
 @demo_login_required
 @require_http_methods(["GET"])
+@_erros_de_banco
 def pessoa_detalhe(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa.objects.prefetch_related("papeis"), pk=pessoa_id)
     return render(request, "cadastros/pessoa_detalhe.html", {"pessoa": pessoa, "papel_form": PapelForm()})
@@ -120,6 +129,7 @@ def pessoa_detalhe(request, pessoa_id):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def pessoa_editar(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa, pk=pessoa_id)
     form = PessoaForm(request.POST if request.method == "POST" else None, instance=pessoa)
@@ -136,6 +146,7 @@ def pessoa_editar(request, pessoa_id):
 @demo_login_required
 @require_http_methods(["POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def pessoa_atribuir_papel(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa.objects.prefetch_related("papeis"), pk=pessoa_id)
     form = PapelForm(request.POST)
@@ -151,6 +162,7 @@ def pessoa_atribuir_papel(request, pessoa_id):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def pessoa_status(request, pessoa_id, acao, papel_id=None):
     if acao not in {"inativar", "reativar"}:
         raise Http404
@@ -170,6 +182,7 @@ def pessoa_status(request, pessoa_id, acao, papel_id=None):
 @demo_login_required
 @require_http_methods(["GET", "POST"])
 @sensitive_post_parameters()
+@_erros_de_banco
 def pessoa_regularizar(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa, pk=pessoa_id)
     if pessoa.documentacao_completa:

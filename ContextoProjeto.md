@@ -3611,3 +3611,20 @@ Complementa as seções 36 e 37 e o `docs/INDICE.md`. Não depende de nenhuma ta
 ## 38.10 - Git
 
 Branch `develop`; alterações locais não versionadas: `docs/documentacao/` (14 arquivos novos), `docs/INDICE.md` e `ContextoProjeto.md`. Nenhum commit, push ou merge foi feito. Recomenda-se criar uma branch `docs/*` antes de versionar; commit, push e PR para `develop` são do usuário.
+
+# 39 - Correções da auditoria de 24/11/2026
+
+Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/auditoria/Auditoria-2026-11-24.md), uma branch por tarefa, em cadeia a partir de `feature/correção-antes-att` (`5a4b216`). Cada subseção registra uma tarefa; os itens que dependem de ação humana estão na subseção final.
+
+## 39.1 - M-03: falha do banco e páginas de erro em `cadastros`
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/erros-banco-cadastros`.
+- **Objetivo:** as telas de `cadastros` respondiam 500 padrão do Django quando o banco falhava, e o projeto não tinha `404.html`/`500.html`.
+- **Implementação:** `config/erros_banco.py` com o decorador `erros_de_banco(template, mensagem)`: captura `django.db.Error`, registra só o nome da view (texto fixo) e renderiza o template com status 503. Aplicado às 11 views de `cadastros/views.py` e `cadastros/views_classificacoes.py`. O `_erros_de_banco` do financeiro passou a usar o mesmo decorador (cópia removida; agora também cobre `InterfaceError`, além de `DatabaseError`). Os `except (ValidationError, IntegrityError)` das views não mudaram: continuam dando a mensagem do formulário.
+- **Arquivos:** novos `config/erros_banco.py`, `cadastros/templates/cadastros/erro.html`, `usuarios/templates/404.html`, `usuarios/templates/500.html`, `cadastros/test_falha_banco.py`; alterados `cadastros/views.py`, `cadastros/views_classificacoes.py`, `financeiro/views_consultas.py`.
+- **Decisões técnicas:** os templates de erro ficam em `usuarios/templates/` para não alterar `TEMPLATES['DIRS']` em `settings.py`. O `500.html` é autônomo (sem herança, `static` ou `url`) porque o Django o renderiza sem request e uma falha ali esconderia o erro original. O 404 estende a base e só vale com `DEBUG=False`.
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py check` sem problemas; `makemigrations --check` sem mudanças; `manage.py test` com 1.159 testes OK (1.153 anteriores + 6 novos); `git diff --check` limpo.
+- **Integração:** reaproveita o padrão de 503 de `financeiro` e `documentos`.
+- **Pendências:** nenhuma específica; o 503 não preserva o conteúdo digitado no formulário.
+- **Git:** commits na branch acima, sem co-autor; o merge na branch atual é feito ao final.
