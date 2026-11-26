@@ -57,8 +57,9 @@ Estes documentos não estão no Git e não devem ser versionados: os acadêmicos
 
 | Documento                                                        | Finalidade                                                             | Localização | Estado |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------- | ------ |
-| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; seção 36 = auditoria GR-16 (27/10/2026) | repositório | seção 37 registra a auditoria de 24/11/2026; seções antigas são histórico datado |
-| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO; implementado (GR-33, PR #22). O texto de contexto e a seção de implementação ainda descrevem `DATABASES = {}` e a GR-33 como não integrada (defasagem registrada na auditoria de 24/11/2026) |
+| [`ContextoProjeto.md`](../ContextoProjeto.md)                    | fonte central de verdade técnica e conceitual; seção 36 = auditoria GR-16 (27/10/2026) | repositório | seção 37 = auditoria de 24/11/2026 e seção 39 = correções dos achados; seções antigas são histórico datado (nota de numeração no topo) |
+| [`ADR-001-supabase.md`](arquitetura/ADR-001-supabase.md)          | decisão Supabase PostgreSQL para a Etapa 2                             | repositório | ACEITO; implementado no código (GR-33, PR #22). Cabeçalho e estado atualizados em 26/11/2026; as seções 2, 5, 8, 9 e 13 permanecem como histórico datado |
+| [`ADR-002-privacidade-dados-pessoais.md`](arquitetura/ADR-002-privacidade-dados-pessoais.md) | situação atual dos dados pessoais e decisões em aberto (B-03) | repositório | **RASCUNHO / PROPOSTA** (26/11/2026), sem aprovação da equipe |
 | [`ContratoIntegracaoGR51.md`](contratos/ContratoIntegracaoGR51.md) | contrato técnico de integração da GR-51 (Agents, GR-40, GR-43, financeiro) | repositório | **MINUTA 0.2** (27/10/2026): decisões D-01 a D-05 incorporadas; demais aguardando ratificação |
 | [`matriz-n2-etapa2.md`](requisitos/matriz-n2-etapa2.md)           | rastreabilidade dos requisitos da Etapa 2                              | repositório | novo |
 | `tecnologias.pdf`                                                | stack da Etapa 2 com Render + **Neon** (out/2026)                      | `../Documentos/Att-02--27-10--N2 - Avaliação (Parte 2)/` | localizado; **histórico quanto ao Neon** (substituído pelo ADR-001) |
@@ -183,3 +184,13 @@ Descreve o que existe; o planejado e os riscos aparecem marcados. Código e test
 | [11 Testes](documentacao/11-testes.md) | Executor, organização, convenções |
 | [12 Pendências e riscos](documentacao/12-pendencias-e-riscos.md) | O que falta, decisões em aberto, achados |
 | [13 Guia do desenvolvedor](documentacao/13-guia-do-desenvolvedor.md) | Onde mexer, invariantes, receitas |
+
+## 14. Correções da auditoria de 24/11/2026 — 26/11/2026
+
+Registradas na seção 39 do [`ContextoProjeto.md`](../ContextoProjeto.md), uma
+branch por tarefa: falha do banco e páginas de erro em `cadastros` (M-03),
+limite de tentativas e sessão de 8 h (M-01), CI (B-02), logs e higiene de
+configuração (B-05) e documentação (B-01, B-03). A situação por achado está em
+[`documentacao/12-pendencias-e-riscos.md`](documentacao/12-pendencias-e-riscos.md).
+Corrigido no código não equivale a publicado: nada foi publicado nem aplicado
+em banco remoto por essas tarefas.
