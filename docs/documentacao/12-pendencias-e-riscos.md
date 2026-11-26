@@ -44,7 +44,7 @@ Severidade: **A** = tratar antes de publicar/entregar; **M** = importante; **B**
 | M-03 | M | `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; sem `404.html`/`500.html` | Decorador equivalente ao `_erros_de_banco` do financeiro + templates de erro em português | **Corrigido no código** (`ContextoProjeto.md` 39.1); falta publicar |
 | M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | Aberto |
 | M-05 | M | F-6 e GR-39/49 abertas | Fechar com o responsável pelos serviços; agendar `expirar_analises` | Aberto |
-| M-06 | M | Sem RLS nas migrations; depende de a Data API do Supabase estar desativada | Conferir QA/PROD e registrar evidência; por precaução, habilitar RLS sem políticas | Aberto (humano) |
+| M-06 | M | Sem RLS nas migrations; depende de a Data API do Supabase estar desativada | Conferir QA/PROD e registrar evidência; por precaução, habilitar RLS sem políticas | **Migration criada** (`financeiro/0005_habilitar_rls`, 39.6), **não aplicada** em nenhum banco remoto; conferir a Data API e aplicar a migration é ação humana |
 | B-01 | B | Documentação defasada (ver seção 5) | Corrigir | Parcial |
 | B-02 | B | Sem CI e sem cobertura | Workflow com serviço PostgreSQL rodando `check`, `makemigrations --check` e `test`; avaliar `ruff` | **Workflow criado** (39.3), ainda não executado no GitHub; sem cobertura nem `ruff` |
 | B-03 | B | Dados pessoais e envio a terceiro sem aviso/registro | ADR ou README com a decisão de privacidade | **Rascunho** em [ADR-002](../arquitetura/ADR-002-privacidade-dados-pessoais.md) (proposta; decisões abertas para a equipe) |
