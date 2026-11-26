@@ -3657,6 +3657,13 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Pendências:** primeira execução real no PR; imagem `postgres:17` assumida compatível com a versão do Supabase usado (não verificada).
 - **Git:** commits na branch acima, sem co-autor.
 
+### 39.3.1 - Correção após a primeira execução do CI (26/11/2026)
+
+- **Branch:** `fix/ci-gemini-model`.
+- **Falha:** o job `testes` terminou com 12 falhas e 2 erros, todos em `documentos/test_interface.py`. A validação local anterior estava errada: rodava com o `.env` do desenvolvedor, que fornecia `GEMINI_MODEL`; o CI não tem `.env` e o cliente Gemini recusa a configuração sem o modelo (`GeminiConfiguracaoError`).
+- **Correção:** `GEMINI_MODEL: modelo-ficticio-do-ci` no `env` do job (o SDK é simulado nos testes).
+- **Validação:** reproduzi a falha numa cópia limpa do repositório (sem `.env`, ambiente zerado e as variáveis do workflow): 1.174 testes, 12 falhas e 2 erros. Com `GEMINI_MODEL` definido: 1.174 testes OK. O workflow corrigido ainda precisa de nova execução no GitHub.
+
 ## 39.4 - B-05: logs de produção e higiene de configuração (e B-04 sem código)
 
 - **Identificação:** sem código GR; 26/11/2026; branch `chore/higiene-config`.
