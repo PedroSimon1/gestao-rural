@@ -3,24 +3,32 @@
 {% block titulo %}Nova conta {{ tipo_rotulo|lower }} — Gestão Rural{% endblock %}
 {% block head_extra %}{{ block.super }}<script src="{% static 'financeiro/conta_manual.js' %}" defer></script>{% endblock %}
 {% block conteudo %}
-<h1>Nova conta {{ tipo_rotulo|lower }}</h1>
-<p><a href="{% url 'conta_manual_nova' %}?tipo=APAGAR">A pagar</a> · <a href="{% url 'conta_manual_nova' %}?tipo=ARECEBER">A receber</a>. Trocar o tipo abre um novo formulário.</p>
-<p>Escolha cadastros completos e papéis ativos. <a href="{% url 'pessoas' %}">Manter pessoas e papéis</a>.</p>
-{% url 'classificacoes' as classificacoes_url %}{% if classificacoes_url %}<p><a href="{{ classificacoes_url }}">Manter classificações</a></p>{% endif %}
+{% url 'contas' as url_contas %}{% with tipo_minusculo=tipo_rotulo|lower %}
+{% include "documentos/_cabecalho_pagina.html" with titulo="Nova conta "|add:tipo_minusculo apoio="Lançamento manual, sem nota fiscal. Nenhuma parcela é calculada automaticamente." migalha_url=url_contas migalha_rotulo="Contas" migalha_atual="Nova conta" %}{% endwith %}
+<p class="barra-acoes" aria-label="Tipo da conta">
+  <a class="botao {% if form.tipo.value != 'APAGAR' %}botao--secundario{% endif %}" href="{% url 'conta_manual_nova' %}?tipo=APAGAR"{% if form.tipo.value == 'APAGAR' %} aria-current="page"{% endif %}>A pagar</a>
+  <a class="botao {% if form.tipo.value != 'ARECEBER' %}botao--secundario{% endif %}" href="{% url 'conta_manual_nova' %}?tipo=ARECEBER"{% if form.tipo.value == 'ARECEBER' %} aria-current="page"{% endif %}>A receber</a>
+  <span class="texto-apoio">Trocar o tipo abre um novo formulário.</span>
+</p>
+<p class="texto-apoio">Escolha cadastros completos e papéis ativos. <a href="{% url 'pessoas' %}">Manter pessoas e papéis</a>.
+{% url 'classificacoes' as classificacoes_url %}{% if classificacoes_url %} <a href="{{ classificacoes_url }}">Manter classificações</a>{% endif %}</p>
 <form method="post" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Registrando..." data-parcelas-manuais data-limite="{{ maximo_parcelas }}">
   {% csrf_token %}
   {{ form.non_field_errors }}
+  <p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>
   {% for campo in form.hidden_fields %}{{ campo.errors }}{{ campo }}{% endfor %}
-  {% for campo in form.visible_fields %}{% if campo.name != 'confirmar' %}<p>{{ campo.label_tag }} {{ campo }}{% if campo.help_text %}<span class="helptext">{{ campo.help_text }}</span>{% endif %}{{ campo.errors }}</p>{% endif %}{% endfor %}
+  {% for campo in form.visible_fields %}{% if campo.name != 'confirmar' %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}
   <h2>Parcelas</h2>
-  <p>Informe vencimento e valor de cada parcela. A soma deve corresponder ao total; nenhuma parcela será calculada automaticamente.</p>
+  <p class="texto-apoio">Informe vencimento e valor de cada parcela. A soma deve corresponder ao total; nenhuma parcela será calculada automaticamente.</p>
   {{ parcelas.management_form }}{{ parcelas.non_form_errors }}
-  <div data-lista-parcelas>{% for parcela in parcelas %}<fieldset class="cartao"><legend>Parcela {{ forloop.counter }}</legend>{{ parcela.as_p }}</fieldset>{% endfor %}</div>
-  <template data-nova-parcela><fieldset class="cartao"><legend>Nova parcela</legend>{{ parcelas.empty_form.as_p }}</fieldset></template>
-  <button class="botao" type="button" data-adicionar-parcela>Adicionar parcela</button>
-  <p data-aviso-parcelas role="status" aria-live="polite">Até {{ maximo_parcelas }} parcelas.</p>
-  <p>{{ form.confirmar }} {{ form.confirmar.label_tag }}{{ form.confirmar.errors }}</p>
-  <button class="botao" type="submit">Confirmar registro</button>
-  <a href="{% url 'contas' %}">Voltar sem registrar</a>
+  <div data-lista-parcelas>{% for parcela in parcelas %}<fieldset class="cartao"><legend>Parcela {{ forloop.counter }}</legend>{{ parcela.non_field_errors }}{% for campo in parcela %}{% if campo.name == 'DELETE' %}<label class="opcao">{{ campo }} {{ campo.label }}</label>{{ campo.errors }}{% else %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}</fieldset>{% endfor %}</div>
+  <template data-nova-parcela><fieldset class="cartao"><legend>Nova parcela</legend>{% for campo in parcelas.empty_form %}{% if campo.name == 'DELETE' %}<label class="opcao">{{ campo }} {{ campo.label }}</label>{% else %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}</fieldset></template>
+  <button class="botao botao--secundario" type="button" data-adicionar-parcela>Adicionar parcela</button>
+  <p class="texto-apoio" data-aviso-parcelas role="status" aria-live="polite">Até {{ maximo_parcelas }} parcelas.</p>
+  {% with campo=form.confirmar %}{% include "documentos/_campo.html" %}{% endwith %}
+  <div class="barra-acoes">
+    <button class="botao" type="submit">Confirmar registro</button>
+    <a href="{% url 'contas' %}">Voltar sem registrar</a>
+  </div>
 </form>
 {% endblock %}

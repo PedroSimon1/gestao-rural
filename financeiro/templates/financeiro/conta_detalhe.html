@@ -1,20 +1,23 @@
 {% extends 'cadastros/base.html' %}
-{% load moeda %}
+{% load moeda interface %}
 {% block titulo %}Detalhe da conta — Gestão Rural{% endblock %}
 {% block conteudo %}
-<h1>Detalhe da conta</h1>
-{% if erro %}<p role="alert">{{ erro }}</p>{% else %}
-<dl><dt>Tipo</dt><dd>{{ tipo }}</dd><dt>Origem</dt><dd>{{ origem }}</dd><dt>Situação do lançamento</dt><dd>{{ status }}</dd>
+{% url 'contas' as url_contas %}
+{% include "documentos/_cabecalho_pagina.html" with titulo="Detalhe da conta" migalha_url=url_contas migalha_rotulo="Contas" migalha_atual="Detalhe" %}
+{% if erro %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro %}{% else %}
+<section class="cartao">
+<dl><dt>Tipo</dt><dd>{{ tipo }}</dd><dt>Origem</dt><dd>{{ origem }}</dd><dt>Situação do lançamento</dt><dd>{% situacao status %}</dd>
 <dt>Contraparte</dt><dd>{{ detalhe.contraparte_nome }}</dd><dt>Faturado</dt><dd>{{ detalhe.faturado_nome|default:'Não informado' }}</dd>
 <dt>Valor total</dt><dd>{{ detalhe.valor_total|moeda }}</dd><dt>Registrado em</dt><dd>{{ detalhe.criado_em|date:'d/m/Y H:i' }}</dd></dl>
+</section>
 <h2>Classificações</h2>
 <ul>{% for c in detalhe.classificacoes %}<li>{{ c.descricao }} ({{ c.codigo }}){% if c.principal %} — Principal{% endif %}</li>{% endfor %}</ul>
 <h2>Parcelas</h2>
-<p>Confirmado e Ativa são estados do lançamento e da parcela; não representam quitação.</p>
+<p class="texto-apoio">Confirmado e Ativa são estados do lançamento e da parcela; não representam quitação.</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
 <thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th><th scope="col">Situação</th></tr></thead>
-<tbody>{% for p in parcelas %}<tr><td>{{ p.dados.numero }}</td><td>{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td class="num">{{ p.dados.valor|moeda }}</td><td>{{ p.status }}</td></tr>{% endfor %}</tbody>
+<tbody>{% for p in parcelas %}<tr><td class="principal">{{ p.dados.numero }}</td><td data-rotulo="Vencimento">{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td class="num" data-rotulo="Valor">{{ p.dados.valor|moeda }}</td><td data-rotulo="Situação">{% situacao p.status %}</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endif %}
-<p><a href="{% url 'contas' %}">Voltar à pesquisa</a></p>
+<p><a class="botao botao--secundario" href="{% url 'contas' %}">Voltar à pesquisa</a></p>
 {% endblock %}

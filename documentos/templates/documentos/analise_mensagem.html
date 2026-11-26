@@ -1,9 +1,7 @@
 {% extends "documentos/base.html" %}
 {% block titulo %}Análise da nota — Gestão Rural{% endblock %}
 {% block conteudo %}
-<section class="cartao">
-  <h1>Análise da nota</h1>
-  <p role="status">{{ mensagem }}</p>
-  <a href="{% url 'documento_inicio' %}">Voltar ao envio da nota</a>
-</section>
+{% include "documentos/_cabecalho_pagina.html" with titulo="Análise da nota" %}
+{% include "documentos/_aviso.html" with tipo="info" texto=mensagem %}
+<p><a class="botao botao--secundario" href="{% url 'documento_inicio' %}">Voltar ao envio da nota</a></p>
 {% endblock %}
