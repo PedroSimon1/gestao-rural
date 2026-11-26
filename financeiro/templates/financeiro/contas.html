@@ -13,7 +13,7 @@
 {% if erro %}<p role="alert">{{ erro }}</p>{% elif pesquisou %}
 <p>{{ pagina.total|default:0 }} lançamento(s). Mais recentes primeiro.</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
-  <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col">Valor total</th><th scope="col">Parcelas ativas</th><th scope="col">Próximo vencimento ativo</th><th scope="col">Ações</th></tr></thead>
+  <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col" class="num">Valor total</th><th scope="col">Parcelas ativas</th><th scope="col">Próximo vencimento ativo</th><th scope="col">Ações</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>
     <td>{{ linha.tipo }} / {{ linha.origem }}</td><td>{{ linha.dados.contraparte_nome }}</td><td>{{ linha.status }}</td>
     <td class="num">{{ linha.dados.valor_total|moeda }}</td><td>{{ linha.dados.quantidade_parcelas }}</td><td>{{ linha.dados.proximo_vencimento|date:'d/m/Y'|default:'—' }}</td>

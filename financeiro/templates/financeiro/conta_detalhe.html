@@ -12,7 +12,7 @@
 <h2>Parcelas</h2>
 <p>Confirmado e Ativa são estados do lançamento e da parcela; não representam quitação.</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
-<thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col">Valor</th><th scope="col">Situação</th></tr></thead>
+<thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th><th scope="col">Situação</th></tr></thead>
 <tbody>{% for p in parcelas %}<tr><td>{{ p.dados.numero }}</td><td>{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td class="num">{{ p.dados.valor|moeda }}</td><td>{{ p.status }}</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endif %}
