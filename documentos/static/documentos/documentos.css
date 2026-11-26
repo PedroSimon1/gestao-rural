@@ -191,6 +191,72 @@ main dl:not(.resumo) dd, .resumo:not(:has(.resumo__item)) dd { margin: 0; }
 .tabela-cadastros tbody tr:hover { background: #f4f6f2; }
 nav[aria-label^="Páginas"] { display: flex; align-items: center; gap: 12px; margin: 8px 0 16px; color: var(--cor-texto-suave); }
 
+/* ---------- Cabeçalho de página ---------- */
+.cabecalho {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 12px 24px; padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--cor-borda);
+}
+.cabecalho h1 { margin: 0; }
+.cabecalho p { margin: 4px 0 0; color: var(--cor-texto-suave); max-width: 68ch; }
+.cabecalho .botao { margin-top: 0; }
+.migalhas { margin: 0 0 8px; font-size: .875rem; color: var(--cor-texto-suave); }
+.migalhas a { color: inherit; }
+.migalhas span { margin: 0 6px; }
+
+/* ---------- Situação (texto com contorno, sem fundo colorido) ---------- */
+.sit {
+  display: inline-block; padding: 0 8px; border: 1px solid var(--cor-borda-forte); border-radius: 2px;
+  font-size: .85rem; font-weight: 600; line-height: 1.6; white-space: nowrap;
+}
+.sit--ok { color: var(--cor-ok); border-color: var(--cor-ok); }
+.sit--pagar { color: var(--cor-erro); border-color: var(--cor-erro); }
+.sit--atencao { color: var(--cor-aviso); border-color: var(--cor-aviso); }
+.sit--neutro { color: var(--cor-texto-suave); }
+
+/* ---------- Avisos com título ---------- */
+.aviso > strong { display: block; margin-bottom: 2px; }
+.aviso--erro { border-color: var(--cor-erro); }
+.aviso--erro > strong { color: var(--cor-erro); }
+.aviso--atencao > strong { color: var(--cor-aviso); }
+.aviso--info { border-color: var(--cor-borda-forte); }
+.aviso--ok { border-color: var(--cor-ok); }
+.aviso--ok > strong { color: var(--cor-ok); }
+
+/* ---------- Campos (partial _campo) e grupos ---------- */
+.campo { margin: 0 0 16px; min-width: 0; }
+.rotulo { display: block; margin: 0 0 4px; font-weight: 600; font-size: .95rem; }
+.req { margin-left: 2px; color: var(--cor-erro); }
+.dica { margin: 4px 0 0; font-size: .88rem; color: var(--cor-texto-suave); }
+.campo .errorlist { margin: 4px 0 0; padding: 0; }
+.opcoes { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.opcoes label, .opcao { display: flex; align-items: center; gap: 10px; min-height: 28px; font-weight: 400; }
+.campo--grupo { border: 0; padding: 0; margin: 0 0 16px; }
+.campo--grupo legend { padding: 0; margin-bottom: 4px; font-weight: 600; font-size: .95rem; }
+.confirma {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; padding: 12px 16px;
+  border: 1px solid var(--cor-borda-forte); border-radius: var(--raio); background: var(--cor-fundo);
+}
+.confirma label { font-weight: 600; }
+.confirma input { flex: none; margin: 3px 0 0; }
+.campo--grupo > div { display: grid; gap: 8px; }
+.campo--grupo label { display: flex; align-items: center; gap: 10px; min-height: 28px; font-weight: 400; }
+.nota-obrig { margin: 0 0 16px; font-size: .86rem; color: var(--cor-texto-suave); }
+.filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; align-items: end; }
+.barra-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+.barra-acoes .botao { margin-top: 0; }
+.botao--peq { min-height: 34px; margin-top: 0; padding: 0 12px; font-size: .9rem; }
+.acoes-linha { text-align: right; white-space: nowrap; }
+.acoes-linha .botao + .botao { margin-left: 6px; }
+.vazio { padding: 32px 20px; text-align: center; border: 1px solid var(--cor-borda); border-radius: var(--raio); background: var(--cor-superficie); }
+.vazio p { margin: 6px auto 16px; max-width: 52ch; color: var(--cor-texto-suave); }
+.etapas { display: flex; flex-wrap: wrap; margin: 0 0 24px; padding: 0; list-style: none; border-bottom: 1px solid var(--cor-borda); }
+.etapas li { margin: 0 20px -1px 0; padding: 8px 0; color: var(--cor-texto-suave); border-bottom: 3px solid transparent; }
+.etapas li b { margin-right: 6px; font-weight: 600; }
+.etapas li[aria-current="step"] { color: var(--cor-texto); font-weight: 600; border-bottom-color: var(--cor-marca); }
+.etapas li.feita { color: var(--cor-texto); }
+.paginacao { margin-top: 8px; }
+.paginacao .botao { margin-top: 0; }
+
 /* ---------- Login ---------- */
 .login { max-width: 400px; margin: 24px auto 0; }
 .login__campo { max-width: none; }
@@ -216,6 +282,26 @@ footer .texto-apoio { margin: 0; font-size: .85rem; }
   main dl:not(.resumo), .resumo:not(:has(.resumo__item)) { grid-template-columns: 1fr; gap: 0; }
   main dl:not(.resumo) dt { margin-top: 10px; }
   .bloco-json { font-size: .8rem; }
+  .cabecalho { padding-bottom: 12px; margin-bottom: 20px; }
+  .barra-acoes .botao { width: 100%; }
+  .acoes-linha { text-align: left; }
+  .campos-linha { grid-template-columns: 1fr; }
+  /* Tabela vira lista de registros, sem rolagem lateral */
+  .tabela-responsiva { overflow: visible; background: none; border: 0; }
+  .tabela-cadastros, .tabela-cadastros tbody, .tabela-cadastros tr, .tabela-cadastros td { display: block; width: 100%; }
+  .tabela-cadastros thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tabela-cadastros tr {
+    margin-bottom: 10px; padding: 8px 14px; background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda); border-radius: var(--raio);
+  }
+  .tabela-cadastros tbody tr:hover { background: var(--cor-superficie); }
+  .tabela-cadastros td { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; border: 0; text-align: right; }
+  .tabela-cadastros td::before { content: attr(data-rotulo); flex: none; font-size: .85rem; color: var(--cor-texto-suave); text-align: left; }
+  .tabela-cadastros td:not([data-rotulo])::before { content: none; }
+  .tabela-cadastros td.principal { justify-content: flex-start; text-align: left; font-weight: 600; }
+  .tabela-cadastros td.principal::before, .tabela-cadastros td.acoes-linha::before { content: none; }
+  .tabela-cadastros td.acoes-linha { justify-content: flex-start; padding-top: 8px; }
+  .tabela-cadastros td[colspan] { display: block; text-align: left; }
 }
 
 @media print {
