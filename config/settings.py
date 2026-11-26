@@ -163,6 +163,10 @@ TEST_RUNNER = "config.banco_de_teste.ExecutorDeTestes"
 
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
+# Um cookie assinado não pode ser revogado no servidor: quanto menor a vida
+# dele, menor o prazo de uso de uma cópia (padrão do Django: 14 dias).
+SESSION_COOKIE_AGE = 8 * 60 * 60
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
