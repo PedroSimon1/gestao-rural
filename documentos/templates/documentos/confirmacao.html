@@ -1,4 +1,5 @@
 {% extends "documentos/base.html" %}
+{% load moeda %}
 {% block titulo %}Confirmar lançamento — Gestão Rural{% endblock %}
 {% block conteudo %}
 <section class="cartao">
@@ -10,10 +11,10 @@
     <dt>Classificação</dt><dd>{{ nota.classificacao.descricao|default:nota.classificacao.codigo }}</dd>
     <dt>Número da nota</dt><dd>{{ nota.numero_nota|default_if_none:"—" }}</dd>
     <dt>Modelo e série</dt><dd>{{ nota.identidade_fiscal.modelo|default:"—" }} / {{ nota.serie|default_if_none:"—" }}</dd>
-    <dt>Total</dt><dd>{{ nota.valor_total|default_if_none:"—" }}</dd>
+    <dt>Total</dt><dd>{{ nota.valor_total|moeda }}</dd>
   </dl>
   <h2>Parcelas</h2>
-  <ul>{% for parcela in nota.parcelas %}<li>{{ parcela.numero }} — {{ parcela.data_vencimento|date:"d/m/Y"|default:"Vencimento pendente" }} — {{ parcela.valor }}</li>{% endfor %}</ul>
+  <ul>{% for parcela in nota.parcelas %}<li>{{ parcela.numero }} — {{ parcela.data_vencimento|date:"d/m/Y"|default:"Vencimento pendente" }} — {{ parcela.valor|moeda }}</li>{% endfor %}</ul>
   {% if pendencias %}<ul role="alert">{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>{% endif %}
   {% for avaliacao in avaliacoes %}
     <h2>{{ avaliacao.rotulo }}</h2>

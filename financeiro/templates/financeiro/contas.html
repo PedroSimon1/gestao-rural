@@ -1,4 +1,5 @@
 {% extends 'cadastros/base.html' %}
+{% load moeda %}
 {% block titulo %}Contas — Gestão Rural{% endblock %}
 {% block conteudo %}
 <h1>Contas a pagar e a receber</h1>
@@ -15,7 +16,7 @@
   <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col">Valor total</th><th scope="col">Parcelas ativas</th><th scope="col">Próximo vencimento ativo</th><th scope="col">Ações</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>
     <td>{{ linha.tipo }} / {{ linha.origem }}</td><td>{{ linha.dados.contraparte_nome }}</td><td>{{ linha.status }}</td>
-    <td>R$ {{ linha.dados.valor_total|floatformat:2 }}</td><td>{{ linha.dados.quantidade_parcelas }}</td><td>{{ linha.dados.proximo_vencimento|date:'d/m/Y'|default:'—' }}</td>
+    <td class="num">{{ linha.dados.valor_total|moeda }}</td><td>{{ linha.dados.quantidade_parcelas }}</td><td>{{ linha.dados.proximo_vencimento|date:'d/m/Y'|default:'—' }}</td>
     <td><a href="{% url 'conta_detalhe' linha.dados.id %}">Detalhar</a></td>
   </tr>{% empty %}<tr><td colspan="7">Nenhum lançamento encontrado.</td></tr>{% endfor %}</tbody>
 </table></div>
