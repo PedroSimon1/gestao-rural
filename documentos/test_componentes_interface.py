@@ -6,6 +6,8 @@ from django.template import Context, Template
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
+from documentos.forms import DocumentoUploadForm
+
 
 def renderizar(modelo, **contexto):
     return Template(modelo).render(Context(contexto))
@@ -119,3 +121,32 @@ class SituacaoTests(SimpleTestCase):
     def test_tom_explicito_e_texto_escapado(self):
         html = renderizar('{% load interface %}{% situacao t "atencao" %}', t="<x>")
         self.assertEqual(html, '<span class="sit sit--atencao">&lt;x&gt;</span>')
+
+
+class EtapasETelasDaNotaTests(SimpleTestCase):
+    def etapas(self, atual):
+        return render_to_string("documentos/_etapas.html", {"atual": atual})
+
+    def test_etapa_atual_e_concluidas(self):
+        html = self.etapas(3)
+        self.assertEqual(html.count('aria-current="step"'), 1)
+        self.assertRegex(html, r'<li aria-current="step"><b>3\.</b>Confirmar</li>')
+        self.assertEqual(html.count('class="feita"'), 2)
+
+    def test_primeira_etapa_sem_concluidas_e_ultima_sem_pendentes(self):
+        self.assertNotIn("feita", self.etapas(1))
+        ultima = self.etapas(4)
+        self.assertEqual(ultima.count('class="feita"'), 3)
+        self.assertRegex(ultima, r'<li aria-current="step"><b>4\.</b>Lançamento concluído</li>')
+
+    def test_sucesso_leva_a_conta_lancada_e_marca_a_quarta_etapa(self):
+        html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3})
+        self.assertIn('href="/financeiro/contas/7/"', html)
+        self.assertIn("Ver a conta lançada", html)
+        self.assertIn("Enviar outra nota", html)
+        self.assertRegex(html, r'aria-current="step"><b>4\.')
+
+    def test_envio_traz_aviso_de_espera_escondido_ate_o_envio(self):
+        html = render_to_string("documentos/inicio.html", {"form": DocumentoUploadForm(), "limite_upload_mb": 10})
+        self.assertRegex(html, r'<div class="aviso aviso--info" role="status" data-estado hidden>')
+        self.assertIn("até 10 MB", html)

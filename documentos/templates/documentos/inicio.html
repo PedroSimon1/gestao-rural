@@ -3,10 +3,12 @@
 {% block titulo %}Processar nota fiscal — Gestão Rural{% endblock %}
 
 {% block conteudo %}
-  <section class="cartao">
-    <h1>Processar nota fiscal</h1>
-    <p class="texto-apoio">Envie a nota fiscal de contas a pagar em PDF (até {{ limite_upload_mb }} MB). O arquivo é usado só neste processamento e não é guardado.</p>
+  {% with limite=limite_upload_mb|stringformat:"s" %}{% with apoio_envio="Envie a nota fiscal de contas a pagar em PDF (até "|add:limite|add:" MB). O arquivo é usado só neste processamento e não é guardado." %}
+  {% include "documentos/_cabecalho_pagina.html" with titulo="Processar nota fiscal" apoio=apoio_envio %}
+  {% endwith %}{% endwith %}
+  {% include "documentos/_etapas.html" with atual=1 %}
 
+  <section class="cartao">
     <form method="post" action="{% url 'analise_criar' %}" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
       {% csrf_token %}
 
@@ -29,6 +31,11 @@
           {% for erro in form.arquivo.errors %}<li>{{ erro }}</li>{% endfor %}
         </ul>
       {% endif %}
+
+      <div class="aviso aviso--info" role="status" data-estado hidden>
+        <strong>Processando a nota</strong>
+        <p>Isso pode levar alguns minutos. Não feche esta página: ao terminar, você será levado à conferência dos dados.</p>
+      </div>
 
       <button type="submit" class="botao">Processar</button>
     </form>

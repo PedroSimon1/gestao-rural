@@ -18,6 +18,11 @@
   function travar(form) {
     var botao = botaoDoFormulario(form);
     form.setAttribute("data-enviando", "true");
+    // Aviso de espera (opcional): só existe nos formulários com [data-estado].
+    var estado = form.querySelector("[data-estado]");
+    if (estado) {
+      estado.hidden = false;
+    }
     if (!botao) {
       return;
     }
@@ -35,6 +40,10 @@
   function destravar(form) {
     var botao = botaoDoFormulario(form);
     form.removeAttribute("data-enviando");
+    var aviso = form.querySelector("[data-estado]");
+    if (aviso) {
+      aviso.hidden = true;
+    }
     if (!botao) {
       return;
     }

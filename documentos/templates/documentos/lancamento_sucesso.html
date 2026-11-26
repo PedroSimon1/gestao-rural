@@ -1,10 +1,14 @@
 {% extends "documentos/base.html" %}
 {% block titulo %}Lançamento concluído — Gestão Rural{% endblock %}
 {% block conteudo %}
+{% include "documentos/_cabecalho_pagina.html" with titulo="Lançamento realizado com sucesso" %}
+{% include "documentos/_etapas.html" with atual=4 %}
 <section class="cartao">
-  <h1>Lançamento realizado com sucesso</h1>
   <p>O movimento e suas parcelas foram gravados.</p>
-  <p>Movimento: {{ movimento_id }}. Registro fiscal: {{ nota_fiscal_id }}.</p>
-  <a href="{% url 'documento_inicio' %}">Enviar outra nota</a>
+  <p class="texto-apoio">Movimento: {{ movimento_id }}. Registro fiscal: {{ nota_fiscal_id }}.</p>
+  <div class="barra-acoes">
+    <a class="botao" href="{% url 'conta_detalhe' movimento_id=movimento_id %}">Ver a conta lançada</a>
+    <a class="botao botao--secundario" href="{% url 'documento_inicio' %}">Enviar outra nota</a>
+  </div>
 </section>
 {% endblock %}
