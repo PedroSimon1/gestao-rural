@@ -1,0 +1,92 @@
+"""Tela de conferência redesenhada: seções, barra de ações, cadastro de classificação e script de soma."""
+from pathlib import Path
+
+from django.conf import settings
+from django.contrib.staticfiles import finders
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from cadastros.models import Classificacao
+from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
+from .analises import criar_analise, garantir_dono
+from .testing import resultado_da_nota
+
+ARQUIVO_JS = Path(__file__).parent / "static" / "documentos" / "conferencia.js"
+
+
+@override_settings(**CREDENCIAIS_TESTE)
+class TelaDeConferenciaTests(TestCase):
+    def setUp(self):
+        autenticar_demo(self.client)
+        sessao = self.client.session
+        garantir_dono(sessao)
+        sessao.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = sessao.session_key
+        self.analise = criar_analise(self.client.session, resultado_da_nota())
+        self.url = reverse("analise_conferencia", args=[self.analise.id])
+
+    def pagina(self):
+        return self.client.get(self.url).content.decode()
+
+    def test_secoes_numeradas_e_etapa_atual(self):
+        html = self.pagina()
+        for numero, titulo in (("1.", "Fornecedor"), ("2.", "Faturado"), ("3.", "Dados da nota"), ("4.", "Parcelas")):
+            with self.subTest(secao=titulo):
+                self.assertIn(f'<h2><span class="n">{numero}</span>{titulo}</h2>', html)
+        self.assertEqual(html.count('aria-current="step"'), 1)
+        self.assertIn('aria-current="step"><b>2.</b>Conferir os dados', html)
+
+    def test_salvar_e_o_primeiro_botao_de_envio_para_o_enter_nao_cadastrar_classificacao(self):
+        html = self.pagina()
+        self.assertLess(html.index('value="salvar"'), html.index('value="criar_classificacao"'))
+
+    def test_cancelar_fica_na_barra_e_usa_formulario_proprio(self):
+        html = self.pagina()
+        cancelar = reverse("analise_cancelar", args=[self.analise.id])
+        self.assertIn('class="botao botao--perigo" form="cancelar-analise">Cancelar análise</button>', html)
+        self.assertIn(f'<form id="cancelar-analise" method="post" action="{cancelar}">', html)
+
+    def test_cadastro_de_classificacao_comeca_recolhido_e_abre_com_erro(self):
+        self.assertIn('<details class="recolher">', self.pagina())
+        resposta = self.client.post(self.url, {
+            "acao": "criar_classificacao", "versao_correcoes": "0",
+            "nova-tipo": "DESPESA", "nova-codigo": "", "nova-descricao": "",
+            **self.dados_da_nota(),
+        })
+        self.assertEqual(resposta.status_code, 400)
+        self.assertContains(resposta, '<details class="recolher" open>', status_code=400)
+
+    def test_aviso_de_soma_vem_oculto_e_o_script_e_carregado(self):
+        html = self.pagina()
+        self.assertIn('data-soma-parcelas aria-live="polite" hidden', html)
+        self.assertIn('/static/documentos/conferencia.js', html)
+
+    def dados_da_nota(self):
+        c = Classificacao.objects.get(tipo="DESPESA", codigo="MANUTENCAO_E_OPERACAO")
+        return {
+            "fornecedor_nome": "Nome", "fornecedor_documento": "11222333000181", "faturado_nome": "Produtor",
+            "faturado_cpf": "12345678909", "faturado_cnpj": "", "documento_faturado": "CPF",
+            "classificacao": str(c.pk), "numero_nota": "123", "serie_nota": "1", "data_emissao": "2026-10-01",
+            "valor_total": "150.00", "parcelas-TOTAL_FORMS": "1", "parcelas-INITIAL_FORMS": "1",
+            "parcelas-0-data_vencimento": "2026-11-01", "parcelas-0-valor": "150.00",
+        }
+
+
+class ScriptDaConferenciaTests(TestCase):
+    def js(self):
+        return ARQUIVO_JS.read_text()
+
+    def test_arquivo_e_encontrado_pelo_staticfiles(self):
+        self.assertEqual(Path(finders.find("documentos/conferencia.js")), ARQUIVO_JS)
+
+    def test_script_so_calcula_e_mostra_sem_rede_nem_html_dinamico(self):
+        js = self.js()
+        for proibido in ("fetch(", "XMLHttpRequest", "WebSocket", "innerHTML", "outerHTML", "insertAdjacentHTML",
+                         "eval(", "new Function", "document.write", "localStorage", "submit("):
+            with self.subTest(proibido=proibido):
+                self.assertNotIn(proibido, js)
+
+    def test_script_nao_mexe_nos_valores_do_formulario(self):
+        js = self.js()
+        self.assertIn("textContent", js)
+        self.assertNotRegex(js, r"\.(value|checked|disabled)\s*=[^=]")
