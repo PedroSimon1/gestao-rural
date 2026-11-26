@@ -38,7 +38,7 @@ POST /logout/          → cancela as análises pendentes da sessão, session.fl
 - A comparação é em **tempo constante** e sem curto-circuito (`&`).
 - Sem `DEMO_LOGIN`/`DEMO_PASSWORD`, **nem uma sessão antiga** libera o acesso.
 - Erro de banco no login/logout **não impede** a operação (as análises que sobrarem expiram em 30 minutos).
-- Não há revogação no servidor: uma cópia do cookie feita antes do logout continua autenticando até expirar (padrão do Django, 14 dias).
+- Não há revogação no servidor: uma cópia do cookie feita antes do logout continua autenticando até expirar (8 horas, `SESSION_COOKIE_AGE`).
 
 ## 3. Processamento do PDF
 
@@ -217,7 +217,7 @@ Os filtros incluem cadastros **inativos** para preservar o histórico. Falha de 
 - **Inativar/reativar** (pessoa, papel, classificação): GET mostra confirmação; POST com o checkbox "Confirmo esta alteração" altera **só** o status, preservando vínculos e movimentos.
 - **Nova classificação**: tipo + código + descrição; **editar** só a descrição.
 - Campos fora do formulário ou repetidos no POST são recusados ("Pedido inválido").
-- **Atenção**: `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; com o banco indisponível a resposta é 500 sem página amigável (achado M-03).
+- Com o banco indisponível, as telas de `cadastros` respondem 503 com mensagem em português (decorador `config/erros_banco.py`).
 
 ## 10. Erros e mensagens: regra de ouro
 

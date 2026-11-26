@@ -39,17 +39,17 @@ Severidade: **A** = tratar antes de publicar/entregar; **M** = importante; **B**
 | ID | Sev. | Achado | Ação recomendada | Estado |
 | --- | --- | --- | --- | --- |
 | A-01 | A | `Django==6.1.1` sem as correções de segurança 6.1.2 e 6.1.3 | Atualizar para 6.1.3, rodar a suíte, publicar | **`requirements.txt` já está em 6.1.3** e a suíte passou localmente; **falta publicar** (`develop` → `main`) e confirmar a versão instalada no Render |
-| M-01 | M | Login sem limite de tentativas; sessão de 14 dias; login compartilhado | Definir `SESSION_COOKIE_AGE` (ex.: 8 h) e limitar tentativas por IP/janela; exigir senha longa | Aberto |
+| M-01 | M | Login sem limite de tentativas; sessão de 14 dias; login compartilhado | Definir `SESSION_COOKIE_AGE` (ex.: 8 h) e limitar tentativas por IP/janela; exigir senha longa | **Corrigido no código** (`ContextoProjeto.md` 39.2): sessão de 8 h, limite por origem/global, aviso de senha curta; falta publicar e conferir o IP real no Render |
 | M-02 | M | HSTS e redirecionamento HTTPS não estão no código | Verificar na URL publicada e registrar a evidência | Aberto (humano) |
-| M-03 | M | `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; sem `404.html`/`500.html` | Decorador equivalente ao `_erros_de_banco` do financeiro + templates de erro em português | Aberto |
+| M-03 | M | `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; sem `404.html`/`500.html` | Decorador equivalente ao `_erros_de_banco` do financeiro + templates de erro em português | **Corrigido no código** (`ContextoProjeto.md` 39.1); falta publicar |
 | M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | Aberto |
 | M-05 | M | F-6 e GR-39/49 abertas | Fechar com o responsável pelos serviços; agendar `expirar_analises` | Aberto |
 | M-06 | M | Sem RLS nas migrations; depende de a Data API do Supabase estar desativada | Conferir QA/PROD e registrar evidência; por precaução, habilitar RLS sem políticas | Aberto (humano) |
 | B-01 | B | Documentação defasada (ver seção 5) | Corrigir | Parcial |
-| B-02 | B | Sem CI e sem cobertura | Workflow com serviço PostgreSQL rodando `check`, `makemigrations --check` e `test`; avaliar `ruff` | Aberto |
-| B-03 | B | Dados pessoais e envio a terceiro sem aviso/registro | ADR ou README com a decisão de privacidade | Aberto |
-| B-04 | B | Limpeza das análises sem agendamento | Executar `expirar_analises` periodicamente (proposta: a cada 5 min) | Aberto (GR-50) |
-| B-05 | B | `requirements.txt` sem hashes; sem `LOGGING`; sem CSP; `media/` e `uploads/` locais vazios; comentário obsoleto em `settings.py` ("MVP da N2 - Etapa 1 sem banco…") | Limpeza e endurecimento | Aberto |
+| B-02 | B | Sem CI e sem cobertura | Workflow com serviço PostgreSQL rodando `check`, `makemigrations --check` e `test`; avaliar `ruff` | **Workflow criado** (39.3), ainda não executado no GitHub; sem cobertura nem `ruff` |
+| B-03 | B | Dados pessoais e envio a terceiro sem aviso/registro | ADR ou README com a decisão de privacidade | **Rascunho** em [ADR-002](../arquitetura/ADR-002-privacidade-dados-pessoais.md) (proposta; decisões abertas para a equipe) |
+| B-04 | B | Limpeza das análises sem agendamento | Executar `expirar_analises` periodicamente (proposta: a cada 5 min) | Aberto (GR-50): o comando já existe; falta agendar no Render (humano) |
+| B-05 | B | `requirements.txt` sem hashes; sem `LOGGING`; sem CSP; `media/` e `uploads/` locais vazios; comentário obsoleto em `settings.py` ("MVP da N2 - Etapa 1 sem banco…") | Limpeza e endurecimento | **Parcial** (39.4): `LOGGING`, comentário e quebra de linha final corrigidos; faltam hashes e CSP |
 
 ## 4. Pendências de entrega e operação (humanas)
 

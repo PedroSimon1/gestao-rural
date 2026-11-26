@@ -4,6 +4,8 @@
 O checkout do usuário foi preservado; análise/validação em exportação isolada.
 Esta atualização documental ainda precisa de PR/revisão/integração.
 
+> **Documento histórico.** Sucedido pela [auditoria de 24/11/2026](../auditoria/Auditoria-2026-11-24.md). `origin/main` está hoje em `c3d4239` (PR #58), com a mesma árvore da `develop`; a observação de `main` em `f7786e8` abaixo é de 27/10/2026.
+
 ## Método e significado dos estados
 
 Foram confrontados rotas, formulários, modelos, serviços, migrations, testes,
