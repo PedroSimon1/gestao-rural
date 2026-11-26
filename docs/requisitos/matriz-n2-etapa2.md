@@ -167,6 +167,8 @@ Situação em `f7786e8`: 1 IMPLEMENTADO (BASE-01), 4 PARCIAL (FLU-09, RN-06, DEL
 
 Atualização de 25/10/2026: na branch `feature/gr-33-configurar-supabase` (GR-33, ainda não integrada a `develop`), PT-01, PT-03, PT-04 e PT-05 passaram a **PARCIAL**. A contagem acima continua sendo a de `f7786e8`.
 
+Atualização de 26/11/2026: a GR-33 foi integrada (`develop` e `main` com a mesma árvore na auditoria de 24/11/2026). A situação atual dos itens PT e dos demais está na [auditoria de 24/11/2026](../auditoria/Auditoria-2026-11-24.md) e no `ContextoProjeto.md`; a contagem acima continua sendo a de `f7786e8`.
+
 ## 7. Restrições de segurança aplicadas à entrega
 
 - O `Readme.txt` (DEL-04) contém login, senha e chave de LLM. O repositório `PedroSimon1/gestao-rural` é **público**, então esse arquivo **não pode ser versionado**. Hoje `README.txt` está no `.gitignore`.

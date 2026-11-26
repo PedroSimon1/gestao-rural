@@ -1,12 +1,14 @@
 # ADR-001 — Adoção do Supabase PostgreSQL para a N2 Etapa 2
 
-> **Estado: ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33: conexão configurada).**
+> **Estado: ACEITO — IMPLEMENTADO NO CÓDIGO (integrado a `develop` e `main`); aplicação das migrations em QA/PROD não verificada.**
 >
-> Este registro documenta uma decisão da equipe. Nada do que está descrito aqui existe no código auditado (`f7786e8`, tag `n2-etapa1-final`).
+> Este registro documenta uma decisão da equipe. Os textos das seções 2, 5, 8, 9 e 13 descrevem o estado de 24 a 26/10/2026 e são **HISTÓRICOS** (por exemplo, `DATABASES = {}` e a GR-33 "não integrada"). O estado atual está na seção 16 e na [auditoria de 24/11/2026](../auditoria/Auditoria-2026-11-24.md).
 >
 > **Atualização de 25/10/2026 (GR-33):** a conexão PostgreSQL foi configurada na branch `feature/gr-33-configurar-supabase`, ainda **não integrada** a `develop`. Não há models, migrations nem `migrate` na publicação. Detalhes na seção 13.1.
 >
 > **Atualização de 26/10/2026 (GR-34):** a equipe aprovou T-06 (bancos por ambiente) e PT-06 (migrations manuais, sem `migrate` na publicação). Detalhes na seção 13.2.
+>
+> **Atualização de 26/11/2026:** o código PostgreSQL/ORM, o executor de testes local e as migrations estão integrados à `develop`, e `main` tem a mesma árvore (PR #58). A conexão só inicia com `DB_*` e TLS (`settings.py`). Não foi verificado se as migrations foram aplicadas em QA ou produção.
 >
 > Estado anterior (HISTÓRICO, 24/10/2026): ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO.
 
@@ -20,10 +22,10 @@
 | Título               | Adoção do Supabase PostgreSQL para a N2 Etapa 2                                       |
 | Data do registro     | 24/10/2026                                                                            |
 | Decisores            | Equipe do projeto (Pedro Simon e Gustavo Lopes)                                       |
-| Estado               | **ACEITO — IMPLEMENTAÇÃO EM ANDAMENTO (GR-33: conexão configurada)**; antes: ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO |
+| Estado               | **ACEITO — IMPLEMENTADO NO CÓDIGO** (26/11/2026); aplicação das migrations em QA/PROD não verificada. Antes: ACEITO PARA PLANEJAMENTO — NÃO IMPLEMENTADO; depois IMPLEMENTAÇÃO EM ANDAMENTO (GR-33) |
 | Substitui            | Plano Render + **Neon** PostgreSQL de `tecnologias.pdf` (out/2026), somente no item "hospedagem do banco" |
 | Substituído por      | —                                                                                     |
-| Código de referência | `f7786e8` (`main` = `qa` na auditoria; hoje `main` = `develop`), sem banco de dados. Conexão em andamento: branch `feature/gr-33-configurar-supabase` (não integrada) |
+| Código de referência | Registro original: `f7786e8` (tag `n2-etapa1-final`), sem banco. Estado atual: `5f19ce0` (`develop`) e `main` com a mesma árvore (auditoria de 24/11/2026) |
 | Documento central    | [`ContextoProjeto.md`](../../ContextoProjeto.md), seções 9.3, 10.4, 15, 22.2 e 26     |
 
 ## 2. Contexto

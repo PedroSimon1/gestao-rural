@@ -1,12 +1,13 @@
 # Gestão Rural — N2 Etapa 2
 
 Projeto acadêmico de Pedro Simon e Gustavo Lopes, ESW424 / UniRV.
-Prazo registrado na matriz: **27/10/2026, 23h59**.
+Prazo registrado na matriz (já encerrado): **27/10/2026, 23h59**.
 
-Estado auditado: **`develop` `aaa80cc`, após PR #56**, com 1.153 testes OK
-no PostgreSQL local de Gustavo. Código integrado não equivale a homologação,
-deploy ou entrega no Classroom. O histórico da Etapa 1 permanece na tag
-`n2-etapa1-final` e nas revisões anteriores.
+Estado auditado: **`develop` `5f19ce0`** (auditoria de 24/11/2026; `main` com a
+mesma árvore), com 1.153 testes OK no PostgreSQL local. Código integrado não
+equivale a homologação, deploy ou entrega no Classroom. O histórico da Etapa 1
+permanece na tag `n2-etapa1-final` e nas revisões anteriores. As correções dos
+achados da auditoria estão registradas na seção 39 do `ContextoProjeto.md`.
 
 ## O que funciona no código integrado
 

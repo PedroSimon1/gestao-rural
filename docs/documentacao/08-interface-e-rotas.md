@@ -112,7 +112,7 @@ Padrões comuns nas views de escrita: **recusar campos fora do formulário e cam
 | Edição | **Sem campo de status**; inativar/reativar é ação separada e confirmada |
 | Inativar/reativar | Página de confirmação com o aviso de que vínculos e movimentos são preservados |
 | Erro de banco em financeiro/documentos | Mensagem amigável (503) |
-| Erro de banco em **cadastros** | **500 padrão do Django** (sem `404.html`/`500.html`) — achado M-03 |
+| Erro de banco em **cadastros** | Mensagem amigável (503), como em financeiro/documentos; erros inesperados mostram `500.html` e URL inexistente, `404.html` (M-03 corrigido) |
 | Análise inexistente/de outra sessão | 404 "Análise não encontrada…" |
 | Análise expirada/cancelada/confirmada | 409 com a mensagem do estado |
 | Upload acima do limite | "O arquivo excede o limite de N MB." |
