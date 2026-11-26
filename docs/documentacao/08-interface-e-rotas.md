@@ -58,10 +58,11 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 
 | Template | Papel |
 | --- | --- |
-| `documentos/base.html` | Layout geral (topo, navegação, rodapé com o SHA); os demais apps estendem este |
-| `cadastros/base.html` | Estende o layout geral e acrescenta `cadastros.css` |
+| `documentos/base.html` | Layout geral: topo com menu (página atual marcada por `aria-current`), link "Pular para o conteúdo", `<main id="conteudo">` e rodapé com o SHA; os demais apps estendem este |
+| `cadastros/base.html` | Só estende o layout geral (o CSS é único) |
+| `documentos/_cabecalho_pagina.html`, `_aviso.html`, `_campo.html`, `_etapas.html` | **Componentes**: cabeçalho de página (frase de apoio, trilha, ação principal); aviso (info, atenção, erro, ok); campo de formulário (rótulo, asterisco, dica e erro ligados ao campo); etapas do lançamento (1 a 4) |
 | `documentos/inicio.html` | Envio da chave Gemini e do PDF (posta para `analise_criar`); mostra erro de processamento e limite de upload |
-| `documentos/conferencia.html` | Conferência, correção, consultas, pendências, "criar classificação", JSON original |
+| `documentos/conferencia.html` | Conferência em 4 seções numeradas (Fornecedor, Faturado, Dados da nota, Parcelas), painel de resumo, barra de ações fixa, "criar classificação" recolhido, JSON original |
 | `documentos/_campos_fiscais.html` | Campos fiscais (chave, modelo, série) |
 | `documentos/confirmacao.html` | Resumo, parcelas, avaliação das partes, autorizações, "Confirmar lançamento financeiro" |
 | `documentos/lancamento_sucesso.html` | "Lançamento realizado com sucesso" (IDs do movimento e do registro fiscal) |
@@ -73,11 +74,12 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 
 | Estático | Função |
 | --- | --- |
-| `documentos/documentos.css` | Estilo geral (≈ 300 linhas) |
-| `documentos/documentos.js` | **Proteção visual contra clique duplo**: em formulários com `data-submit-lock`, desabilita o botão e troca o texto (`data-submit-texto`). O POST é um envio HTML normal; sem JS tudo funciona |
-| `cadastros/cadastros.css` | Estilo de listas e formulários de cadastro |
+| `documentos/documentos.css` | **Folha de estilo única** (visual formal e minimalista, ≈ 350 linhas): tokens, componentes, tabelas que viram lista de registros no celular |
+| `documentos/documentos.js` | **Proteção visual contra clique duplo**: em formulários com `data-submit-lock`, desabilita o botão e troca o texto (`data-submit-texto`); mostra o aviso de espera `[data-estado]`. O POST é um envio HTML normal; sem JS tudo funciona |
+| `documentos/conferencia.js` | Soma das parcelas e resumo **ao vivo** na conferência. Só lê e mostra; não escreve nos campos nem usa rede |
 | `financeiro/conta_manual.js` | Adiciona linhas de parcela ao formulário manual (limite de 120) usando o `<template data-nova-parcela>` |
-| `usuarios/login.css` | Estilo do login |
+
+Tags de template: `{% situacao %}` (situação em texto com contorno), `{% secao_atual %}` (menu), filtro `moeda` (`R$ 1.234,56`).
 
 Em produção os estáticos são servidos pelo WhiteNoise com manifesto (`CompressedManifestStaticFilesStorage`), o que **exige `collectstatic`**
 (feito no `build.sh`). Em desenvolvimento e nos testes usa-se o storage simples. Por isso, rodar a suíte com `DJANGO_DEBUG=False`
