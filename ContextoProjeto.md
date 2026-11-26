@@ -2,6 +2,8 @@
 
 > **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
 
+> **Numeração:** as seções 34.16 a 34.25 aparecem depois da seção 35 (foram acrescentadas depois) e a seção 36 fica ao final da parte antiga; use a busca pelo número. As seções 37 a 39 estão em ordem no final do arquivo.
+
 > **Fonte central de verdade do projeto.** Descreve o estado **real e verificado** do Gestão Rural: o que o produto pretende ser, o que a disciplina exige em cada entrega, o que o código faz hoje e o que ainda falta.
 >
 > Nunca registrar aqui: segredos, valores do `.env`, conteúdo do `README.txt`, chaves de API, URL privada, credenciais ou dados pessoais reais.
@@ -636,7 +638,7 @@ AgentClassificador(cliente=None).classificar(nota: NotaFiscalExtraida) -> Classi
 
 # 15 - Banco de Dados e Modelo de Domínio
 
-## 15.1 - Estado da Etapa 1 em `f7786e8` (HISTÓRICO; ainda é o estado da `main`)
+## 15.1 - Estado da Etapa 1 em `f7786e8` (HISTÓRICO; a `main` já recebeu a `develop` no PR #58)
 
 O estado atual da `develop` está em 15.1.1 a 15.1.6; a GR-43, em 15.1.7.
 
@@ -3667,4 +3669,17 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Testes:** `manage.py test` com 1.173 testes OK (1.171 anteriores + 2 novos); `check` e `git diff --check` limpos.
 - **Integração:** os logs fixos de `usuarios`, `documentos` e `agents` passam a sair com data e nível.
 - **Pendências:** CSP restritivo (feature nova, decisão de escopo); renomear `config/test_sem_banco.py`; agendar `expirar_analises`; conferir os logs no Render depois do deploy.
+- **Git:** commits na branch acima, sem co-autor.
+
+## 39.5 - B-01 e B-03: documentação atualizada e rascunho de privacidade
+
+- **Identificação:** sem código GR; 26/11/2026; branch `docs/atualiza-documentacao`.
+- **Objetivo:** corrigir a documentação defasada (B-01) e registrar a situação dos dados pessoais (B-03).
+- **Implementação:** somente documentação. `ADR-001`: cabeçalho, estado e código de referência atualizados; seções 2, 5, 8, 9 e 13 marcadas como histórico. Matriz, README (prazo encerrado, estado auditado) e GR-16 (nota de documento histórico). `ContextoProjeto.md`: título da 15.1 e nota de numeração no topo. `docs/documentacao/` (05, 08, 09, 11, 12) refletem as correções 39.1 a 39.4. Novo `docs/arquitetura/ADR-002-privacidade-dados-pessoais.md`.
+- **Decisões técnicas:** o ADR-002 é **rascunho/proposta**: descreve fatos do código e lista as decisões PRIV-01 a PRIV-05, sem decidir nada pela equipe. Os arquivos antigos mantiveram seus textos históricos, só com avisos de data.
+- **Arquivos:** novo `docs/arquitetura/ADR-002-privacidade-dados-pessoais.md`; alterados `README.md`, `ContextoProjeto.md`, `docs/INDICE.md`, `docs/arquitetura/ADR-001-supabase.md`, `docs/requisitos/matriz-n2-etapa2.md`, `docs/organizacao/GR-16-auditoria-aaa80cc.md`, `docs/documentacao/05-fluxos.md`, `08-interface-e-rotas.md`, `09-seguranca-e-privacidade.md`, `11-testes.md`, `12-pendencias-e-riscos.md`.
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `git diff --check` limpo; `manage.py test` com 1.173 testes OK depois das alterações.
+- **Integração:** depende das tarefas 39.1 a 39.4 (o texto as descreve como corrigidas no código, não publicadas).
+- **Pendências:** aprovação do ADR-002 pela equipe; `AGENTS.md` local ainda descreve a versão como stateless (arquivo local, fora do Git); renomear `config/test_sem_banco.py` (nome da Etapa 1) ficou fora do escopo; reordenar a numeração do `ContextoProjeto.md` não foi feito (só nota).
 - **Git:** commits na branch acima, sem co-autor.
