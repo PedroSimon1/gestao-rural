@@ -3,6 +3,7 @@ import re
 from unittest import mock
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.sessions.serializers import JSONSerializer
 from django.core import signing
 from django.db import InterfaceError, OperationalError
@@ -27,6 +28,12 @@ class LoginDemo:
     url_login = "/login/"
     url_logout = "/logout/"
     url_documentos = "/documentos/"
+
+    def setUp(self):
+        super().setUp()
+        # O limite de tentativas conta no cache do processo: cada teste parte do zero.
+        cache.clear()
+        self.addCleanup(cache.clear)
 
     def entrar(self, login=LOGIN, senha=SENHA, client=None):
         return (client or self.client).post(

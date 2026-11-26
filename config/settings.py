@@ -63,8 +63,8 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
-# MVP da N2 - Etapa 1 sem banco de dados: sem admin, auth, contenttypes,
-# sessions (app), messages nem models próprios.
+# Sem admin, auth, contenttypes, sessions (app) nem messages: o login é a sessão
+# em cookie assinado (usuarios/demo.py) e os models são só os dos apps do projeto.
 
 INSTALLED_APPS = [
     'django.contrib.staticfiles',
@@ -162,6 +162,37 @@ TEST_RUNNER = "config.banco_de_teste.ExecutorDeTestes"
 # Cookie assinado (sem banco). Guarda só o indicador do login da demonstração.
 
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+
+# Um cookie assinado não pode ser revogado no servidor: quanto menor a vida
+# dele, menor o prazo de uso de uma cópia (padrão do Django: 14 dias).
+SESSION_COOKIE_AGE = 8 * 60 * 60
+
+
+# Logs
+# Sem isto, o Django com DEBUG=False não escreve em console as falhas 5xx
+# (o handler padrão só funciona com DEBUG=True), e as páginas 500.html escondem
+# o erro. A saída vai para stderr (Gunicorn/Render). O formatador omite a
+# mensagem das exceções, que pode trazer SQL ou dados pessoais (config/logs.py).
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "padrao": {
+            "()": "config.logs.FormatadorSemMensagemDaExcecao",
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "padrao"},
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # Só 5xx; os 4xx comuns (404, 405) não precisam ir para o log.
+        "django.request": {"level": "ERROR"},
+    },
+}
 
 
 # Internationalization

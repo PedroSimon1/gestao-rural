@@ -2,6 +2,8 @@
 
 > **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
 
+> **Numeração:** as seções 34.16 a 34.25 aparecem depois da seção 35 (foram acrescentadas depois) e a seção 36 fica ao final da parte antiga; use a busca pelo número. As seções 37 a 39 estão em ordem no final do arquivo.
+
 > **Fonte central de verdade do projeto.** Descreve o estado **real e verificado** do Gestão Rural: o que o produto pretende ser, o que a disciplina exige em cada entrega, o que o código faz hoje e o que ainda falta.
 >
 > Nunca registrar aqui: segredos, valores do `.env`, conteúdo do `README.txt`, chaves de API, URL privada, credenciais ou dados pessoais reais.
@@ -636,7 +638,7 @@ AgentClassificador(cliente=None).classificar(nota: NotaFiscalExtraida) -> Classi
 
 # 15 - Banco de Dados e Modelo de Domínio
 
-## 15.1 - Estado da Etapa 1 em `f7786e8` (HISTÓRICO; ainda é o estado da `main`)
+## 15.1 - Estado da Etapa 1 em `f7786e8` (HISTÓRICO; a `main` já recebeu a `develop` no PR #58)
 
 O estado atual da `develop` está em 15.1.1 a 15.1.6; a GR-43, em 15.1.7.
 
@@ -3611,3 +3613,92 @@ Complementa as seções 36 e 37 e o `docs/INDICE.md`. Não depende de nenhuma ta
 ## 38.10 - Git
 
 Branch `develop`; alterações locais não versionadas: `docs/documentacao/` (14 arquivos novos), `docs/INDICE.md` e `ContextoProjeto.md`. Nenhum commit, push ou merge foi feito. Recomenda-se criar uma branch `docs/*` antes de versionar; commit, push e PR para `develop` são do usuário.
+
+# 39 - Correções da auditoria de 24/11/2026
+
+Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/auditoria/Auditoria-2026-11-24.md), uma branch por tarefa, em cadeia a partir de `feature/correção-antes-att` (`5a4b216`). Cada subseção registra uma tarefa; os itens que dependem de ação humana estão na subseção final.
+
+## 39.1 - M-03: falha do banco e páginas de erro em `cadastros`
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/erros-banco-cadastros`.
+- **Objetivo:** as telas de `cadastros` respondiam 500 padrão do Django quando o banco falhava, e o projeto não tinha `404.html`/`500.html`.
+- **Implementação:** `config/erros_banco.py` com o decorador `erros_de_banco(template, mensagem)`: captura `django.db.Error`, registra só o nome da view (texto fixo) e renderiza o template com status 503. Aplicado às 11 views de `cadastros/views.py` e `cadastros/views_classificacoes.py`. O `_erros_de_banco` do financeiro passou a usar o mesmo decorador (cópia removida; agora também cobre `InterfaceError`, além de `DatabaseError`). Os `except (ValidationError, IntegrityError)` das views não mudaram: continuam dando a mensagem do formulário.
+- **Arquivos:** novos `config/erros_banco.py`, `cadastros/templates/cadastros/erro.html`, `usuarios/templates/404.html`, `usuarios/templates/500.html`, `cadastros/test_falha_banco.py`; alterados `cadastros/views.py`, `cadastros/views_classificacoes.py`, `financeiro/views_consultas.py`.
+- **Decisões técnicas:** os templates de erro ficam em `usuarios/templates/` para não alterar `TEMPLATES['DIRS']` em `settings.py`. O `500.html` é autônomo (sem herança, `static` ou `url`) porque o Django o renderiza sem request e uma falha ali esconderia o erro original. O 404 estende a base e só vale com `DEBUG=False`.
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py check` sem problemas; `makemigrations --check` sem mudanças; `manage.py test` com 1.159 testes OK (1.153 anteriores + 6 novos); `git diff --check` limpo.
+- **Integração:** reaproveita o padrão de 503 de `financeiro` e `documentos`.
+- **Pendências:** nenhuma específica; o 503 não preserva o conteúdo digitado no formulário.
+- **Git:** commits na branch acima, sem co-autor; o merge na branch atual é feito ao final.
+
+## 39.2 - M-01: limite de tentativas de login e sessão de 8 horas
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/sessao-login` (a partir de `fix/erros-banco-cadastros`).
+- **Objetivo:** o login único não tinha limite de tentativas e a sessão (cookie assinado, sem revogação) valia 14 dias.
+- **Implementação:** `SESSION_COOKIE_AGE = 8 * 60 * 60` em `config/settings.py`. `usuarios/limite.py`: 5 falhas por origem e 30 no total em janela fixa de 15 minutos; excedido o teto, `login_demo` responde 429 antes de comparar credenciais (a senha certa também é recusada). Login correto zera só o contador da origem. Falhas sem `DEMO_LOGIN`/`DEMO_PASSWORD` configurados não contam. `usuarios/checks.py`: aviso `usuarios.W001` em `check --deploy` quando `DEMO_PASSWORD` tem menos de 12 caracteres.
+- **Arquivos:** novos `usuarios/limite.py`, `usuarios/checks.py`, `usuarios/test_limite.py`; alterados `usuarios/views.py`, `usuarios/apps.py`, `usuarios/tests.py` (a base de testes limpa o cache), `config/settings.py`.
+- **Decisões técnicas:** contadores no cache do Django (`LocMemCache`, memória do processo), sem tabela nem migration; cada worker conta à parte e o reinício zera, então o teto efetivo cresce com `WEB_CONCURRENCY`. Origem = último valor de `X-Forwarded-For` (o que o proxy viu), senão `REMOTE_ADDR`; o endereço só entra no cache como hash. O teto global também permite bloquear o login legítimo durante a janela (custo aceito com login compartilhado).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py test` com 1.171 testes OK (1.159 anteriores + 12 novos); `check` e `git diff --check` limpos.
+- **Integração:** depende só do login existente (`usuarios/demo.py`).
+- **Pendências:** confirmar no Render que o último valor de `X-Forwarded-For` é o endereço do cliente; verificar o tamanho de `DEMO_PASSWORD` no ambiente (o aviso só aparece com `check --deploy`); ajustar `WEB_CONCURRENCY` ciente do limite por worker.
+- **Git:** commits na branch acima, sem co-autor.
+
+## 39.3 - B-02: CI no GitHub Actions
+
+- **Identificação:** sem código GR; 26/11/2026; branch `chore/ci-github-actions`.
+- **Objetivo:** a suíte só rodava localmente.
+- **Implementação:** `.github/workflows/ci.yml`, em PR e push para `develop` e `main`: `pip install -r requirements.txt`, `pip check`, `manage.py check`, `makemigrations --check --dry-run` e `manage.py test`, com serviço `postgres:17` do próprio job.
+- **Arquivos:** novo `.github/workflows/ci.yml`.
+- **Decisões técnicas:** nenhum segredo nem banco real: `DB_*` aponta para `host.invalid` (só para o `settings.py` iniciar) e os testes usam `DB_TEST_*` no PostgreSQL do job, como exige `config/banco_de_teste.py`. `DJANGO_DEBUG=True` no job, como nos testes locais; com `False` a suíte local deu 255 erros por falta do manifesto do `collectstatic`. Sem `ruff` nem cobertura (nenhum está no repositório).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** o workflow **não foi executado no GitHub**. Validado localmente: YAML interpretado sem erro e a suíte (1.171 testes) passa com `DJANGO_SECRET_KEY`, `DB_*` fictícios e `DJANGO_DEBUG=True`.
+- **Integração:** exige habilitar o Actions no repositório; para bloquear merge sem CI é preciso marcar o job `testes` como verificação obrigatória nas proteções de branch (ação do usuário).
+- **Pendências:** primeira execução real no PR; imagem `postgres:17` assumida compatível com a versão do Supabase usado (não verificada).
+- **Git:** commits na branch acima, sem co-autor.
+
+### 39.3.1 - Correção após a primeira execução do CI (26/11/2026)
+
+- **Branch:** `fix/ci-gemini-model`.
+- **Falha:** o job `testes` terminou com 12 falhas e 2 erros, todos em `documentos/test_interface.py`. A validação local anterior estava errada: rodava com o `.env` do desenvolvedor, que fornecia `GEMINI_MODEL`; o CI não tem `.env` e o cliente Gemini recusa a configuração sem o modelo (`GeminiConfiguracaoError`).
+- **Correção:** `GEMINI_MODEL: modelo-ficticio-do-ci` no `env` do job (o SDK é simulado nos testes).
+- **Validação:** reproduzi a falha numa cópia limpa do repositório (sem `.env`, ambiente zerado e as variáveis do workflow): 1.174 testes, 12 falhas e 2 erros. Com `GEMINI_MODEL` definido: 1.174 testes OK. O workflow corrigido ainda precisa de nova execução no GitHub.
+
+## 39.4 - B-05: logs de produção e higiene de configuração (e B-04 sem código)
+
+- **Identificação:** sem código GR; 26/11/2026; branch `chore/higiene-config`.
+- **Objetivo:** B-05 (sem `LOGGING`, comentário do `settings.py` desatualizado, `requirements.txt` sem quebra de linha final). B-04 (limpeza das análises sem agendamento) foi reavaliada.
+- **Implementação:** `LOGGING` em `config/settings.py` com handler de console (stderr) para o `root` e para `django`, e `django.request` em ERROR. O Django com `DEBUG=False` não escreve falhas 5xx no console (o handler padrão exige `DEBUG=True`) e o `500.html` esconde o erro, então sem isso um erro interno ficava invisível. `config/logs.py`: formatador que imprime o rastreio e o tipo da exceção **sem a mensagem**, que pode trazer SQL ou CPF/CNPJ. Comentário de `INSTALLED_APPS` corrigido; `requirements.txt` com quebra de linha final.
+- **B-04:** nenhum código novo. O comando `manage.py expirar_analises` já existe (`documentos/management/commands/`) e tem teste; falta só agendá-lo (cron do Render), ação humana.
+- **Arquivos:** novos `config/logs.py`, `config/test_logs.py`; alterados `config/settings.py`, `requirements.txt`, `cadastros/test_falha_banco.py` (captura o log esperado).
+- **Decisões técnicas:** só 5xx de `django.request` vão ao log (404/405 não); respostas 503 tratadas pelas views também aparecem como ERROR, o que dá visibilidade a quedas do banco. Não se adotou CSP nem se renomeou `config/test_sem_banco.py` (fora do escopo; ver pendências).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py test` com 1.173 testes OK (1.171 anteriores + 2 novos); `check` e `git diff --check` limpos.
+- **Integração:** os logs fixos de `usuarios`, `documentos` e `agents` passam a sair com data e nível.
+- **Pendências:** CSP restritivo (feature nova, decisão de escopo); renomear `config/test_sem_banco.py`; agendar `expirar_analises`; conferir os logs no Render depois do deploy.
+- **Git:** commits na branch acima, sem co-autor.
+
+## 39.5 - B-01 e B-03: documentação atualizada e rascunho de privacidade
+
+- **Identificação:** sem código GR; 26/11/2026; branch `docs/atualiza-documentacao`.
+- **Objetivo:** corrigir a documentação defasada (B-01) e registrar a situação dos dados pessoais (B-03).
+- **Implementação:** somente documentação. `ADR-001`: cabeçalho, estado e código de referência atualizados; seções 2, 5, 8, 9 e 13 marcadas como histórico. Matriz, README (prazo encerrado, estado auditado) e GR-16 (nota de documento histórico). `ContextoProjeto.md`: título da 15.1 e nota de numeração no topo. `docs/documentacao/` (05, 08, 09, 11, 12) refletem as correções 39.1 a 39.4. Novo `docs/arquitetura/ADR-002-privacidade-dados-pessoais.md`.
+- **Decisões técnicas:** o ADR-002 é **rascunho/proposta**: descreve fatos do código e lista as decisões PRIV-01 a PRIV-05, sem decidir nada pela equipe. Os arquivos antigos mantiveram seus textos históricos, só com avisos de data.
+- **Arquivos:** novo `docs/arquitetura/ADR-002-privacidade-dados-pessoais.md`; alterados `README.md`, `ContextoProjeto.md`, `docs/INDICE.md`, `docs/arquitetura/ADR-001-supabase.md`, `docs/requisitos/matriz-n2-etapa2.md`, `docs/organizacao/GR-16-auditoria-aaa80cc.md`, `docs/documentacao/05-fluxos.md`, `08-interface-e-rotas.md`, `09-seguranca-e-privacidade.md`, `11-testes.md`, `12-pendencias-e-riscos.md`.
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `git diff --check` limpo; `manage.py test` com 1.173 testes OK depois das alterações.
+- **Integração:** depende das tarefas 39.1 a 39.4 (o texto as descreve como corrigidas no código, não publicadas).
+- **Pendências:** aprovação do ADR-002 pela equipe; `AGENTS.md` local ainda descreve a versão como stateless (arquivo local, fora do Git); renomear `config/test_sem_banco.py` (nome da Etapa 1) ficou fora do escopo; reordenar a numeração do `ContextoProjeto.md` não foi feito (só nota).
+- **Git:** commits na branch acima, sem co-autor.
+
+## 39.6 - M-06: Row Level Security nas tabelas dos apps
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/rls-supabase`.
+- **Objetivo:** a proteção contra acesso por fora do Django dependia só de a Data API do Supabase estar desativada.
+- **Implementação:** migration `financeiro/migrations/0005_habilitar_rls.py` (depende de `cadastros 0003`, `documentos 0002` e `financeiro 0004`) com `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` nas 8 tabelas dos apps, sem políticas; reversa com `DISABLE`. Teste `financeiro/test_rls.py` falha se alguma tabela de app ficar sem RLS (verificado removendo a migration: o teste falhou).
+- **Decisões técnicas:** sem `FORCE`: o Django conecta como dono das tabelas, que o RLS não filtra, então a aplicação não muda; papéis sem política (anon, authenticated) deixam de ver qualquer linha. Se um dia o app passar a usar um papel que não seja dono nem tenha `BYPASSRLS`, ele deixará de enxergar as tabelas até existirem políticas. `django_migrations` não foi incluída (só nomes de migrations). Tabelas novas exigem migration própria com a mesma instrução.
+- **Banco de dados:** uma migration nova, só de SQL, sem alterar dados; **não aplicada** em banco remoto (PT-06: aplicação manual e coordenada).
+- **Testes:** `makemigrations --check` sem mudanças; `manage.py test` com 1.174 testes OK (1.173 anteriores + 1 novo); `git diff --check` limpo.
+- **Integração:** última migration de `financeiro`; qualquer migration futura desse app deve depender dela.
+- **Pendências:** aplicar a migration em homologação e produção (ação humana) e conferir, no painel do Supabase, que a Data API está desativada nos dois projetos. Em 26/11/2026 a conexão ao banco configurado em `DB_*` foi recusada pelo Session Pooler ("tenant/user not found"): o projeto pode estar pausado ou removido. Nenhum comando de escrita chegou ao banco remoto.
+- **Git:** commits na branch acima, sem co-autor.

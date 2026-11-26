@@ -1,6 +1,6 @@
 # 11 — Testes
 
-Framework: `unittest` do Django (`SimpleTestCase`, `TestCase`, `TransactionTestCase`). **Sem pytest, sem CI e sem medição de cobertura** no repositório.
+Framework: `unittest` do Django (`SimpleTestCase`, `TestCase`, `TransactionTestCase`). **Sem pytest e sem medição de cobertura** no repositório; o CI (`.github/workflows/ci.yml`) roda a suíte em PR e push para `develop` e `main`.
 
 ## 1. Números de referência
 
@@ -86,5 +86,5 @@ Observação: `config/test_sem_banco.py` mantém o nome da Etapa 1, mas hoje tes
 - **Não comprova** a precisão da extração/classificação com **PDFs reais** (SDK simulado).
 - **Não comprova** deploy, URL pública, HTTPS, migrations remotas nem o estado do Supabase/Render.
 - **Sem teste em navegador** (JavaScript de parcelas e travamento de botão não são exercitados por navegador).
-- **Sem CI**: a suíte só roda localmente e exige PostgreSQL local (achado B-02).
+- **CI** (`.github/workflows/ci.yml`): `check`, `makemigrations --check` e `test` com PostgreSQL do próprio job; ainda não executado no GitHub (achado B-02 corrigido no código).
 - **Sem cobertura medida** e sem *lint* configurado (`ruff`/`pyflakes` não estão no projeto).

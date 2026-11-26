@@ -1,28 +1,21 @@
 """GR-49 parcial: somente leitura pelos serviços oficiais de P08."""
-from functools import wraps
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from config.erros_banco import erros_de_banco
 from usuarios.demo import demo_login_required
 from .forms_consultas import FiltroContasForm
 from .manual import MOVIMENTO_INEXISTENTE, consultar_movimento, listar_movimentos
 from .models import OrigemMovimento, StatusMovimento, StatusParcela, TipoMovimento
 
 
-def _erros_de_banco(view):
-    @wraps(view)
-    def consultar(request, *args, **kwargs):
-        try:
-            return view(request, *args, **kwargs)
-        except DatabaseError:
-            # Inclui falhas ao validar/renderizar os seletores de filtros.
-            return render(request, "financeiro/conta_detalhe.html", {
-                "erro": "Não foi possível consultar as contas agora. Tente novamente.",
-            }, status=503)
-    return consultar
+_erros_de_banco = erros_de_banco(
+    "financeiro/conta_detalhe.html",
+    # Também cobre falhas ao validar/renderizar os seletores de filtros.
+    "Não foi possível consultar as contas agora. Tente novamente.",
+)
 
 
 def _resumo(item):
