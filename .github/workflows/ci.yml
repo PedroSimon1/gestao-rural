@@ -41,6 +41,9 @@ jobs:
       # Como nos testes locais: com DEBUG=False os templates exigem o manifesto
       # do collectstatic, que a suíte não gera.
       DJANGO_DEBUG: "True"
+      # Os testes dos Agents usam o SDK simulado, mas o cliente exige o nome do
+      # modelo configurado; localmente ele vem do .env, que o CI não tem.
+      GEMINI_MODEL: modelo-ficticio-do-ci
       # settings.py exige DB_*; o host não resolve de propósito.
       DB_HOST: host.invalid
       DB_NAME: gestao_rural_ci
