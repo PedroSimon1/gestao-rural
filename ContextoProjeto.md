@@ -3683,3 +3683,15 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** depende das tarefas 39.1 a 39.4 (o texto as descreve como corrigidas no código, não publicadas).
 - **Pendências:** aprovação do ADR-002 pela equipe; `AGENTS.md` local ainda descreve a versão como stateless (arquivo local, fora do Git); renomear `config/test_sem_banco.py` (nome da Etapa 1) ficou fora do escopo; reordenar a numeração do `ContextoProjeto.md` não foi feito (só nota).
 - **Git:** commits na branch acima, sem co-autor.
+
+## 39.6 - M-06: Row Level Security nas tabelas dos apps
+
+- **Identificação:** sem código GR; 26/11/2026; branch `fix/rls-supabase`.
+- **Objetivo:** a proteção contra acesso por fora do Django dependia só de a Data API do Supabase estar desativada.
+- **Implementação:** migration `financeiro/migrations/0005_habilitar_rls.py` (depende de `cadastros 0003`, `documentos 0002` e `financeiro 0004`) com `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` nas 8 tabelas dos apps, sem políticas; reversa com `DISABLE`. Teste `financeiro/test_rls.py` falha se alguma tabela de app ficar sem RLS (verificado removendo a migration: o teste falhou).
+- **Decisões técnicas:** sem `FORCE`: o Django conecta como dono das tabelas, que o RLS não filtra, então a aplicação não muda; papéis sem política (anon, authenticated) deixam de ver qualquer linha. Se um dia o app passar a usar um papel que não seja dono nem tenha `BYPASSRLS`, ele deixará de enxergar as tabelas até existirem políticas. `django_migrations` não foi incluída (só nomes de migrations). Tabelas novas exigem migration própria com a mesma instrução.
+- **Banco de dados:** uma migration nova, só de SQL, sem alterar dados; **não aplicada** em banco remoto (PT-06: aplicação manual e coordenada).
+- **Testes:** `makemigrations --check` sem mudanças; `manage.py test` com 1.174 testes OK (1.173 anteriores + 1 novo); `git diff --check` limpo.
+- **Integração:** última migration de `financeiro`; qualquer migration futura desse app deve depender dela.
+- **Pendências:** aplicar a migration em homologação e produção (ação humana) e conferir, no painel do Supabase, que a Data API está desativada nos dois projetos. Em 26/11/2026 a conexão ao banco configurado em `DB_*` foi recusada pelo Session Pooler ("tenant/user not found"): o projeto pode estar pausado ou removido. Nenhum comando de escrita chegou ao banco remoto.
+- **Git:** commits na branch acima, sem co-autor.
