@@ -3697,8 +3697,25 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Objetivo:** a proteção contra acesso por fora do Django dependia só de a Data API do Supabase estar desativada.
 - **Implementação:** migration `financeiro/migrations/0005_habilitar_rls.py` (depende de `cadastros 0003`, `documentos 0002` e `financeiro 0004`) com `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` nas 8 tabelas dos apps, sem políticas; reversa com `DISABLE`. Teste `financeiro/test_rls.py` falha se alguma tabela de app ficar sem RLS (verificado removendo a migration: o teste falhou).
 - **Decisões técnicas:** sem `FORCE`: o Django conecta como dono das tabelas, que o RLS não filtra, então a aplicação não muda; papéis sem política (anon, authenticated) deixam de ver qualquer linha. Se um dia o app passar a usar um papel que não seja dono nem tenha `BYPASSRLS`, ele deixará de enxergar as tabelas até existirem políticas. `django_migrations` não foi incluída (só nomes de migrations). Tabelas novas exigem migration própria com a mesma instrução.
-- **Banco de dados:** uma migration nova, só de SQL, sem alterar dados; **não aplicada** em banco remoto (PT-06: aplicação manual e coordenada).
+- **Banco de dados:** uma migration nova, só de SQL, sem alterar dados; aplicada na homologação em 26/11/2026 (seção 39.7); **não aplicada** em produção (PT-06: aplicação manual e coordenada).
 - **Testes:** `makemigrations --check` sem mudanças; `manage.py test` com 1.174 testes OK (1.173 anteriores + 1 novo); `git diff --check` limpo.
 - **Integração:** última migration de `financeiro`; qualquer migration futura desse app deve depender dela.
-- **Pendências:** aplicar a migration em homologação e produção (ação humana) e conferir, no painel do Supabase, que a Data API está desativada nos dois projetos. Em 26/11/2026 a conexão ao banco configurado em `DB_*` foi recusada pelo Session Pooler ("tenant/user not found"): o projeto pode estar pausado ou removido. Nenhum comando de escrita chegou ao banco remoto.
+- **Pendências:** aplicar a migration em produção (ação humana, repetindo antes as verificações da seção 39.7) e conferir, no painel do Supabase, que a Data API está desativada em QA e PROD. Em 26/11/2026 a primeira tentativa de conexão ao banco configurado em `DB_*` foi recusada pelo Session Pooler ("tenant/user not found"); o projeto voltou depois (seção 39.7).
 - **Git:** commits na branch acima, sem co-autor.
+
+## 39.7 - Aplicação da RLS em homologação e CI verde
+
+- **Identificação:** sem código GR; 26/11/2026; branch `feature/correcao-banco`.
+- **Objetivo:** registrar o que foi executado no banco de homologação e o resultado do CI depois das correções da seção 39.
+- **Implementação:** nenhuma mudança de código. O CI (seção 39.3 e 39.3.1) passou no GitHub depois da correção de `GEMINI_MODEL`, segundo confirmação do usuário.
+- **Banco de dados (homologação, banco apontado por `DB_*`, autorizado pelo usuário):**
+  1. `showmigrations` (só leitura): todas aplicadas até `financeiro/0004`; pendente apenas `financeiro/0005_habilitar_rls`.
+  2. `sqlmigrate financeiro 0005` (só leitura): 8 `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` numa transação.
+  3. Consulta ao catálogo (só leitura): usuário da conexão `postgres`, com `BYPASSRLS` e sem ser superusuário; dono das 8 tabelas; nenhuma com `FORCE`; `relrowsecurity` falso em todas.
+  4. `manage.py migrate`: aplicou somente `financeiro.0005_habilitar_rls`.
+  5. Depois: todas as migrations aplicadas; `relrowsecurity` verdadeiro nas 8 tabelas (`django_migrations` fica de fora); o ORM leu 2 classificações e 1 pessoa.
+- **Decisões técnicas:** o `migrate` só rodou depois de confirmar que o usuário da conexão é dono das tabelas e tem `BYPASSRLS`, para a aplicação não perder o acesso.
+- **Testes:** a suíte não foi reexecutada nesta tarefa (sem mudança de código). Não foram abertas as telas nem feito lançamento em homologação depois da RLS; só a leitura pelo ORM foi verificada.
+- **Integração:** fecha a parte de homologação do achado M-06 da [auditoria de 24/11/2026](docs/auditoria/Auditoria-2026-11-24.md).
+- **Pendências:** produção (repetir a verificação do papel e do dono antes de aplicar); conferir a Data API desativada em QA e PROD; teste manual das telas em homologação; itens humanos de Render e da equipe listados nas seções 39.1 a 39.6.
+- **Git:** commit na branch acima, sem co-autor.
