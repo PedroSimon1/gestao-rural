@@ -107,7 +107,6 @@ a.botao { margin-top: 0; }
 .formulario__rotulo { font-weight: 600; }
 .formulario-cadastro label { font-weight: 600; }
 .formulario-cadastro p { margin: 0 0 16px; }
-.formulario-cadastro .helptext { display: block; margin-top: 4px; font-size: .88rem; color: var(--cor-texto-suave); }
 .formulario-cadastro .botao { margin-right: 12px; }
 
 /* Controles: estilizados por elemento, para valer em qualquer formulário */
@@ -257,6 +256,42 @@ nav[aria-label^="Páginas"] { display: flex; align-items: center; gap: 12px; mar
 .paginacao { margin-top: 8px; }
 .paginacao .botao { margin-top: 0; }
 
+/* ---------- Conferência: seções, painel lateral, parcelas e barra de ações ---------- */
+.campos { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0 20px; }
+.campos > .campo { grid-column: span 12; }
+.campos > .campo--g { grid-column: span 8; }
+.campos > .campo--m { grid-column: span 6; }
+.campos > .campo--p { grid-column: span 4; }
+.duas { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; align-items: start; }
+.lateral { position: sticky; top: 16px; }
+.lateral .cartao { background: var(--cor-faixa); border-color: var(--cor-borda-forte); }
+.lateral h2 { margin-top: 0; }
+main .lateral dl { grid-template-columns: 1fr; gap: 0; }
+.lateral dt { margin-top: 10px; }
+.lateral dt:first-child { margin-top: 0; }
+.formulario > section, .formulario > details, .formulario > .barra-acoes { align-self: stretch; }
+.secao-nota { padding: 24px 0; border-top: 1px solid var(--cor-borda); }
+.secao-nota:first-of-type { padding-top: 0; border-top: 0; }
+.secao-nota > h2 { margin: 0 0 2px; }
+.secao-nota h2 .n { margin-right: 6px; font-weight: 400; color: var(--cor-texto-suave); }
+.secao-nota > .texto-apoio { margin-bottom: 16px; font-size: .93rem; }
+.parcela { margin: 0 0 12px; padding: 12px 16px 0; }
+.st { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.st--ok { color: var(--cor-ok); }
+.st--erro { color: var(--cor-erro); }
+.barra-acoes--fixa {
+  position: sticky; bottom: 0; z-index: 5; margin: 16px 0 0; padding: 12px 0;
+  background: var(--cor-fundo); border-top: 1px solid var(--cor-borda);
+}
+.barra-acoes__espaco { flex: 1; }
+details.recolher { margin: 16px 0 0; background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: var(--raio); }
+details.recolher > summary { padding: 10px 16px; font-weight: 600; cursor: pointer; }
+details.recolher > div { padding: 0 16px 16px; }
+@media (max-width: 900px) {
+  .duas { grid-template-columns: 1fr; }
+  .lateral { position: static; order: -1; }
+}
+
 /* ---------- Login ---------- */
 .login { max-width: 400px; margin: 24px auto 0; }
 .login__campo { max-width: none; }
@@ -285,7 +320,11 @@ footer .texto-apoio { margin: 0; font-size: .85rem; }
   .cabecalho { padding-bottom: 12px; margin-bottom: 20px; }
   .barra-acoes .botao { width: 100%; }
   .acoes-linha { text-align: left; }
-  .campos-linha { grid-template-columns: 1fr; }
+  .campos > .campo--g, .campos > .campo--m, .campos > .campo--p { grid-column: span 12; }
+  .barra-acoes__espaco { display: none; }
+  .barra-acoes--fixa .botao { width: auto; flex: 1 1 0; }
+  .etapas li:not([aria-current="step"]) { display: none; }
+  .etapas li[aria-current="step"]::after { content: " · de 4 etapas"; font-weight: 400; color: var(--cor-texto-suave); }
   /* Tabela vira lista de registros, sem rolagem lateral */
   .tabela-responsiva { overflow: visible; background: none; border: 0; }
   .tabela-cadastros, .tabela-cadastros tbody, .tabela-cadastros tr, .tabela-cadastros td { display: block; width: 100%; }
