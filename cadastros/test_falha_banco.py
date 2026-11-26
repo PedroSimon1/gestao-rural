@@ -52,6 +52,7 @@ class FalhaDeBancoTests(TestCase):
         for nome, alvo, metodo, url, dados in casos:
             with self.subTest(tela=nome):
                 with mock.patch(alvo, side_effect=OperationalError(SEGREDO)), \
+                        self.assertLogs("django.request", "ERROR"), \
                         self.assertLogs("config.erros_banco", "WARNING") as registro:
                     self.verificar_503(getattr(self.client, metodo)(url, dados))
                 self.assertNotIn(SEGREDO, "".join(registro.output))
@@ -82,7 +83,8 @@ class PaginasDeErroTests(TestCase):
     def test_500_em_portugues_sem_expor_o_erro(self):
         cliente = Client(raise_request_exception=False)
         autenticar_demo(cliente)
-        with mock.patch("cadastros.views.Paginator", side_effect=RuntimeError(SEGREDO)):
+        with mock.patch("cadastros.views.Paginator", side_effect=RuntimeError(SEGREDO)), \
+                self.assertLogs("django.request", "ERROR"):
             resposta = cliente.get(reverse("pessoas"), {"modo": "todos"})
         self.assertEqual(resposta.status_code, 500)
         self.assertContains(resposta, "Erro inesperado", status_code=500)

@@ -3654,3 +3654,17 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** exige habilitar o Actions no repositório; para bloquear merge sem CI é preciso marcar o job `testes` como verificação obrigatória nas proteções de branch (ação do usuário).
 - **Pendências:** primeira execução real no PR; imagem `postgres:17` assumida compatível com a versão do Supabase usado (não verificada).
 - **Git:** commits na branch acima, sem co-autor.
+
+## 39.4 - B-05: logs de produção e higiene de configuração (e B-04 sem código)
+
+- **Identificação:** sem código GR; 26/11/2026; branch `chore/higiene-config`.
+- **Objetivo:** B-05 (sem `LOGGING`, comentário do `settings.py` desatualizado, `requirements.txt` sem quebra de linha final). B-04 (limpeza das análises sem agendamento) foi reavaliada.
+- **Implementação:** `LOGGING` em `config/settings.py` com handler de console (stderr) para o `root` e para `django`, e `django.request` em ERROR. O Django com `DEBUG=False` não escreve falhas 5xx no console (o handler padrão exige `DEBUG=True`) e o `500.html` esconde o erro, então sem isso um erro interno ficava invisível. `config/logs.py`: formatador que imprime o rastreio e o tipo da exceção **sem a mensagem**, que pode trazer SQL ou CPF/CNPJ. Comentário de `INSTALLED_APPS` corrigido; `requirements.txt` com quebra de linha final.
+- **B-04:** nenhum código novo. O comando `manage.py expirar_analises` já existe (`documentos/management/commands/`) e tem teste; falta só agendá-lo (cron do Render), ação humana.
+- **Arquivos:** novos `config/logs.py`, `config/test_logs.py`; alterados `config/settings.py`, `requirements.txt`, `cadastros/test_falha_banco.py` (captura o log esperado).
+- **Decisões técnicas:** só 5xx de `django.request` vão ao log (404/405 não); respostas 503 tratadas pelas views também aparecem como ERROR, o que dá visibilidade a quedas do banco. Não se adotou CSP nem se renomeou `config/test_sem_banco.py` (fora do escopo; ver pendências).
+- **Banco de dados:** nenhuma alteração.
+- **Testes:** `manage.py test` com 1.173 testes OK (1.171 anteriores + 2 novos); `check` e `git diff --check` limpos.
+- **Integração:** os logs fixos de `usuarios`, `documentos` e `agents` passam a sair com data e nível.
+- **Pendências:** CSP restritivo (feature nova, decisão de escopo); renomear `config/test_sem_banco.py`; agendar `expirar_analises`; conferir os logs no Render depois do deploy.
+- **Git:** commits na branch acima, sem co-autor.
