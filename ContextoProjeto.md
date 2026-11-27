@@ -3719,3 +3719,60 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** fecha a parte de homologação do achado M-06 da [auditoria de 24/11/2026](docs/auditoria/Auditoria-2026-11-24.md).
 - **Pendências:** produção (repetir a verificação do papel e do dono antes de aplicar); conferir a Data API desativada em QA e PROD; teste manual das telas em homologação; itens humanos de Render e da equipe listados nas seções 39.1 a 39.6.
 - **Git:** commit na branch acima, sem co-autor.
+
+# 40 - Auditoria do back end (27/11/2026)
+
+## 40.1 - Identificação
+
+Tarefa: auditoria completa do back end, solicitada pelo usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 40.2 - Objetivo
+
+Revisar `config`, `usuarios`, `documentos`, `cadastros`, `financeiro` e `agents` (código, models, migrations, serviços, views, forms, dependências) à procura de falhas de correção, segurança, concorrência e manutenção.
+
+## 40.3 - Implementação
+
+Somente leitura. Nenhum código, migration ou configuração foi alterado. Templates e JavaScript não foram auditados.
+
+## 40.4 - Arquivos
+
+Apenas esta seção 40 em `ContextoProjeto.md`. Um teste descartável em `cadastros/` foi criado para confirmar um comportamento e removido em seguida.
+
+## 40.5 - Decisões técnicas e achados
+
+Nenhuma decisão de escopo. Achados novos, por gravidade:
+
+- **Médio — TLS do banco sem verificação do servidor.** `DB_SSLMODE` padrão é `require` (`config/settings.py`): criptografa, mas não confere o certificado. `verify-full` com `DB_SSLROOTCERT` já é suportado; falta definir no Render.
+- **Médio — edição de CPF/CNPJ de pessoa com histórico.** `pessoa_editar` aceita trocar o documento de um cadastro completo, inclusive CPF por CNPJ (confirmado em teste descartável: 302 e `tipo_documento` mudou). Sem bloqueio quando há movimentos e sem trilha de quem alterou. Decisão de produto pendente; o agente não decidiu.
+- **Médio — chave do limite de login (`usuarios/limite.py`).** Usa o último valor de `X-Forwarded-For`. Se o proxy da plataforma acrescentar o IP de um edge compartilhado, todos caem no mesmo balde por origem; se o app for alcançável sem proxy, o cabeçalho é forjável. Não verificado no Render.
+- **Baixo — fluxo legado em `documentos/views.py`.** O ramo POST de `documento_inicio` (com `_processar`, `_resumo`, `_formatar_moeda`) não é usado pela tela (o formulário envia para `analise_criar`), mas continua acessível por POST direto e duplica o pipeline.
+- **Baixo — acoplamento.** `documentos` ↔ `financeiro` se importam; `cadastros.validators` depende de `agents`; `pendencias_conferencia` importa de `views_confirmacao`, o que obriga imports dentro de `analise_conferencia`. A view `analise_conferencia` concentra a regra do POST em ~80 linhas.
+- **Baixo — retenção.** Os dados da nota (inclui CPF) de análises pendentes ficam no banco até expirar por uso ou pelo comando `expirar_analises`, que é manual.
+- **Baixo — dependências e CI.** Sem `pip-audit` nem lint no CI; `google-genai` 2.24.0 (última 3.6.1) e outros pacotes atrás da última versão.
+- **Baixo — documentação.** Docstring de `documentos/forms_fiscais.py` diz "não conectado às rotas", mas o módulo é usado; o `AGENTS.md` local ainda descreve a aplicação como stateless (`DATABASES = {}`) e Django 6.1.1.
+- **Descartado após teste:** cadastrar pessoa com documento já existente não mescla nem duplica; o ModelForm recusa por unicidade.
+
+Já conhecidos e registrados antes (não repetidos como novos): 1 worker síncrono (M-04), login compartilhado e limite por worker (M-01), `django_migrations` sem RLS (39.6).
+
+## 40.6 - Banco de dados
+
+Nenhuma alteração. Só o PostgreSQL local de `DB_TEST_*`, criado e destruído pelos testes. O banco de `DB_*` não foi acessado.
+
+## 40.7 - Testes
+
+- `python manage.py check`: sem problemas. `check --deploy`: 6 avisos (HSTS, `SECURE_SSL_REDIRECT`, cookies seguros, `DEBUG`, `ALLOWED_HOSTS`), todos do `.env` local com `DEBUG=True` e da decisão de deixar HTTPS com a plataforma (34.7).
+- `python manage.py makemigrations --check --dry-run`: sem mudanças. `pip check`: sem conflitos.
+- `python manage.py test --noinput`: 1261 testes, OK (25 s).
+- Não executados: `pip-audit` (não instalado), Gemini real, Supabase, Render, carga e concorrência real.
+
+## 40.8 - Integração
+
+Complementa a auditoria de 24/11/2026 e as seções 39.x. Nenhuma tarefa depende desta.
+
+## 40.9 - Pendências
+
+Decidir: bloqueio ou trilha para troca de documento de pessoa com histórico; remover ou manter o ramo legado de `documento_inicio`. Operar: `DB_SSLMODE=verify-full`, conferir `X-Forwarded-For` no Render, agendar `expirar_analises`. Rodar `pip-audit` fora do repositório.
+
+## 40.10 - Git
+
+Branch `feature/correcao-interface-backend`; alteração local não versionada: `ContextoProjeto.md`. Nenhum commit, push ou merge foi feito.
