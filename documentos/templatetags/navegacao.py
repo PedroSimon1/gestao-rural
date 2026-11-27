@@ -4,7 +4,7 @@ from django import template
 register = template.Library()
 
 SECOES = {
-    "contas": {"contas", "conta_detalhe", "conta_manual_nova"},
+    "contas": {"contas", "conta_detalhe", "conta_manual_nova", "parcela_pagamento"},
     "nota": {
         "documento_inicio", "analise_criar", "analise_conferencia", "analise_conferencia_salva",
         "analise_cancelar", "analise_confirmar",

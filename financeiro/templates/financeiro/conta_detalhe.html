@@ -5,18 +5,41 @@
 {% url 'contas' as url_contas %}
 {% include "documentos/_cabecalho_pagina.html" with titulo="Detalhe da conta" migalha_url=url_contas migalha_rotulo="Contas" migalha_atual="Detalhe" %}
 {% if erro %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro %}{% else %}
+{% if erro_pagamento %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro_pagamento %}{% endif %}
 <section class="cartao">
 <dl><dt>Tipo</dt><dd>{{ tipo }}</dd><dt>Origem</dt><dd>{{ origem }}</dd><dt>Situação do lançamento</dt><dd>{% situacao status %}</dd>
 <dt>Contraparte</dt><dd>{{ detalhe.contraparte_nome }}</dd><dt>Faturado</dt><dd>{{ detalhe.faturado_nome|default:'Não informado' }}</dd>
-<dt>Valor total</dt><dd>{{ detalhe.valor_total|moeda }}</dd><dt>Registrado em</dt><dd>{{ detalhe.criado_em|date:'d/m/Y H:i' }}</dd></dl>
+<dt>Valor total</dt><dd>{{ detalhe.valor_total|moeda }}</dd>
+<dt>{% if detalhe.tipo == 'APAGAR' %}Ainda a pagar{% else %}Ainda a receber{% endif %}</dt><dd>{{ detalhe.valor_em_aberto|moeda }} <span class="texto-apoio">({{ quantidade_pagas }} de {{ parcelas|length }} parcela{{ parcelas|length|pluralize }} {% if detalhe.tipo == 'APAGAR' %}paga{{ parcelas|length|pluralize }}{% else %}recebida{{ parcelas|length|pluralize }}{% endif %})</span></dd>
+<dt>Registrado em</dt><dd>{{ detalhe.criado_em|date:'d/m/Y H:i' }}</dd></dl>
 </section>
+{% if detalhe.nota_fiscal %}
+<h2>Nota fiscal</h2>
+<section class="cartao">
+<dl><dt>Modelo</dt><dd>{{ detalhe.nota_fiscal.modelo }}</dd><dt>Série / número</dt><dd>{{ detalhe.nota_fiscal.serie }} / {{ detalhe.nota_fiscal.numero }}</dd>
+<dt>Data de emissão</dt><dd>{{ detalhe.nota_fiscal.data_emissao|date:'d/m/Y'|default:'Não registrada' }}</dd>
+{% if detalhe.nota_fiscal.chave_acesso %}<dt>Chave de acesso</dt><dd class="texto-quebra">{{ detalhe.nota_fiscal.chave_acesso }}</dd>{% endif %}</dl>
+</section>
+{% endif %}
 <h2>Classificações</h2>
 <ul>{% for c in detalhe.classificacoes %}<li>{{ c.descricao }} ({{ c.codigo }}){% if c.principal %} — Principal{% endif %}</li>{% endfor %}</ul>
 <h2>Parcelas</h2>
-<p class="texto-apoio">Confirmado e Ativa são estados do lançamento e da parcela; não representam quitação.</p>
+<p class="texto-apoio">Confirmado e Ativa são estados do lançamento e da parcela; o pagamento aparece na coluna Pagamento.</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
-<thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th><th scope="col">Situação</th></tr></thead>
-<tbody>{% for p in parcelas %}<tr><td class="principal">{{ p.dados.numero }}</td><td data-rotulo="Vencimento">{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td class="num" data-rotulo="Valor">{{ p.dados.valor|moeda }}</td><td data-rotulo="Situação">{% situacao p.status %}</td></tr>{% endfor %}</tbody>
+<thead><tr><th scope="col">Parcela</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th><th scope="col">Situação</th><th scope="col">Pagamento</th></tr></thead>
+<tbody>{% for p in parcelas %}<tr><td class="principal">{{ p.dados.numero }}</td><td data-rotulo="Vencimento">{{ p.dados.data_vencimento|date:'d/m/Y' }}</td><td class="num" data-rotulo="Valor">{{ p.dados.valor|moeda }}</td><td data-rotulo="Situação">{% situacao p.status %}</td>
+<td data-rotulo="Pagamento">
+{% if p.dados.pago_em %}
+  <strong>{% if detalhe.tipo == 'APAGAR' %}Paga{% else %}Recebida{% endif %} em {{ p.dados.pago_em|date:'d/m/Y' }}</strong>
+  {% if p.pode_baixar %}<form method="post" action="{% url 'parcela_pagamento' p.dados.id %}" data-submit-lock>{% csrf_token %}<input type="hidden" name="acao" value="desfazer"><button class="botao botao--texto botao--peq" type="submit">Desfazer baixa</button></form>{% endif %}
+{% else %}
+  Em aberto
+  {% if p.pode_baixar %}<form method="post" action="{% url 'parcela_pagamento' p.dados.id %}" class="baixa" data-submit-lock>{% csrf_token %}<input type="hidden" name="acao" value="registrar">
+    <label for="data-pagamento-{{ p.dados.id }}">{% if detalhe.tipo == 'APAGAR' %}Pago em{% else %}Recebido em{% endif %}</label>
+    <input type="date" id="data-pagamento-{{ p.dados.id }}" name="data_pagamento" value="{{ hoje }}" max="{{ hoje }}" required>
+    <button class="botao botao--secundario botao--peq" type="submit">{% if detalhe.tipo == 'APAGAR' %}Marcar como paga{% else %}Marcar como recebida{% endif %}</button></form>{% endif %}
+{% endif %}
+</td></tr>{% endfor %}</tbody>
 </table></div>
 {% endif %}
 <p><a class="botao botao--secundario" href="{% url 'contas' %}">Voltar à pesquisa</a></p>

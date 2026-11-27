@@ -137,6 +137,7 @@ class LancamentoValidoTests(LancamentoTestBase):
         self.assertEqual(lancamento.nota_fiscal.pk, nota.pk)
         self.assertEqual((nota.movimento_id, nota.emitente_cnpj, nota.modelo, nota.serie, nota.numero),
                          (movimento.pk, CNPJ, "55", 1, 123))
+        self.assertEqual(nota.data_emissao, date(2026, 10, 1))  # D3: emissão da nota gravada
         self.assertEqual(lancamento.fornecedor.acoes, ())
         self.assertEqual(lancamento.faturado.acoes, ())
         self.assertEqual(Pessoa.objects.count(), 2)
@@ -535,8 +536,8 @@ class ConcorrenciaTests(TransactionTestCase):
         original = lancamento_nota.registrar_identidade_fiscal
         primeira = threading.Lock()
 
-        def registrar(movimento, identidade):
-            resultado = original(movimento, identidade)
+        def registrar(movimento, identidade, **extras):
+            resultado = original(movimento, identidade, **extras)
             if primeira.acquire(blocking=False):
                 gravado.set()
                 time.sleep(segurar)

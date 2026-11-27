@@ -343,8 +343,9 @@ class ParcelaConta(RegistroFinanceiro):
     """Parcela de um movimento (ENT-04, RN-06), com vencimento e valor próprios.
 
     A "Identificacao" do professor ("ÚNICA" quando há uma só) é apresentação;
-    o registro guarda o número. A situação de pagamento e o cancelamento
-    ainda não têm contrato aprovado: o status nasce ATIVA e não muda.
+    o registro guarda o número. O pagamento é só `pago_em` (D1, 27/11/2026); o
+    cancelamento da parcela ainda não tem contrato aprovado: o status nasce
+    ATIVA e não muda.
     """
 
     # Status entra na lista até existir a operação de cancelamento.
@@ -363,6 +364,9 @@ class ParcelaConta(RegistroFinanceiro):
     status = models.CharField(
         max_length=9, choices=StatusParcela, default=StatusParcela.ATIVA
     )
+    # Data em que a parcela foi paga (a pagar) ou recebida (a receber); vazia = em aberto.
+    # Fora de campos_imutaveis: é a única informação da parcela que muda (financeiro/pagamentos.py).
+    pago_em = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -425,7 +429,7 @@ class NotaFiscalLancada(RegistroFinanceiro):
 
     campos_imutaveis = (
         "movimento", "chave_acesso", "emitente_cnpj", "modelo", "serie", "numero",
-        "criado_em",
+        "data_emissao", "criado_em",
     )
 
     movimento = models.OneToOneField(
@@ -437,6 +441,8 @@ class NotaFiscalLancada(RegistroFinanceiro):
     modelo = models.CharField(max_length=2, choices=ModeloNota)
     serie = models.PositiveSmallIntegerField()
     numero = models.PositiveIntegerField()
+    # Emissão impressa na nota; vazia nas notas lançadas antes deste campo existir.
+    data_emissao = models.DateField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     objects = SemExclusaoNemAlteracaoManager.from_queryset(NotaFiscalLancadaQuerySet)()
