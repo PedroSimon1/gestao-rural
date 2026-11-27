@@ -20,8 +20,7 @@ from documentos.models import AnalisePendente, StatusAnalise
 from financeiro.models import MovimentoConta, ParcelaConta, NotaFiscalLancada
 from financeiro.test_identidade_fiscal import chave
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .adaptador_financeiro import adaptar_resultado
-from .consultas import consultar_resultado
+from .conferencia import Problema, conferir_nota
 from .testing import resultado_da_nota
 
 
@@ -200,7 +199,7 @@ class IntegracaoFinalTests(TestCase):
         self.assertEqual(self.client.post(self.url('analise_confirmar', a), {'confirmar': 'on'}).status_code, 409)
         self.assertEqual(MovimentoConta.objects.count(), 0)
 
-    def test_financeiro_incompleto_corrigivel_e_consultas_v2_sem_escrita(self):
+    def test_financeiro_incompleto_corrigivel_e_conferencia_v2_sem_escrita(self):
         d = deepcopy(self.original)
         d['valor_total'] = None
         d['parcelas'][0]['valor'] = None
@@ -210,12 +209,11 @@ class IntegracaoFinalTests(TestCase):
         d['faturado']['cnpj'] = '12ABC34501DE35'
         antes = deepcopy(d)
         with CaptureQueriesContext(connection) as queries:
-            adaptada = adaptar_resultado(d)
-            consultada = consultar_resultado(d)
-        self.assertIsNone(adaptada.valor_total)
-        self.assertIsNone(adaptada.parcelas[0].valor)
-        self.assertEqual(consultada.fornecedor.documento, '12345678909')
-        self.assertEqual(consultada.faturado.documento, '12ABC34501DE35')
+            nota = conferir_nota(d)
+        self.assertIsNone(nota.valor_total)
+        self.assertEqual(nota.parcelas, ())
+        self.assertEqual(nota.fornecedor.documento, '12345678909')
+        self.assertEqual(nota.faturado.documento, '12ABC34501DE35')
         self.assertEqual(d, antes)
         for q in queries:
             self.assertTrue(q['sql'].lstrip().upper().startswith('SELECT'))
@@ -225,9 +223,9 @@ class IntegracaoFinalTests(TestCase):
 
     def test_ambiguidade_fornecedor_nao_escolhe_documento(self):
         self.original['fornecedor']['cpf'] = '12345678909'
-        with self.assertRaises(ValidationError) as contexto:
-            consultar_resultado(self.original)
-        self.assertEqual(contexto.exception.code, 'fornecedor_documento_ambiguo')
+        nota = conferir_nota(self.original)
+        self.assertIsNone(nota.fornecedor.documento)
+        self.assertIn(Problema('fornecedor.documento', 'escolha_necessaria'), nota.problemas)
 
     def test_rollback_real_depois_de_criar_pessoas_nao_mostra_sucesso(self):
         with mock.patch('financeiro.lancamento_nota.registrar_movimento', side_effect=DatabaseError('detalhe-interno')):
