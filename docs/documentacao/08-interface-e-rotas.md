@@ -5,8 +5,8 @@ Fluxos completos em [05](05-fluxos.md).
 
 ## 1. Rotas
 
-Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usuarios.urls` na raiz; `documentos/`, `cadastros/` e `financeiro/` com `include`.
-**Só `/login/`, `/logout/` e `/saude/` são públicas.** As outras **21 rotas de negócio** têm `@demo_login_required`; as de escrita exigem POST e CSRF.
+Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usuarios.urls` na raiz; `documentos/`, `cadastros/`, `financeiro/` e `consulta/` com `include`.
+**Só `/login/`, `/logout/` e `/saude/` são públicas.** As rotas de negócio têm `@demo_login_required`; as de escrita exigem POST e CSRF.
 `/saude/` (GET/HEAD) responde `{"status": "ok"}` com o banco no ar e `{"status": "indisponivel"}` com 503 sem ele, sem expor o erro; serve ao health check do Render.
 
 ### 1.1 Autenticação (`usuarios`)
@@ -54,7 +54,14 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `contas/<id>/` | `conta_detalhe` | GET | Detalhe do movimento: valor em aberto, nota fiscal (se houver) e baixa de cada parcela |
 | `contas/parcelas/<id>/pagamento/` | `parcela_pagamento` | POST | `acao=registrar` + `data_pagamento` (não futura) ou `acao=desfazer`; volta ao detalhe |
 
-**Navegação** (cabeçalho comum, `documentos/templates/documentos/base.html`): Contas · Enviar nota · Pessoas · Classificações · Sair.
+### 1.5 Consulta (`consulta`, prefixo `/consulta/`)
+
+| URL | Nome | Métodos | Descrição |
+| --- | --- | --- | --- |
+| `/consulta/` | `consulta` | GET, POST | Pergunta + modo Simples/Semântica + chave Gemini; resposta textual e fontes com links para as contas |
+| `/consulta/indice/` | `consulta_indice` | POST | Atualiza um lote do índice com chave informada; reapresenta a tela com situação e mensagem |
+
+**Navegação** (cabeçalho comum, `documentos/templates/documentos/base.html`): Contas · Consultar · Enviar nota · Pessoas · Classificações · Sair.
 **Rodapé:** "Versão publicada: `<SHA>`" com link para o commit no GitHub, ou "não informada neste ambiente".
 
 ## 2. Templates e arquivos estáticos
@@ -76,6 +83,7 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `cadastros/pessoas.html`, `pessoa_form.html`, `pessoa_detalhe.html` | Telas de pessoas |
 | `cadastros/classificacoes.html`, `classificacao_form.html` | Telas de classificações |
 | `financeiro/contas.html`, `conta_manual.html`, `conta_detalhe.html` | Telas de contas (a de detalhe também exibe mensagens de erro de consulta) |
+| `consulta/consulta.html` | Pergunta, seletor de modo, aviso de privacidade, resposta e fontes; situação do índice (indexados, desatualizados e pendentes) e formulário separado "Atualizar índice". Estende `documentos/base.html` |
 | `usuarios/login.html`, `logout.html` | Entrada e saída |
 
 | Estático | Função |
@@ -106,6 +114,8 @@ dá erros "Missing staticfiles manifest entry".
 | `ContaManualForm` + `ParcelasManuaisFormSet` | `financeiro/forms_manuais.py` | tipo, UUID, token, contraparte, faturado, valor total, classificações, principal, parcelas, `confirmar`, `ciente_duplicidade` | Formset: mínimo 1, máximo 120, com remoção. `ciente_duplicidade` só aparece quando há conta parecida (409 até ser marcado) |
 | `FiltroContasForm` | `financeiro/forms_consultas.py` | tipo, origem, situação, contraparte, classificação, pagamento (em aberto / quitado), por página, página | Inclui cadastros inativos |
 | `PagamentoParcelaForm` | `financeiro/forms_pagamentos.py` | `acao` (registrar/desfazer), `data_pagamento` | Recusa data futura no serviço |
+| `ConsultaForm` | `consulta/forms.py` | `pergunta` (≤ 500), `modo` (`simples`/`semantico`), `gemini_api_key` | Simples é o padrão; chave em `PasswordInput`, retirada dos dados do formulário antes do template |
+| `IndiceForm` | `consulta/forms.py` | `gemini_api_key` | Chave só para o lote; IDs próprios para não duplicar os campos da consulta |
 
 Padrões comuns nas views de escrita: **recusar campos fora do formulário e campos escalares repetidos** ("Pedido inválido…"),
 `@sensitive_post_parameters`, e traduzir códigos de erro em mensagens fixas.

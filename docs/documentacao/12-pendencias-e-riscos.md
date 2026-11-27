@@ -15,7 +15,7 @@ e nas auditorias (GR-16, de 27/10/2026, e de 24/11/2026 — [`docs/auditoria/Aud
 | Notas fora de NF-e 55 / NFC-e 65, ou com emitente CPF | Bloqueadas no fluxo fiscal | Decisão T-06 / DQ-17 até nova decisão |
 | Ordenação por coluna em Contas | Não | UI-04 parcial |
 | Ingestão por e-mail, amortização, quitação fracionada, saldo, painel, alertas, conciliação, autenticação real | Fora do escopo atual | Planejado pelo cliente (RF-17) |
-| Data de emissão da nota | **Não é gravada** no movimento | O modelo não tem esse campo; só vive na análise enquanto pendente |
+| Itens de notas anteriores ao RAG | Sem recuperação retroativa | Itens são persistidos nos novos lançamentos; o PDF antigo não é guardado, portanto não há fonte para recompor os itens |
 
 ## 2. Decisões e dúvidas em aberto
 
@@ -29,8 +29,9 @@ e nas auditorias (GR-16, de 27/10/2026, e de 24/11/2026 — [`docs/auditoria/Aud
 | Q-10 | Contas a receber entram no fluxo automático? | Equipe | Não, hoje |
 | PT-05 | DEV/QA compartilhado ou DEV local obrigatório? | Equipe | O ADR admite compartilhado coordenado; não alterar silenciosamente |
 | — | Uso de pessoa **incompleta** em movimentos financeiros (DQ-05) | Equipe | Hoje: **bloqueado** até regularizar |
-| — | Retenção/LGPD: CPF/CNPJ em texto simples, envio do PDF ao Gemini | Equipe | Sem ADR/aviso (B-03) |
+| — | Retenção/LGPD: CPF/CNPJ em texto simples, envio do PDF e do contexto RAG ao Gemini | Equipe | ADR-002 segue como proposta; há aviso específico na tela Consultar, sem resolver as decisões de privacidade |
 | — | Cancelamento de movimento e estorno com histórico | Equipe | Sem contrato aprovado (a baixa simples de parcela foi aprovada e feita: D1) |
+| ADR-003 | Decisões de RAG simples/semântico, índice e itens | Equipe (Gustavo Lopes) | Implementação existe; [ADR-003](../arquitetura/ADR-003-rag-consulta.md) ainda **sem aprovação formal** |
 
 ## 3. Achados da auditoria de 24/11/2026
 
@@ -55,7 +56,7 @@ Severidade: **A** = tratar antes de publicar/entregar; **M** = importante; **B**
 
 Nenhuma destas foi verificada pelas auditorias:
 
-- Estado das migrations em QA/PROD (inclusive `financeiro/0004`).
+- Estado das migrations em QA/PROD, incluindo `financeiro/0007` e `0008`, `consulta/0001` e `0002` (aplicação manual por ambiente, PT-06).
 - SHA publicado × rodapé; URL pública e HTTPS.
 - Teste em navegador; teste com **Gemini real** e PDFs reais.
 - Canal restrito do `Readme.txt` e envio ao Classroom.
@@ -92,3 +93,7 @@ Nenhuma destas foi verificada pelas auditorias:
 | Vazar dado sensível em erro/log | Mensagens com valores/documentos | Código estável + mensagem fixa |
 | Banco compartilhado | QA é compartilhado e coordenado | Nunca rode testes destrutivos, migrations ou SQL contra QA/PROD sem autorização |
 | 1 worker | PDF de minutos bloqueia o serviço | Considere o impacto antes de adicionar trabalho síncrono pesado |
+| Agregações com top-k | Só até `RAG_TOP_K` movimentos entram no contexto; totais por mês/ano podem ficar imprecisos | Não tratar a resposta como relatório exaustivo nem como total contábil do banco |
+| Escala do índice JSON | Cosseno em Python percorre os vetores; escolha adequada apenas até poucos milhares, sem benchmark de capacidade aqui | Revisitar a decisão se passar de alguns milhares de vetores ou ~1 s por consulta (ADR-003) |
+| Índice parcial/desatualizado | Atualização é explícita, em lotes; contas sem vetor ficam fora da busca semântica | Acompanhar os contadores da tela e repetir "Atualizar índice" até completar |
+| Cota do Gemini | Consulta gera resposta; modo semântico também gera embedding da pergunta, e indexação envia lotes | Planejar a demonstração e a atualização do índice considerando a cota; erros de limite não significam consulta concluída |

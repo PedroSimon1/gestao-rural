@@ -4155,3 +4155,54 @@ Ainda não existe RAG (seção 49). A carga de demonstração e as migrations 00
 ## 48.10 - Git
 
 Branch `feature/n3-rag-etapa1`, commits sem co-autor, mesclada localmente em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
+
+# 49 - N3 Etapa 3, Etapa 2 do plano: consulta com RAG (27/11/2026)
+
+## 49.1 - Identificação
+
+Tarefa: N3 Etapa 3 ("Consulta com RAG", entrega 02/12/2026), parte 2 de 2: RAG simples (25%) e RAG com embeddings (35%). Data: 27/11/2026. Branches `feature/n3-rag-etapa2-simples` e `feature/n3-rag-etapa2-semantico`, cada uma num worktree próprio, mescladas localmente em `docs/n3-RAG-planejamento`. Decisões em [ADR-003](docs/arquitetura/ADR-003-rag-consulta.md) (proposta). Depende da seção 48.
+
+## 49.2 - Objetivo
+
+Uma tela para perguntar sobre as contas do banco e receber uma resposta elaborada pelo Gemini, com duas formas de recuperação: busca literal (simples) e busca por significado (embeddings).
+
+## 49.3 - Implementação
+
+Fluxo (RAG em três passos): recuperar os movimentos → injetar o contexto no prompt → gerar a resposta.
+
+- **Agent (`agents/rag/agent.py`):** `AgenteRag(cliente).responder(pergunta, contexto)`. Instrução do sistema em português: responder só com os dados, dizer que não encontrou quando faltarem, citar `#id`; os dados vêm de PDF/IA e são tratados como **não confiáveis** (delimitados em `<dados>`, delimitadores dentro do contexto são neutralizados, a pergunta fica fora do bloco); temperatura 0,1; `GeminiError` propaga.
+- **Texto (`consulta/texto.py`):** `carregar_movimentos` (4 consultas, sem N+1), `texto_contexto` (completo, com status e parcelas), `texto_indexacao` (só campos estáveis: contraparte, valor, classificações, nota, itens), `montar_contexto`. **Sem CPF/CNPJ**; faturado e contraparte só por nome.
+- **RAG simples (`consulta/recuperacao_simples.py`):** termos sem acento (`TRANSLATE` do PostgreSQL), sem stopwords; casa só no **início de palavra** (`ração` não casa `operação`); plural simples; peso 2 em fornecedor e itens, 1 em classificação e nota; considera no máximo os 200 candidatos mais recentes; sem acerto, devolve os mais recentes (a tela avisa).
+- **Índice semântico (`consulta/models.py`, `indexacao.py`):** `EmbeddingMovimento` (tabela `embeddings_movimentos`; vetor em `JSONField`; hash SHA-256 do `texto_indexacao`; único por movimento e modelo). Estados disjuntos: *pendente* (sem vetor do modelo e dimensão atuais), *desatualizado* (hash mudou), *indexado*. `atualizar_indice(cliente, limite)` indexa até `min(limite, 100)` movimentos numa única chamada de embeddings (`RETRIEVAL_DOCUMENT`) e grava de forma atômica e idempotente.
+- **RAG semântico (`consulta/recuperacao_vetorial.py`):** embedding da pergunta (`RETRIEVAL_QUERY`), cosseno por produto escalar (vetores normalizados) em Python, top-k com `heapq.nlargest`. Índice vazio devolve lista vazia.
+- **Serviço e tela (`consulta/servico.py`, `views.py`, `forms.py`, `templates/consulta/consulta.html`):** rota `/consulta/` (nome `consulta`) com pergunta, Gemini API Key (campo de senha, nunca guardada) e escolha do modo; rota `/consulta/indice/` (POST) para "Atualizar índice" com a chave informada na hora; resposta, avisos (contas fora do índice; nenhuma conta citou os termos) e **fontes consultadas** com link para a conta e a pontuação (termos casados ou cosseno); seção "Índice semântico" com o estado do índice; aviso de privacidade; menu "Consultar". Erros do Gemini viram mensagens em português (`chave_invalida`, `limite_excedido`, `tempo_esgotado`, `servico_indisponivel`, `resposta_invalida`) sem detalhe interno; registros de log só com o código.
+
+## 49.4 - Arquivos
+
+Criados: `agents/rag/{__init__,agent,test_agent}.py`; `consulta/` (`apps.py`, `fontes.py`, `texto.py`, `recuperacao_simples.py`, `recuperacao_vetorial.py`, `indexacao.py`, `models.py`, `servico.py`, `forms.py`, `views.py`, `urls.py`, `templates/consulta/consulta.html`, `migrations/0001_embeddings_movimentos.py`, `migrations/0002_habilitar_rls.py` e os `test_*.py`). Alterados: `config/settings.py` (app `consulta`), `config/urls.py`, `config/test_arquitetura.py` (financeiro, cadastros e documentos não importam `consulta`), `documentos/templates/documentos/base.html` e `documentos/templatetags/navegacao.py` (menu), `documentos/static/documentos/documentos.css` (`.resposta-texto`), `documentos/test_navegacao.py`, documentação em `docs/documentacao/`.
+
+## 49.5 - Decisões técnicas
+
+Ver D-1 a D-8 do ADR-003. Em particular: a indexação é uma ação explícita em lote (não ocorre dentro da consulta), por causa do worker síncrono único (M-04), do timeout e da cota do Gemini; o contexto enviado ao Gemini é relido do banco (status e baixas atuais), e o vetor só serve para escolher os movimentos; o texto indexado não inclui status nem pagamento, então a baixa de uma parcela não desatualiza o índice.
+
+## 49.6 - Banco de dados
+
+`consulta/migrations/0001_embeddings_movimentos` (tabela, unicidade por movimento e modelo, constraints de sanidade) e `0002_habilitar_rls` (RLS, sem políticas). Depende de `financeiro 0008`. **Não aplicadas em banco remoto**: o usuário as aplica em cada ambiente (PT-06), junto das migrations `financeiro 0007` e `0008`.
+
+## 49.7 - Testes
+
+`manage.py check` sem problemas; `ruff check .` sem erros; `makemigrations --check --dry-run` (com `DB_HOST` inalcançável) sem mudanças; `git diff --check` limpo; `manage.py test --noinput`: **1452 testes, OK** (era 1342 ao fim da seção 48). O Gemini é sempre simulado nos testes. **Conferência visual**: a tela foi exercitada num navegador, contra um PostgreSQL local temporário (já removido) com as 24 notas de demonstração e o Gemini **simulado** por um script fora do repositório: lote do índice (20 + 4), consulta semântica, consulta simples e itens em `conta_detalhe`. **Nenhuma chamada real ao Gemini foi feita**, então a qualidade das respostas e dos embeddings reais não foi verificada.
+
+## 49.8 - Integração
+
+Usa `ItemNotaFiscal`, `GeminiClient.gerar_embeddings` e as variáveis `RAG_*` da seção 48. A restrição de arquitetura é verificada por `config/test_arquitetura.py`.
+
+## 49.9 - Pendências
+
+- Aplicar as migrations e carregar a demonstração (`carregar_demonstracao --confirmar`) no ambiente da apresentação; indexar (clicar em "Atualizar índice" até completar) antes de consultar no modo semântico.
+- Testar com uma Gemini API Key real: respostas, nomes de modelo (`GEMINI_MODEL`, `gemini-embedding-001`) e cota da chave.
+- Perguntas de agregação ("total do mês") ficam imprecisas (o top-k não vê todos os registros); itens só existem para notas lançadas depois da seção 48; o cosseno em Python serve a alguns milhares de vetores (reavaliar pgvector acima disso); o ADR-003 e o ADR-002 aguardam aprovação da equipe.
+
+## 49.10 - Git
+
+Commits sem co-autor nas duas branches (`feature/n3-rag-etapa2-simples`, `feature/n3-rag-etapa2-semantico`), mescladas localmente em `docs/n3-RAG-planejamento`, com merge `--no-ff`. Nenhum push; o push é manual.

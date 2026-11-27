@@ -21,7 +21,7 @@ Esta seção descreve os controles que existem no código, os limites conhecidos
 | --- | --- | --- |
 | Login de demonstração | Um par `DEMO_LOGIN`/`DEMO_PASSWORD` do ambiente; sem configuração, **todo acesso é recusado**, mesmo com sessão antiga | `usuarios/demo.py` |
 | Comparação em tempo constante | `constant_time_compare` para login e senha, combinados com `&` (as duas comparações sempre ocorrem) | `usuarios/demo.py` |
-| Todas as rotas de negócio exigem login | `@demo_login_required` nas 21 rotas; só `/login/` e `/logout/` são públicas | `*/views*.py` |
+| Todas as rotas de negócio exigem login | `@demo_login_required`, inclusive consulta e atualização do índice; `/login/`, `/logout/` e `/saude/` são públicas | `*/views*.py` |
 | Logout só por POST | GET apenas mostra a confirmação (não cancela análises por link externo ou *prefetch*) | `usuarios/views.py` |
 | Sessão em **cookie assinado** | `signed_cookies`; guarda `demo_autenticado` e um código aleatório de análises; assinado com `DJANGO_SECRET_KEY` (**não criptografado**); `HttpOnly`; `Secure` com `DEBUG=False`; `SameSite=Lax` | `config/settings.py` |
 | Login/logout descartam análises | O login troca o código e cancela as pendentes do anterior; o logout cancela as da sessão antes do `flush` | `usuarios/demo.py` |
@@ -50,6 +50,10 @@ Esta seção descreve os controles que existem no código, os limites conhecidos
 | Mensagens ao usuário | Fixas por código; sem etapa, traceback, status da API ou resposta bruta | `ProcessamentoError` |
 | Prompt injection | O Extrator manda ignorar instruções escritas no PDF; saídas restritas por schema/Enum | `agents/extrator/agent.py` |
 | Minimização de dados enviados | O Classificador **não recebe** CPF/CNPJ nem dados do faturado | `agents/classificador/agent.py` |
+| Chave na consulta e no índice | Informada a cada ação, nunca persistida; removida de `form.data` antes do template e retirada de `cleaned_data` quando o formulário é válido; `PasswordInput` sem reexibição | `consulta/forms.py`, `consulta/views.py` |
+| Contexto RAG mínimo | Textos de consulta/indexação não incluem campos de CPF/CNPJ; incluem nomes, valores, datas e itens. A pergunta também é enviada ao Gemini: não inserir documentos pessoais no texto livre | `consulta/texto.py`, `consulta/servico.py` |
+| Dados não confiáveis no RAG | Informações originadas em PDF/LLM e cadastros ficam delimitadas em `<dados>`; delimitadores internos são neutralizados e o prompt manda ignorar instruções nos dados | `agents/rag/agent.py` |
+| Aviso na tela Consultar | Informa envio da pergunta/contexto e dos textos indexados ao Google Gemini, sem CPF/CNPJ; exige só dados fictícios fora de produção | `consulta/templates/consulta/consulta.html` |
 
 ### 2.4 Upload
 
@@ -88,7 +92,7 @@ Reenvio, duplo clique ou duas abas **não duplicam** lançamentos (idempotência
 | PDF da nota | **Enviado ao Gemini** com a chave do usuário | Terceiro; **não há aviso de privacidade** nem registro de base legal/retenção no repositório |
 | Chave Gemini | Em memória, só na requisição | Nunca persistida |
 
-Não há ADR/README com a decisão de privacidade (campo `documento` em texto, retenção, terceiro) — pendência B-03 da auditoria.
+O [ADR-002](../arquitetura/ADR-002-privacidade-dados-pessoais.md) existe como **proposta e segue em aberto** (B-03): o aviso específico da consulta não resolve base legal, retenção e demais decisões de privacidade. O [ADR-003](../arquitetura/ADR-003-rag-consulta.md) não substitui essa decisão.
 
 ## 4. Limites e riscos conhecidos
 
@@ -101,6 +105,7 @@ Ver também [12](12-pendencias-e-riscos.md). Itens de segurança abertos:
 | Médio | **Cookie assinado sem revogação**: uma cópia feita antes do logout autentica até expirar e pode criar análises novas com o mesmo código | O logout só cancela as análises pendentes existentes |
 | Médio | **HSTS e redirecionamento HTTPS não estão no código** (`check --deploy` W004/W008) | Dependem do Render; **sem evidência** de que a URL pública os aplica |
 | Médio | **Row Level Security**: a migration `financeiro/0005_habilitar_rls` o habilita, sem políticas, nas 8 tabelas dos apps; **aplicada na homologação em 26/11/2026**, ainda **não aplicada** em produção | Com ela aplicada, a Data API do Supabase não lê nem grava as tabelas; confirmar também que a Data API está desativada (não verificável pelo repositório) |
+| Médio | Novas tabelas do RAG | `financeiro/0008` e `consulta/0002` habilitam RLS sem políticas em `itens_notas_fiscais` e `embeddings_movimentos`; aplicação em QA/PROD **não verificada** aqui |
 | Médio | **Limpeza das análises sem agendamento** | `expirar_analises` existe, mas ninguém o executa periodicamente |
 | Baixo | `LOGGING` configurado (5xx no console, sem a mensagem da exceção); sem cabeçalho CSP (as telas usam CSS/JS locais, então um CSP restritivo é viável); validação de PDF superficial (assinatura `%PDF-`) | |
 | Baixo | Dependências: `google-genai` 2.24.0 → 3.x é mudança de versão **maior** e precisa de teste dos Agents antes de adotar; `pip-audit` roda no CI desde 27/11/2026 (sem vulnerabilidades conhecidas após atualizar `certifi` e `pyasn1`); sem hashes em `requirements.txt` | |
