@@ -1,6 +1,6 @@
 # 06 — Modelo de dados
 
-PostgreSQL, Django ORM, migrations versionadas. Referência: `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py`.
+PostgreSQL, Django ORM, migrations versionadas. Referência: `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py`, `consulta/models.py`.
 Todas as tabelas usam `id` inteiro automático como chave, exceto `analises_pendentes` (UUID).
 
 ## 1. Diagrama
@@ -15,6 +15,8 @@ erDiagram
     movimentos_contas ||--|{ parcelas_contas : "parcelas"
     movimentos_contas ||--o| notas_fiscais_lancadas : "identidade fiscal"
     analises_pendentes }o..o| movimentos_contas : "analise_origem_id (UUID, sem FK)"
+    notas_fiscais_lancadas ||--o{ itens_notas_fiscais : "itens extraídos"
+    movimentos_contas ||--o{ embeddings_movimentos : "índice por modelo"
 
     pessoas {
         string documento UK "CPF 11 ou CNPJ 14; NULL se incompleto"
@@ -196,6 +198,34 @@ formatos e limites. Todos os campos são imutáveis. **Um movimento cancelado n�
 Índice `analise_status_expira_idx` (status, expira_em) para a limpeza. Constraints `analise_dados_coerentes_com_status` e
 `analise_correcoes_so_pendente` garantem que **estado final nunca guarda dados**. Linhas nunca são excluídas fisicamente.
 
+### 2.8 `itens_notas_fiscais` (`ItemNotaFiscal`)
+
+| Campo | Tipo | Regra |
+| --- | --- | --- |
+| `nota_fiscal` | FK `NotaFiscalLancada` `PROTECT` | `related_name="itens"` |
+| `ordem` | inteiro positivo | ≥ 1; única por nota; ordenação padrão |
+| `descricao` | varchar(500) | Obrigatória, com conteúdo não branco |
+| `quantidade` | decimal(20,6), nulo | Não negativa |
+| `valor_unitario`, `valor_total` | decimal(12,2), nulos | Não negativos e < 10 bilhões |
+| `criado_em` | datetime | Automático |
+
+Todos os campos são imutáveis; sem exclusão física. `financeiro/itens_nota.registrar_itens_nota` bloqueia a nota e grava os itens uma vez, na ordem recebida; descrições vazias são ignoradas, textos longos truncados e números ilegíveis ficam nulos.
+O lançamento de notas novas persiste os itens extraídos; **notas anteriores não recebem itens retroativamente**, pois o PDF não é guardado.
+
+### 2.9 `embeddings_movimentos` (`EmbeddingMovimento`)
+
+| Campo | Tipo | Regra |
+| --- | --- | --- |
+| `movimento` | FK `MovimentoConta` `PROTECT` | `related_name="embeddings"`; único com `modelo` |
+| `modelo` | varchar(100) | Obrigatório, com conteúdo não branco |
+| `dimensao` | inteiro positivo | ≥ 1 |
+| `vetor` | JSON | `clean()` valida lista de números finitos com a dimensão indicada |
+| `hash_texto` | varchar(64) | SHA-256 hexadecimal do texto de indexação |
+| `criado_em`, `atualizado_em` | datetime | Automáticos |
+
+Índice derivado e **regravável**, separado dos registros financeiros imutáveis. A indexação valida todo o lote antes de gravar e atualiza por movimento/modelo; a situação do índice considera também dimensão e hash do texto.
+As migrations `financeiro/0008` e `consulta/0002` habilitam **RLS sem políticas e sem `FORCE RLS`** nas duas tabelas novas; o Django continua usando o papel dono. Existência da migration não comprova aplicação remota.
+
 ## 3. Proteções comuns
 
 - **Sem exclusão física:** `ComStatus` (cadastros) e `RegistroFinanceiro` (financeiro) recusam `delete()`; os querysets recusam `delete()`.
@@ -229,6 +259,10 @@ Regra que não cabe numa constraint por linha, porque movimento e parcelas são 
 | | `0004_chave_idempotencia` | `chave_idempotencia` (nula, única) + constraint "só manual" |
 | | `0005_habilitar_rls` | RLS ligado, sem políticas, nas tabelas dos apps |
 | | `0006_baixa_de_parcela_e_data_de_emissao` | `ParcelaConta.pago_em` e `NotaFiscalLancada.data_emissao` (só campos novos, nulos) |
+| | `0007_itens_notas_fiscais` | `ItemNotaFiscal`, vínculo à nota e constraints |
+| | `0008_habilitar_rls_itens` | RLS sem políticas em `itens_notas_fiscais` |
+| `consulta` | `0001_embeddings_movimentos` | `EmbeddingMovimento`, vetor JSON e constraints |
+| | `0002_habilitar_rls` | RLS sem políticas em `embeddings_movimentos` |
 | `documentos` | `0001_initial` | `AnalisePendente` |
 | | `0002_correcoes_da_conferencia` | `correcoes`, `versao_correcoes`, `campos_corrigidos` |
 

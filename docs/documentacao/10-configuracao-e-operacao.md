@@ -27,13 +27,17 @@ O `config/settings.py` lê o `.env` com `python-dotenv` **sem sobrescrever** var
 | `GEMINI_MODEL` | **Sim**, para processar PDFs | nome do modelo | Validada quando o `GeminiClient` é criado |
 | `GEMINI_TIMEOUT_SEGUNDOS` | Não | `60` | Por tentativa |
 | `GEMINI_MAX_TENTATIVAS` | Não | `3` | |
+| `GEMINI_MODELO_EMBEDDING` | Não | `gemini-embedding-001` | Modelo do índice; `gemini-embedding-2` é recusado pelo cliente |
+| `GEMINI_DIMENSAO_EMBEDDING` | Não | `768` (inteiro positivo) | Dimensão dos vetores; mudar exige reindexar |
+| `RAG_TOP_K` | Não | `5` (inteiro positivo) | Máximo de movimentos recuperados para o contexto |
+| `RAG_LOTE_INDEXACAO` | Não | `20` (inteiro positivo) | Movimentos por clique em "Atualizar índice"; limite efetivo de 100 por lote |
 | `MAX_PDF_UPLOAD_SIZE_MB` | Não | `10` (inteiro; inválido impede a inicialização) | Limite do PDF |
 | `GUNICORN_TIMEOUT` | Não | `420` | `start.sh` |
 | `WEB_CONCURRENCY` | Não | `1` | Número de workers (`start.sh`) |
 | `WEB_THREADS` | Não | `4` | Threads por worker (`start.sh`, Gunicorn `gthread`) |
 | `PORT` | (Render define) | `8000` se ausente | Porta do Gunicorn |
 
-A **Gemini API Key não é uma variável de ambiente**: é digitada na tela a cada processamento.
+A **Gemini API Key não é uma variável de ambiente**: é digitada na tela a cada processamento, consulta ou atualização do índice. As quatro configurações de embeddings/RAG são lidas como texto e validadas no ponto de uso, sem impedir a inicialização do Django.
 
 ## 2. Executar localmente
 
@@ -64,14 +68,17 @@ python manage.py runserver 127.0.0.1:8000
 | Checagem de produção | `DJANGO_DEBUG=False python manage.py check --deploy` | Hoje aponta W004 (HSTS) e W008 (redirecionamento HTTPS), delegados ao Render |
 | Espaços em branco | `git diff --check` | |
 | Expirar análises vencidas | `python manage.py expirar_analises` | Idempotente; no ambiente explicitamente autorizado |
+| Carregar demonstração fictícia | `python manage.py carregar_demonstracao --confirmar` | Exibe host/nome do banco-alvo; carga transacional de 24 notas com itens, sem duplicar lançamentos na repetição. Exige as duas classificações iniciais de DESPESA |
 | Coletar estáticos (produção) | `python manage.py collectstatic --noinput` | Já está no `build.sh` |
 
 `makemigrations --check` pode consultar o histórico do banco padrão; por isso o host fictício acima.
 Não use `--keepdb` ou `--noinput` para reutilizar ou excluir um banco de teste sem conferir o destino.
 
+`carregar_demonstracao` recusa a carga sem `--confirmar`; em host remoto exige **também** `--permitir-remoto`. Essa opção não substitui autorização humana: confira o destino e use só o ambiente de demonstração autorizado, nunca produção por engano. O comando não usa Gemini nem preenche o índice; depois, "Atualizar índice" requer chave e consome a cota da API.
+
 ## 4. Migrations
 
-Estado: `cadastros` 0001–0003, `documentos` 0001–0002, `financeiro` 0001–0004 (nove migrations).
+Migrations versionadas: `cadastros` 0001–0003, `documentos` 0001–0002, `financeiro` 0001–0008 e `consulta` 0001–0002. Para o RAG, `financeiro/0007` cria os itens e `0008` habilita RLS; `consulta/0001` cria os embeddings e `0002` habilita RLS. Sua aplicação é **manual em cada ambiente (PT-06)**, seguindo o processo abaixo; não se presume aplicação em QA/PROD.
 
 Processo (DQ-04, PT-06):
 
@@ -113,7 +120,7 @@ flowchart LR
 
 1. A URL responde, com HTTPS; `DEBUG=False`; credenciais próprias do ambiente.
 2. O rodapé mostra o SHA igual ao do commit publicado.
-3. Migrations aplicadas no banco do ambiente (inclusive `financeiro/0004`).
+3. Migrations aplicadas no banco do ambiente (inclusive `financeiro/0007` e `0008`, `consulta/0001` e `0002`); conferir plano e evidência por ambiente.
 4. Login, envio de PDF fictício, conferência, confirmação e conta manual funcionam.
 5. HSTS/redirecionamento HTTPS efetivos (W004/W008) e Data API do Supabase **desativada** (ou RLS habilitada).
 6. O health check do Render aponta para `/saude/`. Se ele falhar com 400, o host da checagem não está em `DJANGO_ALLOWED_HOSTS`. Com 503, o banco está fora do ar (por exemplo, projeto do Supabase pausado).
