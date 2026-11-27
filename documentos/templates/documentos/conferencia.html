@@ -15,7 +15,17 @@
 {% if revisao.nota.problemas %}
   {% include "documentos/_aviso.html" with tipo="atencao" titulo="Atenção" texto="Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal." %}
 {% endif %}
-{% if pendencias %}<ul role="alert">{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>{% endif %}
+{% if pendencias.total %}
+<section class="pendencias" role="alert" aria-labelledby="titulo-pendencias">
+  <h2 id="titulo-pendencias">{{ pendencias.total }} pendência{{ pendencias.total|pluralize }} para resolver</h2>
+  <p class="texto-apoio">Cada item leva ao campo. Os campos pendentes estão marcados no formulário.</p>
+  <ul>
+    {% for item in pendencias.itens %}
+    <li>{% if item.secao %}<span class="pendencias__secao">{{ item.secao }}. {{ item.secao_rotulo }}</span>{% endif %}{% if item.ancora %}<a href="#{{ item.ancora }}">{{ item.rotulo }}</a>{% else %}<strong>{{ item.rotulo }}</strong>{% endif %}: {{ item.mensagem }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 <div class="duas">
 <div>
@@ -27,42 +37,61 @@
   <p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>
   {{ form.non_field_errors }}
 
-  <section class="secao-nota">
-    <h2><span class="n">1.</span>Fornecedor</h2>
+  {% with secao=pendencias.secoes.0 %}
+  <section class="secao-nota{% if secao.total %} secao-nota--pendente{% endif %}" id="secao-fornecedor" aria-labelledby="titulo-fornecedor">
+    <div class="secao-nota__topo">
+      <h2 id="titulo-fornecedor"><span class="n">1.</span>Fornecedor</h2>
+      {% include "documentos/_situacao_secao.html" %}
+    </div>
     <p class="texto-apoio">Quem emitiu a nota.</p>
     <div class="campos">
-      {% include "documentos/_campo.html" with campo=form.fornecedor_nome tamanho="g" %}
-      {% include "documentos/_campo.html" with campo=form.fornecedor_documento tamanho="p" %}
+      {% include "documentos/_campo.html" with campo=form.fornecedor_nome tamanho="g" pendencia=pendencias.campos.fornecedor_nome %}
+      {% include "documentos/_campo.html" with campo=form.fornecedor_documento tamanho="p" pendencia=pendencias.campos.fornecedor_documento %}
     </div>
   </section>
+  {% endwith %}
 
-  <section class="secao-nota">
-    <h2><span class="n">2.</span>Faturado</h2>
+  {% with secao=pendencias.secoes.1 %}
+  <section class="secao-nota{% if secao.total %} secao-nota--pendente{% endif %}" id="secao-faturado" aria-labelledby="titulo-faturado">
+    <div class="secao-nota__topo">
+      <h2 id="titulo-faturado"><span class="n">2.</span>Faturado</h2>
+      {% include "documentos/_situacao_secao.html" %}
+    </div>
     <p class="texto-apoio">Quem recebeu a nota. Se houver CPF e CNPJ, indique qual documento usar.</p>
     <div class="campos">
-      {% include "documentos/_campo.html" with campo=form.faturado_nome tamanho="g" %}
-      {% include "documentos/_campo.html" with campo=form.documento_faturado tamanho="p" %}
-      {% include "documentos/_campo.html" with campo=form.faturado_cpf tamanho="m" %}
-      {% include "documentos/_campo.html" with campo=form.faturado_cnpj tamanho="m" %}
+      {% include "documentos/_campo.html" with campo=form.faturado_nome tamanho="g" pendencia=pendencias.campos.faturado_nome %}
+      {% include "documentos/_campo.html" with campo=form.documento_faturado tamanho="p" pendencia=pendencias.campos.documento_faturado %}
+      {% include "documentos/_campo.html" with campo=form.faturado_cpf tamanho="m" pendencia=pendencias.campos.faturado_cpf %}
+      {% include "documentos/_campo.html" with campo=form.faturado_cnpj tamanho="m" pendencia=pendencias.campos.faturado_cnpj %}
     </div>
   </section>
+  {% endwith %}
 
-  <section class="secao-nota">
-    <h2><span class="n">3.</span>Dados da nota</h2>
+  {% with secao=pendencias.secoes.2 %}
+  <section class="secao-nota{% if secao.total %} secao-nota--pendente{% endif %}" id="secao-nota" aria-labelledby="titulo-nota">
+    <div class="secao-nota__topo">
+      <h2 id="titulo-nota"><span class="n">3.</span>Dados da nota</h2>
+      {% include "documentos/_situacao_secao.html" %}
+    </div>
     <p class="texto-apoio">Identificação fiscal, classificação e valor total.</p>
     <div class="campos">
-      {% include "documentos/_campo.html" with campo=form.numero_nota tamanho="p" %}
-      {% include "documentos/_campo.html" with campo=form.serie_nota tamanho="p" %}
-      {% include "documentos/_campo.html" with campo=form.modelo tamanho="p" %}
-      {% include "documentos/_campo.html" with campo=form.chave_acesso tamanho="g" %}
-      {% include "documentos/_campo.html" with campo=form.data_emissao tamanho="p" %}
-      {% include "documentos/_campo.html" with campo=form.classificacao tamanho="g" %}
-      {% include "documentos/_campo.html" with campo=form.valor_total tamanho="p" %}
+      {% include "documentos/_campo.html" with campo=form.numero_nota tamanho="p" pendencia=pendencias.campos.numero_nota %}
+      {% include "documentos/_campo.html" with campo=form.serie_nota tamanho="p" pendencia=pendencias.campos.serie_nota %}
+      {% include "documentos/_campo.html" with campo=form.modelo tamanho="p" pendencia=pendencias.campos.modelo %}
+      {% include "documentos/_campo.html" with campo=form.chave_acesso tamanho="g" pendencia=pendencias.campos.chave_acesso %}
+      {% include "documentos/_campo.html" with campo=form.data_emissao tamanho="p" pendencia=pendencias.campos.data_emissao %}
+      {% include "documentos/_campo.html" with campo=form.classificacao tamanho="g" pendencia=pendencias.campos.classificacao %}
+      {% include "documentos/_campo.html" with campo=form.valor_total tamanho="p" pendencia=pendencias.campos.valor_total %}
     </div>
   </section>
+  {% endwith %}
 
-  <section class="secao-nota">
-    <h2><span class="n">4.</span>Parcelas</h2>
+  {% with secao=pendencias.secoes.3 %}
+  <section class="secao-nota{% if secao.total %} secao-nota--pendente{% endif %}" id="secao-parcelas" aria-labelledby="titulo-parcelas">
+    <div class="secao-nota__topo">
+      <h2 id="titulo-parcelas"><span class="n">4.</span>Parcelas</h2>
+      {% include "documentos/_situacao_secao.html" %}
+    </div>
     <p class="texto-apoio">A soma das parcelas deve ser igual ao valor total.</p>
     {{ parcelas.management_form }}
     {{ parcelas.non_form_errors }}
@@ -78,6 +107,7 @@
     {% endfor %}
     <p class="texto-apoio" data-soma-parcelas aria-live="polite" hidden><span class="st" data-soma-situacao></span> <span data-soma-texto></span></p>
   </section>
+  {% endwith %}
 
 {% if analise_id %}
   <div class="barra-acoes barra-acoes--fixa">
@@ -105,6 +135,15 @@
 </div>
 
 <aside class="lateral" aria-label="Resumo da nota">
+  <nav class="cartao cartao--status" aria-label="Situação por seção">
+    <h2>Situação da conferência</h2>
+    <ul class="situacao-secoes">
+      {% for secao in pendencias.secoes %}
+      <li><a href="#{{ secao.ancora }}"><span class="n">{{ secao.numero }}.</span>{{ secao.rotulo }}</a>{% include "documentos/_situacao_secao.html" %}</li>
+      {% endfor %}
+    </ul>
+    <p class="texto-apoio">{% if pendencias.total %}A confirmação só é liberada quando todas as seções estiverem sem pendências.{% else %}Nenhuma pendência encontrada.{% endif %}</p>
+  </nav>
   <div class="cartao">
     <h2>Resumo</h2>
     <dl>
