@@ -14,6 +14,7 @@ SECOES = {
         "pessoa_regularizar", "pessoa_status", "papel_status",
     },
     "classificacoes": {"classificacoes", "classificacao_nova", "classificacao_editar", "classificacao_status"},
+    "consulta": {"consulta"},
 }
 
 

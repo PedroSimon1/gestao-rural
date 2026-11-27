@@ -71,6 +71,7 @@ INSTALLED_APPS = [
 
     # Apps do projeto
     'cadastros',
+    'consulta',
     'documentos',
     'financeiro',
     'usuarios',

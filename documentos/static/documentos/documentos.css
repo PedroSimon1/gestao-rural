@@ -164,6 +164,9 @@ h3 + dl.resumo { margin-top: 8px; }
 .resumo__item { padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); }
 .resumo dt, main dl dt { color: var(--cor-texto-suave); font-size: .86rem; }
 .resumo dd, main dl dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+/* Resposta do assistente (consulta): texto corrido, sem estourar a largura */
+.resposta-texto { margin: 12px 0; overflow-wrap: anywhere; }
+.resposta-texto p { margin: 0 0 10px; }
 /* dl sem agrupamento (rótulo e valor soltos): duas colunas alinhadas */
 main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
   display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0 0 16px;

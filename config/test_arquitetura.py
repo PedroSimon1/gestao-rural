@@ -1,7 +1,7 @@
-"""Dependências entre apps: `financeiro` e `cadastros` não importam `documentos` (nem `agents`).
+"""Dependências de domínio não voltam para os apps que as orquestram.
 
-`documentos` orquestra a nota fiscal e usa `financeiro` e `cadastros`; a volta criaria um ciclo.
-O que os dois lados dividem (CPF/CNPJ, código da sessão) fica em `comum/`.
+`consulta` usa os dados do domínio; os apps de origem não importam `consulta`.
+`documentos` orquestra a nota fiscal; `financeiro` e `cadastros` não o importam.
 """
 import ast
 from pathlib import Path
@@ -9,7 +9,11 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 RAIZ = Path(__file__).resolve().parent.parent
-PROIBIDOS = {"financeiro": {"documentos", "agents"}, "cadastros": {"documentos", "agents", "financeiro"}}
+PROIBIDOS = {
+    "financeiro": {"documentos", "agents", "consulta"},
+    "cadastros": {"documentos", "agents", "financeiro", "consulta"},
+    "documentos": {"consulta"},
+}
 
 
 def importados(arquivo):

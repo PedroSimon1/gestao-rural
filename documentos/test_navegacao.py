@@ -45,7 +45,7 @@ class MenuNaPaginaTests(TestCase):
     def test_pagina_atual_fica_marcada_uma_vez(self):
         esperado = {
             "contas": "Contas", "documento_inicio": "Enviar nota",
-            "pessoas": "Pessoas", "classificacoes": "Classificações",
+            "pessoas": "Pessoas", "classificacoes": "Classificações", "consulta": "Consultar",
         }
         for rota, rotulo in esperado.items():
             with self.subTest(rota=rota):
