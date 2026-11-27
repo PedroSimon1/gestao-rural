@@ -1,0 +1,4 @@
+{% comment %}
+  Situação de um cadastro consultado (texto, com cor só de reforço). Parâmetros: consulta (de _linhas_consultas); rotulo.
+  Só leitura: a consulta não cria nem reativa cadastros.
+{% endcomment %}{% if consulta %}<span class="cadastro {% if consulta.situacao == 'EXISTE' %}cadastro--ok{% else %}cadastro--atencao{% endif %}">{{ rotulo }}: <b>{{ consulta.situacao }}</b>{% if consulta.id %} · ID {{ consulta.id }}{% endif %}{% if consulta.status %} · {{ consulta.status }}{% endif %}{% if consulta.status_papel %} · Papel: {{ consulta.status_papel }}{% endif %}</span>{% endif %}

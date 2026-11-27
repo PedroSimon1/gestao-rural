@@ -112,6 +112,22 @@ class IntegracaoFinalTests(TestCase):
         self.assertNotIn('documento_fiscal', self.a.dados)
         self.assertContains(self.confirmar('1'), 'Lançamento realizado com sucesso')
 
+    def test_confirmacao_mostra_a_ficha_e_o_concluido_resume_o_que_foi_lancado(self):
+        self.a = criar_analise(self.client.session, resultado_da_nota())
+        self.assertEqual(self.client.post(self.url(), self.dados()).status_code, 302)
+        tela = self.client.get(self.url('analise_confirmar'))
+        self.assertContains(tela, '<dl class="ficha">')
+        self.assertContains(tela, '<div class="topo-fluxo">')
+        self.assertContains(tela, '<div class="acoes-rodape">')
+        self.assertContains(tela, '<li aria-current="step"><b>3.</b>Confirmar<small>Em andamento</small></li>', html=False)
+        concluido = self.confirmar('1')
+        movimento = MovimentoConta.objects.get()
+        self.assertContains(concluido, 'Resumo do lançamento')
+        self.assertContains(concluido, f'A pagar nº {movimento.pk}')
+        self.assertContains(concluido, 'R$ 150,00')
+        self.assertContains(concluido, '1 (a primeira vence em 01/11/2026)')
+        self.assertContains(concluido, '<dl class="ficha">')
+
     def test_pdf_agents_v2_conferencia_correcao_decisoes_e_lancamento(self):
         bruto = deepcopy(self.original)
         bruto['documento_e_nota_fiscal'] = True

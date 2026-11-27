@@ -1,7 +1,9 @@
 {% extends "documentos/base.html" %}
 {% block titulo %}Análise da nota — Gestão Rural{% endblock %}
 {% block conteudo %}
-{% include "documentos/_cabecalho_pagina.html" with titulo="Análise da nota" %}
-{% include "documentos/_aviso.html" with tipo="info" texto=mensagem %}
-<p><a class="botao botao--secundario" href="{% url 'documento_inicio' %}">Voltar ao envio da nota</a></p>
+{% include "documentos/_topo_fluxo.html" with titulo="Análise da nota" %}
+{% include "documentos/_aviso.html" with tipo="atencao" texto=mensagem %}
+<div class="acoes-rodape">
+  <a class="botao" href="{% url 'documento_inicio' %}">Voltar ao envio da nota</a>
+</div>
 {% endblock %}

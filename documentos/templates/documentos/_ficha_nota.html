@@ -1,0 +1,10 @@
+{% comment %}
+  Ficha da nota em uma linha (nota, fornecedor, faturado, valor total, parcelas), para manter o contexto nas etapas 2 a 4.
+  Parâmetro: ficha (de resumo_nota.ficha_da_nota). Os data-resumo-* são atualizados ao vivo na conferência.
+{% endcomment %}{% load moeda %}{% if ficha %}<dl class="ficha">
+  <div><dt>Nota</dt><dd>{{ ficha.numero|default_if_none:"—" }}</dd></div>
+  <div><dt>Fornecedor</dt><dd data-resumo-fornecedor>{{ ficha.fornecedor|default:"—" }}</dd></div>
+  <div><dt>Faturado</dt><dd>{{ ficha.faturado|default:"—" }}</dd></div>
+  <div><dt>Valor total</dt><dd data-resumo-total>{{ ficha.valor_total|moeda }}</dd></div>
+  <div><dt>Parcelas</dt><dd>{{ ficha.parcelas }}</dd></div>
+</dl>{% endif %}

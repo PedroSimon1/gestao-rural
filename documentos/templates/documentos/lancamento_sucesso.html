@@ -1,14 +1,23 @@
 {% extends "documentos/base.html" %}
+{% load moeda %}
 {% block titulo %}Lançamento concluído — Gestão Rural{% endblock %}
 {% block conteudo %}
-{% include "documentos/_cabecalho_pagina.html" with titulo="Lançamento realizado com sucesso" %}
-{% include "documentos/_etapas.html" with atual=4 %}
-<section class="cartao">
+{% include "documentos/_topo_fluxo.html" with titulo="Lançamento realizado com sucesso" apoio="A nota foi lançada. Confira o resumo abaixo." atual=4 %}
+{% include "documentos/_ficha_nota.html" %}
+<section class="cartao cartao--sucesso">
+  <div class="cartao__topo"><h2>Resumo do lançamento</h2></div>
   <p>O movimento e suas parcelas foram gravados.</p>
-  <p class="texto-apoio">Movimento: {{ movimento_id }}. Registro fiscal: {{ nota_fiscal_id }}.</p>
-  <div class="barra-acoes">
-    <a class="botao" href="{% url 'conta_detalhe' movimento_id=movimento_id %}">Ver a conta lançada</a>
-    <a class="botao botao--secundario" href="{% url 'documento_inicio' %}">Enviar outra nota</a>
-  </div>
+  <dl class="dl2">
+    <dt>Conta</dt><dd>A pagar nº {{ movimento_id }}</dd>
+    <dt>Registro fiscal</dt><dd>nº {{ nota_fiscal_id }}</dd>
+    {% if resumo %}
+    <dt>Valor</dt><dd>{{ resumo.valor_total|moeda }}</dd>
+    <dt>Parcelas</dt><dd>{{ resumo.quantidade_parcelas }}{% if resumo.primeiro_vencimento %} (a primeira vence em {{ resumo.primeiro_vencimento|date:"d/m/Y" }}){% endif %}</dd>
+    {% endif %}
+  </dl>
 </section>
+<div class="acoes-rodape">
+  <a class="botao botao--secundario" href="{% url 'documento_inicio' %}">Enviar outra nota</a>
+  <a class="botao" href="{% url 'conta_detalhe' movimento_id=movimento_id %}">Ver a conta lançada</a>
+</div>
 {% endblock %}

@@ -718,6 +718,14 @@ class JavaScriptTests(InterfaceTestBase):
         ramo = js[js.index('=== "true"'):js.index("preventDefault")]
         self.assertNotIn("travar(", ramo)
 
+    def test_js_trava_o_botao_acionado_sem_desabilitar_o_que_leva_valor(self):
+        js = self.js()
+
+        self.assertIn("evento.submitter", js)
+        # Botão com name (ex.: acao=salvar) desabilitado antes da montagem do envio ficaria de fora dele.
+        self.assertIn("if (botao.name)", js)
+        self.assertIn('botao.setAttribute("aria-disabled", "true")', js)
+
     def test_js_sem_rede_polling_ou_html_dinamico(self):
         js = self.js()
 

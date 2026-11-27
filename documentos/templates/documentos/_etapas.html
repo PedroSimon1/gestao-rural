@@ -1,6 +1,10 @@
-{% comment %}Etapas do lançamento da nota. Parâmetro: atual (1 a 4). As anteriores aparecem como concluídas.{% endcomment %}<ol class="etapas" aria-label="Etapas do lançamento">
-  <li{% if atual == 1 %} aria-current="step"{% elif atual > 1 %} class="feita"{% endif %}><b>1.</b>Enviar a nota</li>
-  <li{% if atual == 2 %} aria-current="step"{% elif atual > 2 %} class="feita"{% endif %}><b>2.</b>Conferir os dados</li>
-  <li{% if atual == 3 %} aria-current="step"{% elif atual > 3 %} class="feita"{% endif %}><b>3.</b>Confirmar</li>
-  <li{% if atual == 4 %} aria-current="step"{% endif %}><b>4.</b>Lançamento concluído</li>
+{% comment %}
+  Etapas do lançamento da nota, em quatro blocos com o estado em texto (Concluída, o detalhe da etapa atual ou Aguardando).
+  Parâmetros: atual (1 a 4); detalhe (opcional: texto do estado da etapa atual, padrão "Em andamento"); alerta (opcional: destaca
+  a etapa atual em vermelho, para pendências).
+{% endcomment %}<ol class="passos" aria-label="Etapas do lançamento">
+  <li{% if atual == 1 %} aria-current="step"{% if alerta %} class="alerta"{% endif %}{% elif atual > 1 %} class="feita"{% endif %}><b>1.</b>Enviar a nota<small>{% if atual == 1 %}{{ detalhe|default:"Em andamento" }}{% elif atual > 1 %}Concluída{% else %}Aguardando{% endif %}</small></li>
+  <li{% if atual == 2 %} aria-current="step"{% if alerta %} class="alerta"{% endif %}{% elif atual > 2 %} class="feita"{% endif %}><b>2.</b>Conferir os dados<small>{% if atual == 2 %}{{ detalhe|default:"Em andamento" }}{% elif atual > 2 %}Concluída{% else %}Aguardando{% endif %}</small></li>
+  <li{% if atual == 3 %} aria-current="step"{% if alerta %} class="alerta"{% endif %}{% elif atual > 3 %} class="feita"{% endif %}><b>3.</b>Confirmar<small>{% if atual == 3 %}{{ detalhe|default:"Em andamento" }}{% elif atual > 3 %}Concluída{% else %}Aguardando{% endif %}</small></li>
+  <li{% if atual == 4 %} aria-current="step" class="feita"{% endif %}><b>4.</b>Lançamento concluído<small>{% if atual == 4 %}Concluído{% else %}Aguardando{% endif %}</small></li>
 </ol>

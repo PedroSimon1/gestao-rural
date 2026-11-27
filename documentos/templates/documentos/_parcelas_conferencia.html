@@ -1,0 +1,13 @@
+{% comment %}
+  Parcelas da conferência, uma linha por parcela, com o aviso da soma (preenchido por conferencia.js).
+  Parâmetro: parcelas (formset). Usado uma só vez por página: em "Precisa da sua atenção" ou em "Já conferido".
+{% endcomment %}{{ parcelas.non_form_errors }}
+{% for parcela in parcelas %}
+<div class="parcela" role="group" aria-labelledby="titulo-parcela-{{ forloop.counter }}">
+  <span class="parcela__nome" id="titulo-parcela-{{ forloop.counter }}">Parcela {{ forloop.counter }}</span>
+  {% include "documentos/_campo.html" with campo=parcela.data_vencimento %}
+  {% include "documentos/_campo.html" with campo=parcela.valor %}
+  {% if parcela.non_field_errors %}<div class="parcela__erros">{{ parcela.non_field_errors }}</div>{% endif %}
+</div>
+{% endfor %}
+<p class="texto-apoio" data-soma-parcelas aria-live="polite" hidden><span class="st" data-soma-situacao></span> <span data-soma-texto></span></p>

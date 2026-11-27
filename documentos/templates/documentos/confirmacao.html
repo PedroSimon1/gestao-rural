@@ -3,40 +3,70 @@
 {% block titulo %}Confirmar lançamento — Gestão Rural{% endblock %}
 {% block conteudo %}
 {% url 'analise_conferencia' analise_id=analise_id as url_conferencia %}
-{% include "documentos/_cabecalho_pagina.html" with titulo="Confirmar lançamento financeiro" apoio="Confira os dados salvos e marque somente as ações de cadastro que você autoriza." migalha_url=url_conferencia migalha_rotulo="Conferência" migalha_atual="Confirmação" %}
-{% include "documentos/_etapas.html" with atual=3 %}
-<section class="cartao">
-  <h2>Dados da nota</h2>
-  <dl class="resumo">
-    <dt>Fornecedor</dt><dd>{{ nota.fornecedor.nome|default:"—" }} — {{ nota.fornecedor.documento|default:"Documento pendente" }}</dd>
-    <dt>Faturado</dt><dd>{{ nota.faturado.nome|default:"—" }} — {{ nota.faturado.documento|default:"Documento pendente" }}</dd>
-    <dt>Classificação</dt><dd>{{ nota.classificacao.descricao|default:nota.classificacao.codigo }}</dd>
-    <dt>Número da nota</dt><dd>{{ nota.numero_nota|default_if_none:"—" }}</dd>
-    <dt>Modelo e série</dt><dd>{{ nota.identidade_fiscal.modelo|default:"—" }} / {{ nota.serie|default_if_none:"—" }}</dd>
-    <dt>Total</dt><dd>{{ nota.valor_total|moeda }}</dd>
-  </dl>
-  <h2>Parcelas</h2>
-  <ul>{% for parcela in nota.parcelas %}<li>{{ parcela.numero }} — {{ parcela.data_vencimento|date:"d/m/Y"|default:"Vencimento pendente" }} — {{ parcela.valor|moeda }}</li>{% endfor %}</ul>
+{% include "documentos/_topo_fluxo.html" with titulo="Confirmar lançamento financeiro" apoio="Confira os dados salvos e marque somente as ações de cadastro que você autoriza." migalha_url=url_conferencia migalha_rotulo="Conferência" migalha_atual="Confirmação" atual=3 detalhe=pendencias|yesno:"Bloqueada,Em andamento" alerta=pendencias %}
+{% include "documentos/_ficha_nota.html" %}
+
+<div class="cols2">
+  <section class="cartao">
+    <div class="cartao__topo"><h2>Dados da nota</h2></div>
+    <dl class="dl2">
+      <dt>Fornecedor</dt><dd>{{ nota.fornecedor.nome|default:"—" }}<small>{{ nota.fornecedor.documento|default:"Documento pendente" }}</small></dd>
+      <dt>Faturado</dt><dd>{{ nota.faturado.nome|default:"—" }}<small>{{ nota.faturado.documento|default:"Documento pendente" }}</small></dd>
+      <dt>Classificação</dt><dd>{{ nota.classificacao.descricao|default:nota.classificacao.codigo }}</dd>
+      <dt>Número da nota</dt><dd>{{ nota.numero_nota|default_if_none:"—" }}</dd>
+      <dt>Modelo e série</dt><dd>{{ nota.identidade_fiscal.modelo|default:"—" }} / {{ nota.serie|default_if_none:"—" }}</dd>
+      <dt>Total</dt><dd>{{ nota.valor_total|moeda }}</dd>
+    </dl>
+  </section>
+  <section class="cartao">
+    <div class="cartao__topo"><h2>Parcelas</h2></div>
+    <table class="tab-par">
+      <thead><tr><th scope="col">Nº</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th></tr></thead>
+      <tbody>{% for parcela in nota.parcelas %}<tr><td>{{ parcela.numero }}</td><td>{{ parcela.data_vencimento|date:"d/m/Y"|default:"Vencimento pendente" }}</td><td class="num">{{ parcela.valor|moeda }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><th scope="row" colspan="2">Total</th><td class="num">{{ nota.valor_total|moeda }}</td></tr></tfoot>
+    </table>
+  </section>
+</div>
+
+{% if pendencias %}
+<section class="cartao cartao--pend" role="alert">
+  <div class="cartao__topo"><h2>Pendências</h2><span class="st st--erro">{{ pendencias|length }}</span></div>
+  <ul>{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>
 </section>
-{% if pendencias %}<ul role="alert">{% for pendencia in pendencias %}<li>{{ pendencia }}</li>{% endfor %}</ul>{% endif %}
+{% endif %}
+
 <section class="cartao">
+  <div class="cartao__topo"><h2>Cadastros</h2></div>
+  <ul class="lista-linhas lista-linhas--cadastros">
   {% for avaliacao in avaliacoes %}
-    <h2>{{ avaliacao.rotulo }}</h2>
-    {% if avaliacao.bloqueio %}<p role="alert">{{ avaliacao.bloqueio }}</p>{% endif %}
-    {% if avaliacao.acoes %}<p>Ações necessárias:</p><ul>{% for acao in avaliacao.acoes %}<li>{{ acao }}</li>{% endfor %}</ul>{% else %}<p>Nenhuma ação de cadastro necessária para os dados atuais.</p>{% endif %}
+    <li>
+      <span class="rot">{{ avaliacao.rotulo }}</span>
+      <div class="val">
+        {% if avaliacao.bloqueio %}<p role="alert">{{ avaliacao.bloqueio }}</p>{% endif %}
+        {% if avaliacao.acoes %}<p>Ações necessárias:</p><ul>{% for acao in avaliacao.acoes %}<li>{{ acao }}</li>{% endfor %}</ul>{% else %}Nenhuma ação de cadastro necessária para os dados atuais.{% endif %}
+      </div>
+    </li>
   {% endfor %}
+  </ul>
 </section>
+
 {{ form_confirmacao.non_field_errors }}
 {% if not pendencias %}
-<form method="post" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Confirmando...">
+<form method="post" class="formulario formulario-cadastro" data-submit-lock data-submit-texto="Confirmando...">
   {% csrf_token %}
-  {% for campo in form_confirmacao %}{% include "documentos/_campo.html" %}{% endfor %}
-  <div class="barra-acoes">
+  <section class="cartao">
+    {% for campo in form_confirmacao %}{% include "documentos/_campo.html" %}{% endfor %}
+  </section>
+  <div class="acoes-rodape">
+    <a class="botao botao--secundario" href="{% url 'analise_conferencia' analise_id=analise_id %}">Voltar e corrigir a nota</a>
+    <span class="status">Nada é gravado antes desta confirmação.</span>
     <button type="submit" class="botao">Confirmar lançamento financeiro</button>
-    <a href="{% url 'analise_conferencia' analise_id=analise_id %}">Voltar e corrigir a nota</a>
   </div>
 </form>
 {% else %}
-<p><a class="botao botao--secundario" href="{% url 'analise_conferencia' analise_id=analise_id %}">Voltar e corrigir a nota</a></p>
+<div class="acoes-rodape">
+  <span class="status"><strong>{{ pendencias|length }} pendência{{ pendencias|length|pluralize }}</strong> impede{{ pendencias|length|pluralize:",m" }} a confirmação.</span>
+  <a class="botao" href="{% url 'analise_conferencia' analise_id=analise_id %}">Voltar e corrigir a nota</a>
+</div>
 {% endif %}
 {% endblock %}
