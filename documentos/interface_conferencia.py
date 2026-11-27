@@ -13,7 +13,21 @@ from cadastros.validators import tipo_do_documento
 from .conferencia import NotaConferida, conferir_nota
 from .correcoes import validar_correcoes
 from .forms_conferencia import ConferenciaForm, ParcelasConferenciaFormSet
-from .forms_fiscais import preparar_campos_fiscais
+from .forms_fiscais import mensagem_fiscal, preparar_campos_fiscais
+
+# O que dizer ao usuário quando o backend recusa o valor de um campo (sem refletir o valor recebido).
+MENSAGEM_DOCUMENTO = 'Confira o CPF ou CNPJ: o número ou o dígito verificador não confere.'
+MENSAGENS_DE_CAMPO = {
+    'chave_acesso': mensagem_fiscal('chave_acesso_invalida'),
+    'serie': mensagem_fiscal('serie_invalida'),
+    'numero_nota': mensagem_fiscal('numero_invalido'),
+    'modelo': 'Informe 55 (NF-e) ou 65 (NFC-e), como consta no documento.',
+    'data_emissao': 'Informe uma data de emissão válida.',
+    'valor_total': 'Informe um valor maior que zero, com no máximo duas casas decimais.',
+    'fornecedor.documento': MENSAGEM_DOCUMENTO,
+    'faturado.documento': MENSAGEM_DOCUMENTO,
+}
+MENSAGEM_PADRAO = 'Confira este campo: o valor informado não foi aceito.'
 
 
 @dataclass(frozen=True)
@@ -117,8 +131,9 @@ versão otimista e chama registrar_correcoes da GR-43.
                 'tipo_despesa': 'classificacao'}
         for campo in invalidos:
             destino = mapa.get(campo, campo)
-            form.add_error(destino if destino in form.fields else None,
-                'Confira este dado: o backend recusou o valor informado.')
+            if campo == 'faturado.documento':
+                destino = 'faturado_cnpj' if form['faturado_cnpj'].value() else 'faturado_cpf'
+            form.add_error(destino if destino in form.fields else None, MENSAGENS_DE_CAMPO.get(campo, MENSAGEM_PADRAO))
         return form, parcelas, None
     nota = conferir_nota(original, normalizadas)
     if any(p.campo == 'parcelas' for p in nota.problemas):

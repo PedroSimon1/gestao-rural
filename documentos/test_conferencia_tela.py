@@ -103,6 +103,31 @@ class TelaDeConferenciaTests(TestCase):
         self.assertIn('<span class="parcela__nome" id="titulo-parcela-1">Parcela 1</span>', html)
         self.assertIn("1 × R$ 150,00", html)
 
+    def salvar_com(self, **campos):
+        return self.client.post(self.url, {"acao": "salvar", "versao_correcoes": "0", **self.dados_da_nota(), **campos})
+
+    def test_chave_de_acesso_invalida_diz_o_que_esta_errado_sem_falar_em_backend(self):
+        resposta = self.salvar_com(chave_acesso="3" * 44)
+        self.assertContains(resposta, "A chave de acesso tem formato ou dígito verificador inválido. Confira o documento.", status_code=400)
+        self.assertNotContains(resposta, "backend", status_code=400)
+        # O valor digitado volta no campo, para o usuário conferir contra a nota.
+        self.assertContains(resposta, "3" * 44, status_code=400)
+
+    def test_campo_com_erro_mostra_so_o_erro_e_nao_repete_pendente(self):
+        html = self.salvar_com(chave_acesso="123").content.decode()
+        campo = re.search(r'<div class="campo campo--f[^"]*">.*?</div>', html, re.S).group(0)
+        self.assertIn("errorlist", campo)
+        self.assertNotIn("Pendente:", campo)
+
+    def test_documento_do_faturado_invalido_aparece_no_campo_do_documento(self):
+        html = self.salvar_com(faturado_cpf="12345678901", faturado_cnpj="", documento_faturado="CPF").content.decode()
+        campo = re.search(r'<div class="campo campo--m[^"]*">(?:(?!</div>).)*id="id_faturado_cpf".*?</div>', html, re.S).group(0)
+        self.assertIn("CPF inválido.", campo)
+
+    def test_campos_sem_mensagem_propria_usam_o_texto_padrao_sem_termo_tecnico(self):
+        resposta = self.salvar_com(data_emissao="2026-02-30")
+        self.assertNotContains(resposta, "backend", status_code=400)
+
     def test_cadastro_de_classificacao_comeca_recolhido_e_abre_com_erro(self):
         self.assertIn('<details class="recolher">', self.pagina())
         resposta = self.client.post(self.url, {
