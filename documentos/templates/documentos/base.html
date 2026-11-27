@@ -20,6 +20,7 @@
           <a href="{% url 'documento_inicio' %}"{% if secao == 'nota' %} aria-current="page"{% endif %}>Enviar nota</a>
           <a href="{% url 'pessoas' %}"{% if secao == 'pessoas' %} aria-current="page"{% endif %}>Pessoas</a>
           <a href="{% url 'classificacoes' %}"{% if secao == 'classificacoes' %} aria-current="page"{% endif %}>Classificações</a>
+          <a href="{% url 'consulta' %}"{% if secao == 'consulta' %} aria-current="page"{% endif %}>Consultar</a>
           <a href="{% url 'logout' %}">Sair</a>
         </nav>
       {% endblock %}

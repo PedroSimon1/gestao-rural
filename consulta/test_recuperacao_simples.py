@@ -1,5 +1,7 @@
 """Recuperação literal com acentos, relevância, limite e fallback determinístico."""
 
+from unittest import mock
+
 from django.test import TestCase
 
 from financeiro.models import ItemNotaFiscal
@@ -7,6 +9,7 @@ from financeiro.servicos import ItemClassificacao, registrar_movimento
 
 from .recuperacao_simples import recuperar
 from .test_texto import DadosConsulta
+from .texto import carregar_movimentos
 
 
 class RecuperacaoSimplesTests(DadosConsulta, TestCase):
@@ -108,3 +111,42 @@ class RecuperacaoSimplesTests(DadosConsulta, TestCase):
         self.criar_nota()
         for documento in (self.fornecedor.documento, self.faturado.documento):
             self.assertEqual(recuperar(documento, 5)[0].motivo, "mais recentes")
+
+    def test_racao_nao_casa_no_meio_de_operacao(self):
+        movimento = self.criar_nota(descricao="Ração bovina")
+        self.criar_nota(numero=124, descricao="Arame")
+        fontes = recuperar("ração", 5)
+        self.assertEqual([fonte.movimento_id for fonte in fontes], [movimento.pk])
+        self.assertEqual(fontes[0].pontuacao, 2.0)
+        self.assertEqual(fontes[0].motivo, "casou: racao (itens)")
+
+    def test_plural_simples_casa_singular_mantendo_termo_no_motivo(self):
+        movimento = self.criar_nota(descricao="Vacina e ração para bovinos")
+        self.criar_nota(numero=124, descricao="Arame")
+        fontes = recuperar("VACINAS rações", 5)
+        self.assertEqual([fonte.movimento_id for fonte in fontes], [movimento.pk])
+        self.assertEqual(fontes[0].pontuacao, 2.0)
+        self.assertIn("vacinas (itens)", fontes[0].motivo)
+        self.assertNotIn("racoes", fontes[0].motivo)
+
+    def test_plural_nao_reduz_palavras_curtas(self):
+        self.criar_nota(numero=123, descricao="Gás para equipamento")
+        ultimo = self.criar_nota(numero=124, descricao="Galo")
+        fontes = recuperar("gás", 5)
+        self.assertEqual(len(fontes), 1)
+        self.assertNotEqual(fontes[0].movimento_id, ultimo.pk)
+        self.assertEqual(fontes[0].motivo, "casou: gas (itens)")
+
+    def test_pontua_apenas_o_recorte_de_candidatos_mais_recentes(self):
+        antigo = self.criar_nota(descricao="Ração e óleo")
+        segundo = self.criar_nota(numero=124, descricao="Ração")
+        terceiro = self.criar_nota(numero=125, descricao="Ração")
+        with (
+            mock.patch("consulta.recuperacao_simples.MAXIMO_CANDIDATOS", 2),
+            mock.patch("consulta.recuperacao_simples.carregar_movimentos",
+                       wraps=carregar_movimentos) as carregar,
+        ):
+            fontes = recuperar("ração óleo", 10)
+        carregar.assert_called_once_with([terceiro.pk, segundo.pk])
+        self.assertEqual([fonte.movimento_id for fonte in fontes], [terceiro.pk, segundo.pk])
+        self.assertNotIn(antigo.pk, [fonte.movimento_id for fonte in fontes])
