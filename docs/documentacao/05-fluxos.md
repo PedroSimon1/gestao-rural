@@ -88,9 +88,8 @@ Pontos importantes:
 - O PDF e a chave são descartados ao fim da requisição. Reenviar reprocessa e consome cota do Gemini.
 - Falha ao gravar a análise (banco): "Não foi possível guardar a análise agora. Tente novamente." (503).
 
-> **Rota legada.** `GET/POST /documentos/` (`documento_inicio`) ainda processa o PDF **sem guardar análise** (comportamento da Etapa 1,
-> com consultas diretas). A tela de envio atual (`inicio.html`) posta para `analise_criar`. Ao alterar o processamento,
-> confira os dois caminhos.
+> **Rota única de processamento.** `GET /documentos/` (`documento_inicio`) só mostra a tela de envio; o POST do formulário vai para `analise_criar`.
+> O antigo POST em `/documentos/`, que processava o PDF sem guardar análise, foi removido (responde 405).
 
 ## 4. Ciclo de vida da análise
 
