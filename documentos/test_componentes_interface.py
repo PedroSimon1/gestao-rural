@@ -1,4 +1,7 @@
 """Peças reutilizáveis da interface: cabeçalho de página, aviso, campo de formulário e situação."""
+from datetime import date
+from types import SimpleNamespace
+
 import re
 
 from django import forms
@@ -124,41 +127,88 @@ class SituacaoTests(SimpleTestCase):
 
 
 class EtapasETelasDaNotaTests(SimpleTestCase):
-    def etapas(self, atual):
-        return render_to_string("documentos/_etapas.html", {"atual": atual})
+    def etapas(self, atual, **extra):
+        return render_to_string("documentos/_etapas.html", {"atual": atual, **extra})
 
-    def test_etapa_atual_e_concluidas(self):
+    def test_etapa_atual_concluidas_e_aguardando_com_estado_em_texto(self):
         html = self.etapas(3)
         self.assertEqual(html.count('aria-current="step"'), 1)
-        self.assertRegex(html, r'<li aria-current="step"><b>3\.</b>Confirmar</li>')
+        self.assertIn('<li aria-current="step"><b>3.</b>Confirmar<small>Em andamento</small></li>', html)
         self.assertEqual(html.count('class="feita"'), 2)
+        self.assertEqual(html.count("<small>Concluída</small>"), 2)
+        self.assertEqual(html.count("<small>Aguardando</small>"), 1)
 
-    def test_primeira_etapa_sem_concluidas_e_ultima_sem_pendentes(self):
+    def test_nomes_longos_das_quatro_etapas(self):
+        html = self.etapas(1)
+        for nome in ("Enviar a nota", "Conferir os dados", "Confirmar", "Lançamento concluído"):
+            with self.subTest(etapa=nome):
+                self.assertIn(nome, html)
+
+    def test_primeira_etapa_sem_concluidas_e_ultima_concluida(self):
         self.assertNotIn("feita", self.etapas(1))
         ultima = self.etapas(4)
-        self.assertEqual(ultima.count('class="feita"'), 3)
-        self.assertRegex(ultima, r'<li aria-current="step"><b>4\.</b>Lançamento concluído</li>')
+        self.assertEqual(ultima.count('class="feita"'), 4)
+        self.assertIn('<li aria-current="step" class="feita"><b>4.</b>Lançamento concluído<small>Concluído</small></li>', ultima)
 
-    def test_etapas_concluidas_dizem_concluida_para_leitor_de_tela(self):
-        self.assertEqual(self.etapas(3).count("(concluída)"), 2)
-        self.assertNotIn("(concluída)", self.etapas(1))
+    def test_detalhe_e_alerta_so_valem_para_a_etapa_atual(self):
+        html = self.etapas(2, detalhe="3 pendências", alerta=True)
+        self.assertIn('<li aria-current="step" class="alerta"><b>2.</b>Conferir os dados<small>3 pendências</small></li>', html)
+        self.assertEqual(html.count("alerta"), 1)
+        self.assertNotIn("alerta", self.etapas(2))
 
-    def test_etapas_compactas_viram_barra_com_texto_para_leitor_e_etapa_n_de_4(self):
-        html = render_to_string("documentos/_etapas.html", {"atual": 3, "compacto": True})
-        self.assertIn('<ol class="progresso"', html)
-        self.assertEqual(html.count('class="feita"'), 2)
-        self.assertEqual(html.count('aria-current="step"'), 1)
-        self.assertIn('<li aria-current="step"><span class="so-leitor">3. Confirmar</span></li>', html)
-        self.assertIn("Etapa <b>3 de 4</b> · Confirmar", html)
-        self.assertEqual(html.count("(concluída)"), 2)
-        self.assertNotIn('class="etapas"', html)
+    def test_topo_do_fluxo_traz_trilha_titulo_apoio_e_etapas(self):
+        html = render_to_string("documentos/_topo_fluxo.html", {
+            "titulo": "Confirmar", "apoio": "Confira.", "migalha_url": "/x/", "migalha_rotulo": "Conferência", "migalha_atual": "Confirmação", "atual": 3})
+        self.assertIn('<p class="migalhas"><a href="/x/">Conferência</a><span aria-hidden="true">/</span>Confirmação</p>', html)
+        self.assertIn("<h1>Confirmar</h1>", html)
+        self.assertIn('<p class="apoio">Confira.</p>', html)
+        self.assertIn('<ol class="passos"', html)
 
-    def test_sucesso_leva_a_conta_lancada_e_marca_a_quarta_etapa(self):
-        html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3})
+    def test_topo_do_fluxo_sem_etapa_atual_nao_mostra_etapas(self):
+        html = render_to_string("documentos/_topo_fluxo.html", {"titulo": "Análise da nota"})
+        self.assertIn("<h1>Análise da nota</h1>", html)
+        self.assertNotIn("passos", html)
+
+    def test_ficha_da_nota_mostra_as_cinco_informacoes_e_so_com_dados(self):
+        ficha = SimpleNamespace(numero=123, fornecedor="Boa Safra", faturado="Três Marias", valor_total="1840.00", parcelas="2 × R$ 920,00")
+        html = render_to_string("documentos/_ficha_nota.html", {"ficha": ficha})
+        for texto in ("123", "Boa Safra", "Três Marias", "R$ 1.840,00", "2 × R$ 920,00"):
+            with self.subTest(texto=texto):
+                self.assertIn(texto, html)
+        self.assertNotIn("ficha", render_to_string("documentos/_ficha_nota.html", {}))
+
+    def test_sucesso_mostra_resumo_leva_a_conta_lancada_e_marca_a_quarta_etapa(self):
+        resumo = SimpleNamespace(valor_total="1840.00", quantidade_parcelas=2, primeiro_vencimento=date(2026, 12, 27))
+        ficha = SimpleNamespace(numero=123, fornecedor="Boa Safra", faturado="Três Marias", valor_total="1840.00", parcelas="2 × R$ 920,00")
+        html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3, "resumo": resumo, "ficha": ficha})
         self.assertIn('href="/financeiro/contas/7/"', html)
         self.assertIn("Ver a conta lançada", html)
         self.assertIn("Enviar outra nota", html)
-        self.assertRegex(html, r'aria-current="step"><b>4\.')
+        self.assertIn("A pagar nº 7", html)
+        self.assertIn("nº 3", html)
+        self.assertIn("2 (a primeira vence em 27/12/2026)", html)
+        self.assertIn("R$ 1.840,00", html)
+        self.assertIn('aria-current="step" class="feita"><b>4.</b>', html)
+
+    def test_sucesso_sem_resumo_ainda_mostra_os_numeros_do_lancamento(self):
+        html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3})
+        self.assertIn("A pagar nº 7", html)
+        self.assertNotIn("a primeira vence", html)
+
+    def test_envio_usa_o_topo_do_fluxo_e_a_acao_principal_na_barra_do_rodape_dentro_do_formulario(self):
+        html = render_to_string("documentos/inicio.html", {"form": DocumentoUploadForm(), "limite_upload_mb": 10})
+        self.assertIn('<div class="topo-fluxo">', html)
+        self.assertIn('<li aria-current="step"><b>1.</b>Enviar a nota<small>Em andamento</small></li>', html)
+        formulario = html[html.index("<form"):html.index("</form>")]
+        self.assertIn('<div class="acoes-rodape">', formulario)
+        self.assertIn('<button type="submit" class="botao">Processar</button>', formulario)
+
+    def test_mensagem_de_analise_usa_o_topo_sem_etapas_e_a_acao_na_barra_do_rodape(self):
+        html = render_to_string("documentos/analise_mensagem.html", {"mensagem": "Análise expirada."})
+        self.assertIn("<h1>Análise da nota</h1>", html)
+        self.assertNotIn("passos", html)
+        self.assertIn('role="alert"', html)
+        self.assertRegex(html, r'<div class="acoes-rodape">\s*<a class="botao" href="/documentos/">Voltar ao envio da nota</a>')
 
     def test_envio_traz_aviso_de_espera_escondido_ate_o_envio(self):
         html = render_to_string("documentos/inicio.html", {"form": DocumentoUploadForm(), "limite_upload_mb": 10})

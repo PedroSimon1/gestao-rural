@@ -39,7 +39,15 @@ _SECAO_DO_CAMPO = {
     "classificacao": 3, "valor_total": 3,
 }
 
-_COMPLEMENTO_FISCAL = "Faz parte da identificação fiscal (veja a chave de acesso)."
+# Campos de cada seção, com o tamanho na grade de 12 colunas (a seção 4 é o conjunto das parcelas).
+_CAMPOS_DA_SECAO = {
+    1: (("fornecedor_nome", "g"), ("fornecedor_documento", "p")),
+    2: (("faturado_nome", "g"), ("documento_faturado", "p"), ("faturado_cpf", "m"), ("faturado_cnpj", "m")),
+    3: (("numero_nota", "q"), ("serie_nota", "q"), ("modelo", "q"), ("data_emissao", "q"), ("chave_acesso", "f"),
+        ("classificacao", "g"), ("valor_total", "p")),
+}
+
+_COMPLEMENTO_FISCAL = "Parte da identificação fiscal (veja a chave)."
 
 
 def _destino(problema, form):
@@ -64,7 +72,7 @@ def resumir_pendencias(nota, form, parcelas):
     """Itens ordenados por seção, contagem por seção e o motivo de cada campo pendente.
 
     `campos` mapeia o nome do campo do formulário ao motivo (só problemas da nota; os erros do formulário
-    já aparecem sob o próprio campo).
+    já aparecem sob o próprio campo). `atencao` junta esses campos aos que têm erro de validação.
     """
     itens, campos = [], {}
     for problema in nota.problemas:
@@ -102,4 +110,19 @@ def resumir_pendencias(nota, form, parcelas):
     for secao in secoes:
         secao["total"] = len(secao["itens"])
     gerais = [i for i in itens if i["secao"] is None]
-    return SimpleNamespace(total=len(itens), itens=itens, secoes=secoes, gerais=gerais, campos=campos)
+    # Campos que a tela mostra no cartão "Precisa da sua atenção" (cada campo aparece em um só lugar).
+    atencao = set(campos) | {nome for nome in form.errors if nome in _SECAO_DO_CAMPO}
+    for secao in secoes:
+        # Cada campo aparece em um só lugar: em "Precisa da sua atenção" (pendente) ou no "Já conferido" (livre).
+        secao["atencao_campos"], secao["livres_campos"] = [], []
+        for nome, tamanho in _CAMPOS_DA_SECAO.get(secao["numero"], ()):
+            item = SimpleNamespace(campo=form[nome], tamanho=tamanho, motivo=campos.get(nome))
+            (secao["atencao_campos"] if nome in atencao else secao["livres_campos"]).append(item)
+        # As parcelas (seção 4) vão inteiras para a atenção ou ficam inteiras no "Já conferido".
+        secao["livres"] = (0 if secao["total"] else 1) if secao["numero"] == 4 else len(secao["livres_campos"])
+    total = len(itens)
+    rotulo = f"{total} pendência{'s' if total != 1 else ''}" if total else ""
+    return SimpleNamespace(
+        total=total, rotulo=rotulo, itens=itens, secoes=secoes, gerais=gerais, campos=campos, atencao=atencao,
+        secoes_ok=sum(1 for secao in secoes if not secao["total"]),
+    )

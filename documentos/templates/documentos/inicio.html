@@ -4,14 +4,12 @@
 
 {% block conteudo %}
   {% with limite=limite_upload_mb|stringformat:"s" %}{% with apoio_envio="Envie a nota fiscal de contas a pagar em PDF (até "|add:limite|add:" MB). O arquivo é usado só neste processamento e não é guardado." %}
-  {% include "documentos/_cabecalho_pagina.html" with titulo="Processar nota fiscal" apoio=apoio_envio %}
+  {% include "documentos/_topo_fluxo.html" with titulo="Processar nota fiscal" apoio=apoio_envio atual=1 %}
   {% endwith %}{% endwith %}
-  {% include "documentos/_etapas.html" with atual=1 %}
 
-  <section class="cartao">
-    <form method="post" action="{% url 'analise_criar' %}" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
-      {% csrf_token %}
-
+  <form method="post" action="{% url 'analise_criar' %}" enctype="multipart/form-data" class="formulario" data-submit-lock data-submit-texto="Processando...">
+    {% csrf_token %}
+    <section class="cartao cartao--campos">
       <label for="{{ form.gemini_api_key.id_for_label }}" class="formulario__rotulo">{{ form.gemini_api_key.label }}</label>
       {{ form.gemini_api_key }}
       <p class="texto-apoio texto-apoio--campo" id="{{ form.gemini_api_key.auto_id }}_helptext">{{ form.gemini_api_key.help_text }}</p>
@@ -36,11 +34,13 @@
         <strong>Processando a nota</strong>
         <p>Isso pode levar alguns minutos. Não feche esta página: ao terminar, você será levado à conferência dos dados.</p>
       </div>
+    </section>
 
+    <div class="acoes-rodape">
+      <span class="status">O processamento pode levar alguns minutos.</span>
       <button type="submit" class="botao">Processar</button>
-    </form>
-    <p class="texto-apoio texto-apoio--pequeno">O processamento pode levar alguns minutos.</p>
-  </section>
+    </div>
+  </form>
 
   {% if erro %}
     <section class="cartao">

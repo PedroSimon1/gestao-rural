@@ -1,0 +1,12 @@
+{% comment %}
+  Topo padrão das telas do fluxo "Enviar nota": trilha, título e apoio à esquerda; etapas à direita.
+  Parâmetros: titulo (obrigatório); apoio; migalha_url, migalha_rotulo e migalha_atual (nível anterior; atual padrão: titulo);
+  atual, detalhe e alerta (repassados a _etapas.html; sem atual, as etapas não aparecem).
+{% endcomment %}<div class="topo-fluxo">
+  <div>
+    {% if migalha_url %}<p class="migalhas"><a href="{{ migalha_url }}">{{ migalha_rotulo }}</a><span aria-hidden="true">/</span>{{ migalha_atual|default:titulo }}</p>{% endif %}
+    <h1>{{ titulo }}</h1>
+    {% if apoio %}<p class="apoio">{{ apoio }}</p>{% endif %}
+  </div>
+  {% if atual %}{% include "documentos/_etapas.html" %}{% endif %}
+</div>

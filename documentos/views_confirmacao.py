@@ -12,6 +12,7 @@ from .analises import AnaliseError, obter_analise
 from .conferencia import conferir_nota
 from .forms_confirmacao import ConfirmacaoLancamentoForm, ROTULOS_DECISAO
 from .forms_fiscais import MENSAGENS_FISCAIS, mensagem_fiscal
+from .resumo_nota import ficha_da_nota, resumo_do_lancamento
 from .views_analises import _erro_analise, _falha
 
 MENSAGENS = {
@@ -87,13 +88,14 @@ def analise_confirmar(request, analise_id):
                 else:
                     # lancar_nota só retorna depois do COMMIT oficial.
                     return render(request, 'documentos/lancamento_sucesso.html', {
-                        'movimento_id': resultado.movimento.pk, 'nota_fiscal_id': resultado.nota_fiscal.pk})
+                        'movimento_id': resultado.movimento.pk, 'nota_fiscal_id': resultado.nota_fiscal.pk,
+                        'ficha': ficha_da_nota(nota), 'resumo': resumo_do_lancamento(nota)})
             else:
                 status = 400
         else:
             form = ConfirmacaoLancamentoForm(initial={'versao_correcoes': analise.versao_correcoes})
         return render(request, 'documentos/confirmacao.html', {
-            'analise_id': analise.id, 'form_confirmacao': form, 'nota': nota,
+            'analise_id': analise.id, 'form_confirmacao': form, 'nota': nota, 'ficha': ficha_da_nota(nota),
             'pendencias': pendencias_da_nota(nota), 'avaliacoes': _avaliacoes(nota),
         }, status=status)
     except AnaliseError as erro:

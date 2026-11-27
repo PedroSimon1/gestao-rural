@@ -94,28 +94,25 @@ class TelaDePendenciasTests(TestCase):
         self.analise = criar_analise(self.client.session, resultado_da_nota())
         self.html = self.client.get(reverse("analise_conferencia", args=[self.analise.id])).content.decode()
 
-    def test_painel_lista_cada_pendencia_com_link_para_o_campo(self):
-        painel = re.search(r'<div class="lado__bloco lado__bloco--pend" role="alert">.*?</aside>', self.html, re.S).group(0)
-        self.assertRegex(painel, r"<strong>\d+ pendência")
-        self.assertIn('<a href="#id_chave_acesso">Identificação fiscal</a>', painel)
-        self.assertIn("Existem pendências na validação da nota", painel)
-
-    def test_secao_com_pendencia_e_marcada_e_a_sem_pendencia_diz_que_esta_ok(self):
-        secao_nota = re.search(r'<section class="secao-nota[^"]*" id="secao-nota".*?</section>', self.html, re.S).group(0)
-        self.assertIn("secao-nota--pendente", secao_nota)
-        self.assertRegex(secao_nota, r'<span class="st st--erro">\d+ pendência')
-        secao_parcelas = re.search(r'<section class="secao-nota[^"]*" id="secao-parcelas".*?</section>', self.html, re.S).group(0)
-        self.assertNotIn("secao-nota--pendente", secao_parcelas)
-        self.assertIn('<span class="st st--ok">Sem pendências</span>', secao_parcelas)
-
-    def test_campo_pendente_e_marcado_e_o_motivo_aparece_em_texto(self):
-        campo = re.search(r'<div class="campo campo--f campo--pendente">.*?</div>', self.html, re.S).group(0)
+    def test_cartao_de_atencao_diz_quantas_pendencias_e_o_motivo_junto_do_campo(self):
+        atencao = re.search(r'<section class="cartao cartao--pend".*?</section>', self.html, re.S).group(0)
+        self.assertIn('<span class="st st--erro">1 pendência</span>', atencao)
+        self.assertIn("Existem pendências na validação da nota", atencao)
+        self.assertIn('<span class="onde">3. Dados da nota</span>', atencao)
+        campo = re.search(r'<div class="campo campo--f campo--pendente">.*?</div>', atencao, re.S).group(0)
         self.assertIn('id="id_chave_acesso"', campo)
         self.assertIn("<strong>Pendente:</strong>", campo)
 
-    def test_painel_resume_a_situacao_de_cada_secao_com_link_e_contagem(self):
-        bloco = re.search(r'<ul class="sec-lista">.*?</aside>', self.html, re.S).group(0)
-        for ancora in ("secao-fornecedor", "secao-faturado", "secao-nota", "secao-parcelas"):
-            self.assertIn(f'href="#{ancora}"', bloco)
-        self.assertIn('<span class="pill pill--ok">OK', bloco)
-        self.assertRegex(bloco, r'<span class="pill pill--erro">\d+')
+    def test_campos_de_identificacao_fiscal_ficam_juntos_no_cartao_de_atencao(self):
+        atencao = re.search(r'<section class="cartao cartao--pend".*?</section>', self.html, re.S).group(0)
+        for nome in ("numero_nota", "serie_nota", "modelo", "chave_acesso"):
+            self.assertIn(f'id="id_{nome}"', atencao)
+        # Os outros campos da seção 3 seguem no "Já conferido".
+        self.assertNotIn('id="id_classificacao"', atencao)
+
+    def test_ja_conferido_lista_as_quatro_secoes_com_editar_ou_aviso(self):
+        conferido = re.search(r'<section class="cartao" aria-labelledby="titulo-conferido">.*?</section>', self.html, re.S).group(0)
+        for secao in ("Fornecedor", "Faturado", "Dados da nota", "Parcelas"):
+            self.assertIn(f'<span class="rot">{secao}</span>', conferido)
+        self.assertEqual(conferido.count('<details class="editavel"'), 4)
+        self.assertIn('<span class="editar__abrir">Editar</span>', conferido)

@@ -133,13 +133,14 @@ def analise_conferencia(request, analise_id):
         consultas = SimpleNamespace(fornecedor=nota.fornecedor.consulta,
             faturado=nota.faturado.consulta, classificacao=nota.classificacao)
         from .pendencias_conferencia import resumir_pendencias
+        from .resumo_nota import ficha_da_nota
         return render(request, 'documentos/conferencia.html', {
             'form': form, 'parcelas': parcelas, 'revisao': SimpleNamespace(nota=nota),
             'json_original': json.dumps(analise.dados, ensure_ascii=False, indent=2),
             'analise_id': analise.id, 'versao_correcoes': versao_tela,
             'expira_em': analise.expira_em, 'erro_tela': erro_tela,
             'correcoes_salvas': salvo, 'consultas': _linhas_consultas(consultas),
-            'pendencias': resumir_pendencias(nota, form, parcelas),
+            'pendencias': resumir_pendencias(nota, form, parcelas), 'ficha': ficha_da_nota(nota),
             'nova_classificacao': nova_classificacao, 'cadastro_criado': cadastro_criado,
         }, status=status)
     except AnaliseError as erro:
