@@ -4108,3 +4108,50 @@ Testar com uma nota real e uma categoria nova cadastrada (o prompt não foi exer
 ## 47.10 - Git
 
 Branch `feature/etapa-4`, dois commits de código (ciclo; classificador) e um de documentação, sem co-autor. Nenhum push nem merge. Próximo passo do usuário: `git push -u origin feature/etapa-4` e PR para `develop`.
+
+# 48 - N3 Etapa 3, Etapa 1 do plano: base para o RAG (27/11/2026)
+
+## 48.1 - Identificação
+
+Tarefa: N3 Etapa 3 ("Consulta com RAG", entrega 02/12/2026), parte 1 de 2: adaptar o sistema atual antes de implementar o RAG. Data: 27/11/2026. Branch `feature/n3-rag-etapa1`, criada a partir de `docs/n3-RAG-planejamento` (mesmo commit da `develop`, `1cc8dab`) num worktree próprio. Decisões em [ADR-003](docs/arquitetura/ADR-003-rag-consulta.md) (proposta).
+
+## 48.2 - Objetivo
+
+Persistir os itens da nota (antes descartados na confirmação), prepará-los para exibição, dar ao `GeminiClient` a operação de embeddings, configurar o RAG e ter dados fictícios para demonstrar a busca.
+
+## 48.3 - Implementação
+
+- **Itens da nota (1.1):** `ItemNotaFiscal` (tabela `itens_notas_fiscais`, FK `NotaFiscalLancada`, `related_name="itens"`, sem exclusão nem alteração) e `financeiro/itens_nota.py::registrar_itens_nota`, chamado em `documentos/lancamento_nota.py::_gravador` dentro da mesma transação da confirmação. Idempotente (bloqueia a nota e não regrava) e tolerante: item sem descrição é ignorado, número ilegível ou fora do limite vira `NULL`, descrição é truncada a 500. O conteúdo dos itens vem do Agent Extrator e não é corrigível na conferência.
+- **Itens em `conta_detalhe` (1.2):** `financeiro/manual.py` passou a levar os itens no DTO da conta (consulta única) e o template exibe a tabela quando há itens.
+- **Embeddings (1.3):** `GeminiClient.gerar_embeddings(textos, *, tarefa)`; constantes `TAREFA_DOCUMENTO` e `TAREFA_CONSULTA`; vetores normalizados L2, na ordem de entrada; recusa o modelo `gemini-embedding-2` (agrega o lote em um vetor); valida contagem, dimensão e valores; o mapeamento de erros de `gerar_conteudo` virou o helper `_chamar_sdk`, compartilhado.
+- **Configuração (1.4):** `GEMINI_MODELO_EMBEDDING` (`gemini-embedding-001`), `GEMINI_DIMENSAO_EMBEDDING` (`768`), `RAG_TOP_K` (`5`) e `RAG_LOTE_INDEXACAO` (`20`) em `config/settings.py` e `.env.example`, lidas como texto e validadas no ponto de uso.
+- **Dados de demonstração (1.6):** `documentos/demonstracao.py` e `python manage.py carregar_demonstracao --confirmar`: 24 notas fictícias com itens, lançadas pelo caminho oficial, sem duplicar ao repetir. Mostra host e nome do banco (nunca credenciais), exige `--confirmar` e recusa host remoto sem `--permitir-remoto`. **Não foi executado contra nenhum banco** (só testes no banco local de teste).
+- **Fora desta etapa:** o app `consulta/`, o menu e a rota `/consulta/` ficam para a Etapa 2, para não criar uma página vazia.
+
+## 48.4 - Arquivos
+
+Criados: `financeiro/itens_nota.py`, `financeiro/migrations/0007_itens_notas_fiscais.py`, `financeiro/migrations/0008_habilitar_rls_itens.py`, `financeiro/test_itens_nota.py`, `documentos/demonstracao.py`, `documentos/management/commands/carregar_demonstracao.py`, `documentos/test_demonstracao.py`, `docs/arquitetura/ADR-003-rag-consulta.md`. Alterados: `financeiro/models.py`, `financeiro/manual.py`, `financeiro/templates/financeiro/conta_detalhe.html`, `documentos/lancamento_nota.py`, `agents/gemini_client.py`, `config/settings.py`, `.env.example`, testes correspondentes, `docs/INDICE.md`.
+
+## 48.5 - Decisões técnicas
+
+Ver as decisões D-1 a D-8 do ADR-003. Em particular: itens tolerantes (conteúdo de IA nunca impede o lançamento da nota); `gemini-embedding-001` com 768 dimensões porque a API só normaliza o vetor de 3072 (a normalização é do cliente); erros de entrada do cliente de embeddings usam `GeminiConfiguracaoError`, para os Agents capturarem só `GeminiError`.
+
+## 48.6 - Banco de dados
+
+Duas migrations novas em `financeiro`: `0007_itens_notas_fiscais` (tabela, constraints de ordem única por nota, descrição obrigatória, valores não negativos) e `0008_habilitar_rls_itens` (RLS, sem políticas). **Não aplicadas em banco remoto**: o usuário as aplica manualmente em cada ambiente (PT-06). Notas já lançadas ficam sem itens.
+
+## 48.7 - Testes
+
+`manage.py check` sem problemas; `ruff check .` sem erros; `makemigrations --check --dry-run` (com `DB_HOST` inalcançável) sem mudanças; `git diff --check` limpo; `manage.py test --noinput`: **1342 testes, OK** (era 1302).
+
+## 48.8 - Integração
+
+Depende da seção 47 (ciclo desfeito, `documentos.lancamento_nota`). A Etapa 2 usa `ItemNotaFiscal` no texto do contexto, `GeminiClient.gerar_embeddings` na indexação e as variáveis `RAG_*`.
+
+## 48.9 - Pendências
+
+Ainda não existe RAG (seção 49). A carga de demonstração e as migrations 0007/0008 precisam ser aplicadas por você nos ambientes. Itens ainda não são corrigíveis na conferência. O ADR-003 aguarda aprovação da equipe.
+
+## 48.10 - Git
+
+Branch `feature/n3-rag-etapa1`, commits sem co-autor, mesclada localmente em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
