@@ -3865,4 +3865,48 @@ Nenhuma nova. O banco pausado continua sem mensagem própria nas demais telas ("
 
 ## 42.10 - Git
 
+Commit `9ce4957` na branch `feature/correcao-interface-backend`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 43 - JSON original maior, com copiar e baixar, na conferência (27/11/2026)
+
+## 43.1 - Identificação
+
+Tarefa: melhorar o bloco "Dados extraídos originalmente" da conferência, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 43.2 - Objetivo
+
+O bloco tinha altura fixa de 220 px. Passa a mostrar o JSON por inteiro quando couber, com limite de altura e rolagem quando não couber, e ganha botões para copiar e baixar.
+
+## 43.3 - Implementação
+
+- Removida a classe `bloco-json--curto`; vale o limite padrão de `.bloco-json` (`max-height: 70vh`, `overflow: auto`). O bloco é focável por teclado.
+- "Baixar .json": link para a nova rota `analises/<uuid>/json/` (`analise_json`), que devolve os mesmos dados da tela em UTF-8, indentados, como anexo. Nome: `nota-fiscal_<número>_<fornecedor>_<emissão>_dados-extraidos.json` (partes ausentes são omitidas; sem nenhuma, usa os 8 primeiros caracteres do id). Funciona sem JavaScript.
+- "Copiar JSON": botão que só aparece com JavaScript (`conferencia.js`); usa `navigator.clipboard` e, sem ela, seleção + `execCommand("copy")`. Mostra "JSON copiado." ou orienta a usar o download.
+
+## 43.4 - Arquivos
+
+`documentos/views_analises.py`, `documentos/urls.py`, `documentos/templates/documentos/conferencia.html`, `documentos/static/documentos/conferencia.js` e `documentos.css`; testes em `documentos/test_fluxo_conferencia.py`; `docs/documentacao/08-interface-e-rotas.md`.
+
+## 43.5 - Decisões técnicas
+
+Download pelo servidor, e não por Blob no navegador: o nome do arquivo é controlado no servidor, não há JavaScript a mais e a rota reaproveita `obter_analise` (dono, prazo e estado). O arquivo contém os dados extraídos originais, nunca as correções. Depois de confirmar, cancelar ou expirar, os dados são apagados e a rota recusa.
+
+## 43.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations.
+
+## 43.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1271 testes, OK (6 novos: botões na tela, nome e conteúdo do arquivo, nome sem identificação, acesso só da sessão dona, análise expirada, falha de banco). Não verificado no navegador: aparência do bloco e o botão de copiar (a tela depende do banco de homologação, que não foi usado).
+
+## 43.8 - Integração
+
+Usa `obter_analise` (GR-43) e a tela de conferência (GR-45).
+
+## 43.9 - Pendências
+
+Conferir no navegador a altura do bloco e o botão "Copiar JSON" (em página sem HTTPS cai no `execCommand`).
+
+## 43.10 - Git
+
 Branch `feature/correcao-interface-backend`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.

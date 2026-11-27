@@ -350,7 +350,9 @@ details.recolher { margin: 16px 0 0; background: var(--cor-superficie); border: 
 details.recolher > summary { padding: 10px 16px; font-weight: 600; cursor: pointer; }
 details.recolher > div { padding: 0 16px 16px; }
 .json { margin-top: 24px; }
-.bloco-json--curto { max-height: 220px; }
+.acoes-json { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
+.acoes-json .botao { margin: 0; }
+.acoes-json .texto-apoio { margin: 0; }
 @media (max-width: 1040px) {
   .topo-fluxo { grid-template-columns: 1fr; }
   .passos li { flex: 1 1 0; min-width: 0; }
