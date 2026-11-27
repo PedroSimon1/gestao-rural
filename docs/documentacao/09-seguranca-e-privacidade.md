@@ -69,7 +69,7 @@ Esta seção descreve os controles que existem no código, os limites conhecidos
 | Controle | Detalhe |
 | --- | --- |
 | Credenciais só do ambiente | `settings.py` **recusa iniciar** sem `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`; sem banco substituto |
-| **TLS obrigatório** | `DB_SSLMODE` ∈ `require`, `verify-ca`, `verify-full` (padrão `require`); modos sem criptografia são recusados |
+| **TLS obrigatório** | `DB_SSLMODE` ∈ `require`, `verify-ca`, `verify-full` (padrão `require`); modos sem criptografia são recusados; `require` não confere o certificado do servidor e gera o aviso `config.W001` em `check --deploy` |
 | Testes isolados | O executor de testes só aceita PostgreSQL **local** (`DB_TEST_*`), banco com prefixo `test_` e diferente de `DB_NAME`; recusa variáveis do libpq que redirecionariam a conexão |
 | Escrita financeira protegida | Sem exclusão/alteração direta de campos essenciais; transação única; `select_for_update`; índices únicos; gatilho diferido (ver [06](06-modelo-de-dados.md)) |
 | Mascaramento | CPF aparece como `*******` + 4 últimos dígitos em `__str__`, logs e erros |
