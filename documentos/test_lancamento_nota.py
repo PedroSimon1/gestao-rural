@@ -27,7 +27,8 @@ from cadastros.models import Classificacao, Papel, PapelPessoa, Pessoa, Situacao
 from cadastros.resolucao import Decisao
 from financeiro.identidade_fiscal import identificar_nota
 from financeiro.models import (
-    MovimentoClassificacao, MovimentoConta, NotaFiscalLancada, ParcelaConta, StatusMovimento,
+    ItemNotaFiscal, MovimentoClassificacao, MovimentoConta, NotaFiscalLancada, ParcelaConta,
+    StatusMovimento,
 )
 from financeiro.test_identidade_fiscal import chave
 
@@ -66,7 +67,7 @@ def contagens():
     return {
         model.__name__: model.objects.count()
         for model in (Pessoa, PapelPessoa, MovimentoConta, MovimentoClassificacao, ParcelaConta,
-                      NotaFiscalLancada)
+                      NotaFiscalLancada, ItemNotaFiscal)
     }
 
 
@@ -137,6 +138,10 @@ class LancamentoValidoTests(LancamentoTestBase):
         self.assertEqual((nota.movimento_id, nota.emitente_cnpj, nota.modelo, nota.serie, nota.numero),
                          (movimento.pk, CNPJ, "55", 1, 123))
         self.assertEqual(nota.data_emissao, date(2026, 10, 1))  # D3: emissão da nota gravada
+        self.assertEqual(
+            list(nota.itens.values_list("ordem", "descricao", "quantidade", "valor_unitario", "valor_total")),
+            [(1, "Óleo", Decimal("1"), Decimal("150.00"), Decimal("150.00"))],
+        )
         self.assertEqual(lancamento.fornecedor.acoes, ())
         self.assertEqual(lancamento.faturado.acoes, ())
         self.assertEqual(Pessoa.objects.count(), 2)
@@ -146,6 +151,22 @@ class LancamentoValidoTests(LancamentoTestBase):
         self.assertIsNone(analise.dados)
         self.assertIsNone(analise.correcoes)
         self.assertEqual(analise.campos_corrigidos, ["serie"])
+
+    def test_itens_ilegiveis_nao_impedem_lancamento(self):
+        cadastrar_pessoas()
+        resultado = resultado_da_nota()
+        resultado["itens"] = [
+            {"descricao": None}, {"descricao": "Diesel", "quantidade": "inválida",
+                                   "valor_unitario": "NaN", "valor_total": "-1"},
+        ]
+        analise = self.nova_analise(resultado=resultado)
+        with com_modelo():
+            lancamento = self.lancar(analise)
+        item = lancamento.nota_fiscal.itens.get()
+        self.assertEqual(item.descricao, "Diesel")
+        self.assertIsNone(item.quantidade)
+        self.assertIsNone(item.valor_unitario)
+        self.assertIsNone(item.valor_total)
 
     def test_cria_pessoas_com_autorizacao_explicita(self):
         analise = self.nova_analise()
@@ -177,6 +198,7 @@ class LancamentoValidoTests(LancamentoTestBase):
         self.assertEqual(movimento.valor_total, Decimal("200.00"))
         self.assertEqual(movimento.parcelas.count(), 2)
         self.assertEqual(movimento.classificacoes.get().classificacao.codigo, "INFRAESTRUTURA_E_UTILIDADES")
+        self.assertEqual(movimento.nota_fiscal.itens.get().valor_total, Decimal("150.00"))
 
     def test_faturado_com_cnpj_escolhido(self):
         fornecedor, _ = cadastrar_pessoas()
@@ -360,6 +382,7 @@ class DuplicidadeTests(LancamentoTestBase):
 
         self.assertEqual(contexto.exception.codigo, "analise_confirmada")
         self.assertEqual(MovimentoConta.objects.count(), 1)
+        self.assertEqual(ItemNotaFiscal.objects.count(), 1)
 
 
 class RollbackTests(LancamentoTestBase):
@@ -378,6 +401,9 @@ class RollbackTests(LancamentoTestBase):
 
     def test_falha_depois_do_movimento(self):
         self.lancar_com_falha("documentos.lancamento_nota.registrar_identidade_fiscal")
+
+    def test_falha_depois_da_identidade_fiscal(self):
+        self.lancar_com_falha("documentos.lancamento_nota.registrar_itens_nota")
 
     def test_falha_ao_finalizar_a_analise(self):
         self.lancar_com_falha("documentos.analises._finalizar")

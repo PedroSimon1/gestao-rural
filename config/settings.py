@@ -244,6 +244,13 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL")
 GEMINI_TIMEOUT_SEGUNDOS = os.getenv("GEMINI_TIMEOUT_SEGUNDOS") or "60"
 GEMINI_MAX_TENTATIVAS = os.getenv("GEMINI_MAX_TENTATIVAS") or "3"
 
+# Embeddings e RAG (consulta). Também lidos como texto e validados no ponto de
+# uso: GeminiClient (modelo e dimensão) e consulta/ (top-k e lote).
+GEMINI_MODELO_EMBEDDING = os.getenv("GEMINI_MODELO_EMBEDDING") or "gemini-embedding-001"
+GEMINI_DIMENSAO_EMBEDDING = os.getenv("GEMINI_DIMENSAO_EMBEDDING") or "768"
+RAG_TOP_K = os.getenv("RAG_TOP_K") or "5"
+RAG_LOTE_INDEXACAO = os.getenv("RAG_LOTE_INDEXACAO") or "20"
+
 # Login da demonstração (usuarios/demo.py)
 # Sem usuários: as credenciais vêm do ambiente e a autenticação fica só na
 # sessão (cookie assinado). Ausentes ou vazias, o login recusa todo acesso.

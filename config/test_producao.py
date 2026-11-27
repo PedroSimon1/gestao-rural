@@ -317,6 +317,17 @@ class ScriptsDeDeployTests(SimpleTestCase):
         for variavel in ("DJANGO_SECRET_KEY", "DEMO_LOGIN", "DEMO_PASSWORD"):
             self.assertRegex(exemplo, rf"(?m)^{variavel}=$")
 
+    def test_env_example_documenta_variaveis_de_embedding_e_rag(self):
+        exemplo = self.ler(".env.example")
+
+        for variavel in (
+            "GEMINI_MODELO_EMBEDDING",
+            "GEMINI_DIMENSAO_EMBEDDING",
+            "RAG_TOP_K",
+            "RAG_LOTE_INDEXACAO",
+        ):
+            self.assertRegex(exemplo, rf"(?m)^{variavel}=\S+$")
+
     def test_env_example_com_banco_de_teste_sem_credenciais(self):
         exemplo = self.ler(".env.example")
 
