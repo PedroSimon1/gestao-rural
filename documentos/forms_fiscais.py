@@ -1,7 +1,8 @@
-"""GR-45/G-01: componente fiscal preparado, ainda não conectado às rotas.
+"""GR-45/G-01: campos fiscais da conferência (chave de acesso, modelo, série e número).
 
-Validação delegada à identidade oficial da GR-22. Não guarda correções nem
-substitui revalidação, autorização ou transação da confirmação.
+A conferência reaproveita as definições de `chave_acesso` e `modelo` daqui (forms_conferencia)
+e as mensagens fixas (mensagem_fiscal). Validação delegada à identidade oficial da GR-22.
+Não guarda correções nem substitui revalidação, autorização ou transação da confirmação.
 """
 from django import forms
 from django.core.exceptions import ValidationError

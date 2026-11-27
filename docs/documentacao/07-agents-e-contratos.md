@@ -75,6 +75,8 @@ Sobre o legado:
 
 > **Não confunda as versões.** `VERSAO_DADOS` (1 ou 2) é a versão do **JSON final** guardado na análise (GR-43). `versao_schema` (2 ou 3) é a versão do **schema do Extrator**.
 > A rota da interface usa schema 3 → dados v2. O contrato completo está em `docs/contratos/JSONFiscalV2.schema.json` e o exemplo fictício em `JSONFiscalV2.exemplo.json`.
+> `AgentExtrator()` sem argumentos ainda usa o schema 2 (legado, dados v1). Nenhuma rota o usa assim: `processar_pdf(..., versao_dados=2)` cria o Extrator com `versao_schema=3`. Mudar o padrão obrigaria reescrever as respostas simuladas de dezenas de testes (o schema 3 exige `documento_fiscal`).
+> Um JSON v1 guardado numa análise nunca consegue ser lançado: falta chave de acesso e modelo (`identidade_fiscal_insuficiente`), a menos que o usuário os informe como correção.
 
 ## 4. Agent Classificador (`agents/classificador/agent.py`)
 

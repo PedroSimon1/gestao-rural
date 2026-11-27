@@ -6,8 +6,9 @@ certa) até a janela acabar.
 
 Limites conhecidos:
 - O contador fica no cache do Django (memória do processo, `LocMemCache`).
-  Cada worker do Gunicorn conta à parte e um reinício zera tudo; com
-  `WEB_CONCURRENCY` = N, o teto efetivo por origem chega a N vezes o definido.
+  As threads de um mesmo worker do Gunicorn compartilham o contador (thread-safe);
+  cada worker conta à parte e um reinício zera tudo; com `WEB_CONCURRENCY` = N,
+  o teto efetivo por origem chega a N vezes o definido.
 - O teto global protege contra tentativas espalhadas por vários endereços, mas
   também permite que alguém bloqueie o login legítimo durante a janela. Com um
   login único e compartilhado, esse custo foi aceito.
