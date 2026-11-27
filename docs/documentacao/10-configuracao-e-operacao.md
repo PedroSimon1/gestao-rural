@@ -18,6 +18,7 @@ O `config/settings.py` lê o `.env` com `python-dotenv` **sem sobrescrever** var
 | `DEMO_LOGIN`, `DEMO_PASSWORD` | Para entrar | texto | Login de demonstração; vazios, o login recusa tudo |
 | `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | **Sim** | — | Banco da aplicação; sem elas o Django **não inicia** |
 | `DB_PORT` | Não | `5432` | Porta do Session Pooler |
+| `DJANGO_PROXIES_CONFIAVEIS` | Não | `1` | Proxies da plataforma que acrescentam o cliente a `X-Forwarded-For`; define a origem do limite de login (`0` ignora o cabeçalho) |
 | `DB_SSLMODE` | Não | `require`; aceita `require`, `verify-ca`, `verify-full` | TLS obrigatório; outros valores são recusados |
 | `DB_SSLROOTCERT` | Para `verify-*` | caminho do certificado da CA | |
 | `DB_CONNECT_TIMEOUT` | Não | `10` (segundos, inteiro ≥ 1) | |

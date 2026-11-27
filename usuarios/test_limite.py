@@ -4,7 +4,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.core.cache import cache
-from django.test import SimpleTestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from . import limite
 from .checks import senha_da_demonstracao_curta
@@ -132,3 +132,29 @@ class SenhaCurtaTests(SimpleTestCase):
         for senha in ("uma-senha-bem-longa-123", "", None):
             with self.subTest(senha=senha):
                 self.assertEqual(self.avisos(senha), [])
+
+
+class OrigemDoClienteTests(SimpleTestCase):
+    def origem(self, encaminhado, proxies, remoto="10.0.0.1"):
+        meta = {"REMOTE_ADDR": remoto}
+        if encaminhado is not None:
+            meta["HTTP_X_FORWARDED_FOR"] = encaminhado
+        with override_settings(PROXIES_CONFIAVEIS=proxies):
+            return limite._origem(RequestFactory().get("/", **meta))
+
+    def test_um_proxy_usa_o_ultimo_valor(self):
+        self.assertEqual(self.origem("1.1.1.1, 203.0.113.9", 1), "203.0.113.9")
+
+    def test_dois_proxies_usam_o_penultimo_valor(self):
+        # Valor forjado pelo cliente; o endereço real, que o 1º proxy viu; o do próprio 1º proxy, acrescentado pelo 2º.
+        self.assertEqual(self.origem("forjado, 203.0.113.9, 172.16.0.1", 2), "203.0.113.9")
+
+    def test_cabecalho_mais_curto_que_o_esperado_usa_o_primeiro_valor(self):
+        self.assertEqual(self.origem("203.0.113.9", 3), "203.0.113.9")
+
+    def test_zero_proxies_ignora_o_cabecalho_forjavel(self):
+        self.assertEqual(self.origem("198.51.100.7", 0), "10.0.0.1")
+
+    def test_sem_cabecalho_usa_o_endereco_da_conexao(self):
+        self.assertEqual(self.origem(None, 1), "10.0.0.1")
+        self.assertEqual(self.origem(" , ", 1), "10.0.0.1")
