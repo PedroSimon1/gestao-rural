@@ -97,3 +97,54 @@
 
   atualizar();
 })();
+
+/*
+ * Copiar o JSON original: o botão só aparece com JavaScript (sem ele, "Baixar .json" cobre o mesmo caso).
+ * Só lê o texto já exibido na página; não envia nada.
+ */
+(function () {
+  "use strict";
+
+  var botao = document.querySelector("[data-copiar-json]");
+  var origem = botao ? document.getElementById(botao.getAttribute("data-copiar-json")) : null;
+  var estado = document.querySelector("[data-copiar-estado]");
+  if (!botao || !origem) {
+    return;
+  }
+  botao.hidden = false;
+
+  function avisar(texto) {
+    if (estado) {
+      estado.textContent = texto;
+    }
+  }
+
+  // Sem a API de área de transferência (página sem HTTPS, navegador antigo): seleciona o texto e usa o comando antigo.
+  function copiarPorSelecao() {
+    var selecao = window.getSelection();
+    var faixa = document.createRange();
+    faixa.selectNodeContents(origem);
+    selecao.removeAllRanges();
+    selecao.addRange(faixa);
+    var ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (erro) {
+      ok = false;
+    }
+    selecao.removeAllRanges();
+    return ok;
+  }
+
+  botao.addEventListener("click", function () {
+    var texto = origem.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(
+        function () { avisar("JSON copiado."); },
+        function () { avisar(copiarPorSelecao() ? "JSON copiado." : "Não foi possível copiar. Use Baixar .json."); }
+      );
+    } else {
+      avisar(copiarPorSelecao() ? "JSON copiado." : "Não foi possível copiar. Use Baixar .json.");
+    }
+  });
+})();

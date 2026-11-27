@@ -12,9 +12,14 @@ Limites conhecidos:
   também permite que alguém bloqueie o login legítimo durante a janela. Com um
   login único e compartilhado, esse custo foi aceito.
 - Os endereços só entram no cache como hash.
+- A origem vem de X-Forwarded-For contando PROXIES_CONFIAVEIS valores do fim
+  (DJANGO_PROXIES_CONFIAVEIS, padrão 1). Se o número real de proxies da
+  plataforma for outro, a origem de todos os usuários pode virar o mesmo
+  endereço (todos no mesmo limite) ou um valor forjável.
 """
 import hashlib
 
+from django.conf import settings
 from django.core.cache import cache
 
 TENTATIVAS_POR_ORIGEM = 5
@@ -25,11 +30,17 @@ CHAVE_GLOBAL = "login-falhas:global"
 
 
 def _origem(request):
-    # Atrás do proxy da plataforma, o último valor de X-Forwarded-For é o endereço
-    # que o próprio proxy viu; valores anteriores podem ser forjados pelo cliente.
-    encaminhado = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    ultimo = encaminhado.split(",")[-1].strip()
-    return ultimo or request.META.get("REMOTE_ADDR", "")
+    # Com N proxies confiáveis (settings.PROXIES_CONFIAVEIS) na frente, cada um
+    # acrescenta ao fim de X-Forwarded-For o endereço que viu; o cliente é o
+    # N-ésimo valor contado do fim, e os anteriores podem ser forjados por ele.
+    # Com 0 (app alcançável sem proxy), o cabeçalho é ignorado: o cliente o controla.
+    saltos = settings.PROXIES_CONFIAVEIS
+    if saltos > 0:
+        valores = [v.strip() for v in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")]
+        valores = [v for v in valores if v]
+        if valores:
+            return valores[-saltos:][0]
+    return request.META.get("REMOTE_ADDR", "")
 
 
 def _chave_da_origem(request):

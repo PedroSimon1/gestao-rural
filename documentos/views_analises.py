@@ -4,14 +4,20 @@ from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import DatabaseError, Error as DBError, IntegrityError, transaction
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.http import content_disposition_header
+from django.utils.text import slugify
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from usuarios.demo import demo_login_required
 from cadastros.models import TipoClassificacao
-from .analises import CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise
+from .analises import (
+    CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
+    verificar_banco,
+)
 from .conferencia import conferir_nota
 from .forms import DocumentoUploadForm
 from .forms_classificacao_nota import ClassificacaoNaNotaForm
@@ -42,9 +48,19 @@ def analise_criar(request):
     contexto = {'form': form, 'limite_upload_mb': settings.MAX_PDF_UPLOAD_SIZE_MB}
     if not form.is_valid():
         return render(request, 'documentos/inicio.html', contexto, status=400)
+    # O resultado só vale se puder ser guardado: sem banco, nada de Gemini nem de gasto da chave.
+    try:
+        verificar_banco()
+    except DBError:
+        return _falha(
+            request,
+            'O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes.',
+            503,
+        )
     try:
         gemini_api_key = form.cleaned_data['gemini_api_key']
         arquivo = form.cleaned_data['arquivo']
+        contexto['nome_arquivo'] = arquivo.name
         processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2)
         analise = criar_analise(request.session, processamento.resultado)
     except ProcessamentoError as erro:
@@ -160,3 +176,30 @@ def analise_cancelar(request, analise_id):
     except DatabaseError:
         return _falha(request, 'Não foi possível cancelar a análise agora. Tente novamente.', 503)
     return _falha(request, 'Análise cancelada. Os dados da nota foram apagados.', 200)
+
+
+def _nome_do_arquivo_json(analise):
+    """Nome que identifica a nota: número, fornecedor e emissão (ou o início do id)."""
+    dados = analise.dados
+    fornecedor = dados.get('fornecedor') or {}
+    origem = (dados.get('numero_nota'), fornecedor.get('razao_social') or fornecedor.get('nome_fantasia'),
+              dados.get('data_emissao'))
+    partes = [slugify(str(valor))[:40] for valor in origem if valor]
+    partes = [parte for parte in partes if parte] or [str(analise.id)[:8]]
+    return '_'.join(['nota-fiscal', *partes, 'dados-extraidos']) + '.json'
+
+
+@demo_login_required
+@require_GET
+def analise_json(request, analise_id):
+    """Baixa os dados extraídos originalmente (os mesmos mostrados na conferência), só para a sessão dona."""
+    try:
+        analise = obter_analise(request.session, analise_id)
+    except AnaliseError as erro:
+        return _erro_analise(request, erro)
+    except DatabaseError:
+        return _falha(request, 'Não foi possível acessar a análise agora. Tente novamente.', 503)
+    resposta = HttpResponse(json.dumps(analise.dados, ensure_ascii=False, indent=2))
+    resposta['Content-Type'] = 'application/json; charset=utf-8'
+    resposta['Content-Disposition'] = content_disposition_header(True, _nome_do_arquivo_json(analise))
+    return resposta

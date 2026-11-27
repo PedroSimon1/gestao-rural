@@ -19,12 +19,13 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 
 | URL | Nome | Métodos | Descrição |
 | --- | --- | --- | --- |
-| `/documentos/` | `documento_inicio` | GET, POST | Tela de envio (GET). O POST aqui é o caminho **legado sem análise** (ver [05](05-fluxos.md), seção 3) |
+| `/documentos/` | `documento_inicio` | GET | Tela de envio; o formulário envia para `analise_criar` |
 | `analises/nova/` | `analise_criar` | POST | Valida chave + PDF, processa, cria a análise → redireciona para a conferência |
 | `analises/<uuid>/` | `analise_conferencia` | GET, POST | Conferência; POST com `acao=salvar` ou `criar_classificacao` |
 | `analises/<uuid>/salva/` | `analise_conferencia_salva` | GET, POST | Mesma view; GET exibe "correções salvas" |
 | `analises/<uuid>/cancelar/` | `analise_cancelar` | POST | Cancela a análise e apaga os dados |
 | `analises/<uuid>/confirmar/` | `analise_confirmar` | GET, POST | Resumo + autorizações; POST lança a nota |
+| `analises/<uuid>/json/` | `analise_json` | GET | Baixa os dados extraídos originalmente (`.json`, nome com número, fornecedor e emissão); só a sessão dona, só enquanto PENDENTE |
 
 ### 1.3 Cadastros (`cadastros`, prefixo `/cadastros/`)
 

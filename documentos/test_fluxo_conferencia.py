@@ -1,5 +1,6 @@
 """GR-45/43: sessão real, correções otimistas e banco local; Agents simulados."""
 from datetime import timedelta
+import json
 import uuid
 from unittest import mock
 
@@ -135,6 +136,77 @@ class FluxoConferenciaTests(TestCase):
             r = self.client.post(self.url, self.dados())
         self.assertEqual(r.status_code, 503)
         self.assertNotContains(r, 'senha-interna', status_code=503)
+
+    def test_conferencia_oferece_copiar_e_baixar_o_json_original(self):
+        r = self.client.get(self.url)
+        self.assertContains(r, 'data-copiar-json="json-original"')
+        self.assertContains(r, 'id="json-original"')
+        self.assertContains(r, f'href="{reverse("analise_json", args=[self.analise.id])}"')
+        self.assertNotContains(r, 'bloco-json--curto')
+
+    def test_download_do_json_original_tem_nome_que_identifica_a_nota(self):
+        r = self.client.get(reverse('analise_json', args=[self.analise.id]))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/json; charset=utf-8')
+        self.assertEqual(
+            r['Content-Disposition'],
+            'attachment; filename="nota-fiscal_123_fornecedor-teste-ltda_2026-10-01_dados-extraidos.json"',
+        )
+        self.assertEqual(json.loads(r.content), self.original)
+        self.assertIn('Óleo', r.content.decode())  # acentos preservados, como na tela
+
+    def test_download_sem_dados_de_identificacao_usa_o_inicio_do_id(self):
+        original = resultado_da_nota()
+        original.update(numero_nota=None, data_emissao=None)
+        original['fornecedor'].update(razao_social=None, nome_fantasia=None)
+        analise = criar_analise(self.client.session, original)
+        r = self.client.get(reverse('analise_json', args=[analise.id]))
+        self.assertIn(f'nota-fiscal_{str(analise.id)[:8]}_dados-extraidos.json', r['Content-Disposition'])
+
+    def test_download_do_json_so_para_a_sessao_dona_logada(self):
+        url = reverse('analise_json', args=[self.analise.id])
+        self.assertEqual(Client().get(url).status_code, 302)
+        outro = Client()
+        self.autenticar(outro)
+        r = outro.get(url)
+        self.assertEqual(r.status_code, 404)
+        self.assertNotIn('Fornecedor Teste', r.content.decode())
+        self.assertEqual(self.client.post(url).status_code, 405)
+
+    def test_download_do_json_apos_cancelar_ou_expirar_nao_entrega_dados(self):
+        url = reverse('analise_json', args=[self.analise.id])
+        AnalisePendente.objects.filter(pk=self.analise.pk).update(
+            expira_em=timezone.now() - timedelta(seconds=1), criado_em=timezone.now() - timedelta(hours=1))
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 409)
+        self.assertNotIn('Fornecedor Teste', r.content.decode())
+
+    def test_falha_de_banco_no_download_nao_expoe_detalhes(self):
+        with mock.patch('documentos.views_analises.obter_analise', side_effect=DatabaseError('senha-interna')):
+            r = self.client.get(reverse('analise_json', args=[self.analise.id]))
+        self.assertEqual(r.status_code, 503)
+        self.assertNotContains(r, 'senha-interna', status_code=503)
+
+    def test_banco_fora_do_ar_nao_chama_o_gemini_nem_expoe_detalhes(self):
+        from django.db import InterfaceError
+        antes = AnalisePendente.objects.count()
+        for erro in (DatabaseError('senha-interna'), InterfaceError('senha-interna')):
+            with self.subTest(erro=type(erro).__name__):
+                with mock.patch('documentos.views_analises.verificar_banco', side_effect=erro), \
+                        mock.patch('documentos.views_analises.processar_pdf') as processar:
+                    r = self.enviar_pdf()
+                processar.assert_not_called()
+                self.assertContains(r, 'A nota não foi enviada ao Gemini', status_code=503)
+                self.assertNotContains(r, 'senha-interna', status_code=503)
+        self.assertEqual(AnalisePendente.objects.count(), antes)
+
+    def test_banco_no_ar_a_checagem_passa_antes_do_processamento(self):
+        ordem = []
+        with mock.patch('documentos.views_analises.verificar_banco', side_effect=lambda: ordem.append('banco')), \
+                mock.patch('documentos.views_analises.processar_pdf',
+                           side_effect=lambda *a, **k: ordem.append('gemini') or ResultadoProcessamento(resultado_da_nota(), 'ok')):
+            self.assertEqual(self.enviar_pdf().status_code, 302)
+        self.assertEqual(ordem, ['banco', 'gemini'])
 
     def test_upload_sem_codigo_de_dono_exige_renovar_sessao(self):
         cliente = Client()

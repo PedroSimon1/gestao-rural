@@ -3719,3 +3719,194 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** fecha a parte de homologação do achado M-06 da [auditoria de 24/11/2026](docs/auditoria/Auditoria-2026-11-24.md).
 - **Pendências:** produção (repetir a verificação do papel e do dono antes de aplicar); conferir a Data API desativada em QA e PROD; teste manual das telas em homologação; itens humanos de Render e da equipe listados nas seções 39.1 a 39.6.
 - **Git:** commit na branch acima, sem co-autor.
+
+# 40 - Auditoria do back end (27/11/2026)
+
+## 40.1 - Identificação
+
+Tarefa: auditoria completa do back end, solicitada pelo usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 40.2 - Objetivo
+
+Revisar `config`, `usuarios`, `documentos`, `cadastros`, `financeiro` e `agents` (código, models, migrations, serviços, views, forms, dependências) à procura de falhas de correção, segurança, concorrência e manutenção.
+
+## 40.3 - Implementação
+
+Somente leitura. Nenhum código, migration ou configuração foi alterado. Templates e JavaScript não foram auditados.
+
+## 40.4 - Arquivos
+
+Apenas esta seção 40 em `ContextoProjeto.md`. Um teste descartável em `cadastros/` foi criado para confirmar um comportamento e removido em seguida.
+
+## 40.5 - Decisões técnicas e achados
+
+Nenhuma decisão de escopo. Achados novos, por gravidade:
+
+- **Médio — TLS do banco sem verificação do servidor.** `DB_SSLMODE` padrão é `require` (`config/settings.py`): criptografa, mas não confere o certificado. `verify-full` com `DB_SSLROOTCERT` já é suportado; falta definir no Render.
+- **Médio — edição de CPF/CNPJ de pessoa com histórico.** `pessoa_editar` aceita trocar o documento de um cadastro completo, inclusive CPF por CNPJ (confirmado em teste descartável: 302 e `tipo_documento` mudou). Sem bloqueio quando há movimentos e sem trilha de quem alterou. Decisão de produto pendente; o agente não decidiu.
+- **Médio — chave do limite de login (`usuarios/limite.py`).** Usa o último valor de `X-Forwarded-For`. Se o proxy da plataforma acrescentar o IP de um edge compartilhado, todos caem no mesmo balde por origem; se o app for alcançável sem proxy, o cabeçalho é forjável. Não verificado no Render.
+- **Baixo — fluxo legado em `documentos/views.py`.** O ramo POST de `documento_inicio` (com `_processar`, `_resumo`, `_formatar_moeda`) não é usado pela tela (o formulário envia para `analise_criar`), mas continua acessível por POST direto e duplica o pipeline.
+- **Baixo — acoplamento.** `documentos` ↔ `financeiro` se importam; `cadastros.validators` depende de `agents`; `pendencias_conferencia` importa de `views_confirmacao`, o que obriga imports dentro de `analise_conferencia`. A view `analise_conferencia` concentra a regra do POST em ~80 linhas.
+- **Baixo — retenção.** Os dados da nota (inclui CPF) de análises pendentes ficam no banco até expirar por uso ou pelo comando `expirar_analises`, que é manual.
+- **Baixo — dependências e CI.** Sem `pip-audit` nem lint no CI; `google-genai` 2.24.0 (última 3.6.1) e outros pacotes atrás da última versão.
+- **Baixo — documentação.** Docstring de `documentos/forms_fiscais.py` diz "não conectado às rotas", mas o módulo é usado; o `AGENTS.md` local ainda descreve a aplicação como stateless (`DATABASES = {}`) e Django 6.1.1.
+- **Descartado após teste:** cadastrar pessoa com documento já existente não mescla nem duplica; o ModelForm recusa por unicidade.
+
+Já conhecidos e registrados antes (não repetidos como novos): 1 worker síncrono (M-04), login compartilhado e limite por worker (M-01), `django_migrations` sem RLS (39.6).
+
+## 40.6 - Banco de dados
+
+Nenhuma alteração. Só o PostgreSQL local de `DB_TEST_*`, criado e destruído pelos testes. O banco de `DB_*` não foi acessado.
+
+## 40.7 - Testes
+
+- `python manage.py check`: sem problemas. `check --deploy`: 6 avisos (HSTS, `SECURE_SSL_REDIRECT`, cookies seguros, `DEBUG`, `ALLOWED_HOSTS`), todos do `.env` local com `DEBUG=True` e da decisão de deixar HTTPS com a plataforma (34.7).
+- `python manage.py makemigrations --check --dry-run`: sem mudanças. `pip check`: sem conflitos.
+- `python manage.py test --noinput`: 1261 testes, OK (25 s).
+- Não executados: `pip-audit` (não instalado), Gemini real, Supabase, Render, carga e concorrência real.
+
+## 40.8 - Integração
+
+Complementa a auditoria de 24/11/2026 e as seções 39.x. Nenhuma tarefa depende desta.
+
+## 40.9 - Pendências
+
+Decidir: bloqueio ou trilha para troca de documento de pessoa com histórico; remover ou manter o ramo legado de `documento_inicio`. Operar: `DB_SSLMODE=verify-full`, conferir `X-Forwarded-For` no Render, agendar `expirar_analises`. Rodar `pip-audit` fora do repositório.
+
+## 40.10 - Git
+
+Branch `feature/correcao-interface-backend`; registro versionado no commit `docs(auditoria): registra a auditoria do back end de 27/11/2026`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 41 - Correção dos achados médios e do ramo legado (27/11/2026)
+
+## 41.1 - Identificação
+
+Tarefa: corrigir os achados médios da seção 40 e remover o POST legado de `documento_inicio`, a pedido do usuário (sem código GR). Data: 27/11/2026. Branches: `fix/aviso-tls-banco`, `fix/limite-login-proxy`, `fix/edicao-documento-pessoa` e `fix/remove-legado-documento-inicio`, mescladas com `--no-ff` em `feature/correcao-interface-backend`.
+
+## 41.2 - Objetivo
+
+Fechar os três achados médios (TLS do banco, troca de CPF/CNPJ com histórico, origem do cliente no limite de login) e o achado do ramo legado.
+
+## 41.3 - Implementação
+
+- **TLS do banco:** o padrão de `DB_SSLMODE` continua `require` (verify-full exige o certificado da CA, que só existe no ambiente). `config/checks.py` emite `config.W001` em `check --deploy` enquanto o modo for `require`.
+- **Limite de login:** nova variável `DJANGO_PROXIES_CONFIAVEIS` (padrão 1, igual ao comportamento anterior). A origem é o N-ésimo valor de `X-Forwarded-For` contado do fim; com 0, o cabeçalho é ignorado e vale `REMOTE_ADDR`. Valor inválido impede a inicialização.
+- **Troca de documento:** `PessoaForm` desabilita o documento quando a pessoa é contraparte ou faturado de algum movimento; só o nome é editável. O valor postado é ignorado e fica fora do `update_fields`.
+- **Ramo legado:** `documento_inicio` só aceita GET (POST responde 405). Removidos `_processar`, `_resumo`, `_formatar_*`, `_avisos_validacao` e o bloco de resultado de `inicio.html`. `analise_criar` passou a enviar `nome_arquivo` ao template de erro (a mensagem saía com o nome vazio).
+
+## 41.4 - Arquivos
+
+`config/checks.py`, `config/__init__.py`, `config/settings.py`, `usuarios/limite.py`, `cadastros/forms.py`, `documentos/views.py`, `documentos/views_analises.py`, `documentos/templates/documentos/inicio.html`; `.env.example`, `README.md` e `docs/documentacao/05, 08, 09, 10, 12`. Testes: `config/test_checks.py` (novo), `usuarios/test_limite.py`, `cadastros/test_interface_pessoas.py`, `documentos/test_interface.py` (reescrito para `analise_criar`), `documentos/test_classificacao_pendente.py`, `agents/extrator/test_faturado_pj.py` e `test_schema_fiscal_v2.py`. Removido `documentos/test_interface_consultas.py` (testava o painel de consultas do ramo legado).
+
+## 41.5 - Decisões técnicas
+
+- A troca de documento foi **bloqueada** (decisão tomada nesta tarefa, a pedido do usuário; a seção 40.9 a deixava aberta). Não há trilha de alteração; quem errou o documento de uma pessoa com histórico precisa cadastrar outra.
+- O bloqueio é só no formulário; `Pessoa.save()` e o ORM continuam aceitando a troca por código.
+- O padrão de `DJANGO_PROXIES_CONFIAVEIS` não foi verificado no Render: o número real de proxies na frente do app precisa ser conferido e configurado.
+- `documentos/consultas.py` e `documentos/adaptador_financeiro.py` deixaram de ser usados em produção (só os testes os usam); foram mantidos por terem testes próprios e decisão pendente.
+
+## 41.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations (`makemigrations --check` sem mudanças). Só o PostgreSQL local de `DB_TEST_*`.
+
+## 41.7 - Testes
+
+`python manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `python manage.py test --noinput` na branch mesclada: 1261 testes, OK (antes: 1261; 3 novos de documento travado, 5 de origem do cliente, 2 de TLS; menos os do ramo legado e do painel de consultas, retargetados para `analise_criar` ou removidos).
+
+## 41.8 - Integração
+
+Fecha os achados médios e o legado da seção 40. `DJANGO_PROXIES_CONFIAVEIS` entra na tabela de variáveis (README e `docs/documentacao/10`).
+
+## 41.9 - Pendências
+
+Operar (humano): `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; conferir quantos proxies acrescentam o endereço em `X-Forwarded-For` e definir `DJANGO_PROXIES_CONFIAVEIS`. Decidir: remover `documentos/consultas.py` e `adaptador_financeiro.py`; trilha de alteração de cadastros. Os achados de gravidade baixa da seção 40 seguem abertos.
+
+## 41.10 - Git
+
+Branch atual `feature/correcao-interface-backend`, com as quatro branches `fix/*` mescladas localmente (`--no-ff`). Nenhum push foi feito.
+
+# 42 - Checagem do banco antes do Gemini no envio da nota (27/11/2026)
+
+## 42.1 - Identificação
+
+Tarefa: `analise_criar` checar o banco antes de chamar o Gemini, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 42.2 - Objetivo
+
+Com o banco pausado ou fora do ar, o processamento gastava a chamada ao Gemini e a chave do usuário e só então falhava ao guardar a análise.
+
+## 42.3 - Implementação
+
+`documentos/analises.verificar_banco()` executa `SELECT 1`. `analise_criar` chama essa função depois de validar o formulário e antes de `processar_pdf`; qualquer `django.db.Error` (inclui `InterfaceError`) responde 503 com "O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes." A falha ao guardar depois do processamento mantém a mensagem anterior.
+
+## 42.4 - Arquivos
+
+`documentos/analises.py`, `documentos/views_analises.py`; testes em `documentos/test_analises.py`, `test_fluxo_conferencia.py` e `test_interface.py` (a base sem banco simula a checagem); `docs/documentacao/05-fluxos.md`.
+
+## 42.5 - Decisões técnicas
+
+A checagem custa uma ida ao banco por envio (a conexão é aberta por requisição, `CONN_MAX_AGE=0`, e é reaproveitada na gravação). Ela não garante que o banco ainda esteja no ar quando o Gemini terminar; esse caso continua coberto pela mensagem de falha ao guardar. Formulário inválido responde antes da checagem, sem tocar o banco.
+
+## 42.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations. Só o PostgreSQL local de `DB_TEST_*`.
+
+## 42.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1265 testes, OK (4 novos: banco fora do ar com `DatabaseError` e `InterfaceError`, ordem banco → Gemini, `verificar_banco` direto). Não testado contra um Supabase realmente pausado.
+
+## 42.8 - Integração
+
+Complementa as seções 39.1 e 41 (tratamento de falha do banco nas telas).
+
+## 42.9 - Pendências
+
+Nenhuma nova. O banco pausado continua sem mensagem própria nas demais telas ("tente novamente").
+
+## 42.10 - Git
+
+Commit `9ce4957` na branch `feature/correcao-interface-backend`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 43 - JSON original maior, com copiar e baixar, na conferência (27/11/2026)
+
+## 43.1 - Identificação
+
+Tarefa: melhorar o bloco "Dados extraídos originalmente" da conferência, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 43.2 - Objetivo
+
+O bloco tinha altura fixa de 220 px. Passa a mostrar o JSON por inteiro quando couber, com limite de altura e rolagem quando não couber, e ganha botões para copiar e baixar.
+
+## 43.3 - Implementação
+
+- Removida a classe `bloco-json--curto`; vale o limite padrão de `.bloco-json` (`max-height: 70vh`, `overflow: auto`). O bloco é focável por teclado.
+- "Baixar .json": link para a nova rota `analises/<uuid>/json/` (`analise_json`), que devolve os mesmos dados da tela em UTF-8, indentados, como anexo. Nome: `nota-fiscal_<número>_<fornecedor>_<emissão>_dados-extraidos.json` (partes ausentes são omitidas; sem nenhuma, usa os 8 primeiros caracteres do id). Funciona sem JavaScript.
+- "Copiar JSON": botão que só aparece com JavaScript (`conferencia.js`); usa `navigator.clipboard` e, sem ela, seleção + `execCommand("copy")`. Mostra "JSON copiado." ou orienta a usar o download.
+
+## 43.4 - Arquivos
+
+`documentos/views_analises.py`, `documentos/urls.py`, `documentos/templates/documentos/conferencia.html`, `documentos/static/documentos/conferencia.js` e `documentos.css`; testes em `documentos/test_fluxo_conferencia.py`; `docs/documentacao/08-interface-e-rotas.md`.
+
+## 43.5 - Decisões técnicas
+
+Download pelo servidor, e não por Blob no navegador: o nome do arquivo é controlado no servidor, não há JavaScript a mais e a rota reaproveita `obter_analise` (dono, prazo e estado). O arquivo contém os dados extraídos originais, nunca as correções. Depois de confirmar, cancelar ou expirar, os dados são apagados e a rota recusa.
+
+## 43.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations.
+
+## 43.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1271 testes, OK (6 novos: botões na tela, nome e conteúdo do arquivo, nome sem identificação, acesso só da sessão dona, análise expirada, falha de banco). Não verificado no navegador: aparência do bloco e o botão de copiar (a tela depende do banco de homologação, que não foi usado).
+
+## 43.8 - Integração
+
+Usa `obter_analise` (GR-43) e a tela de conferência (GR-45).
+
+## 43.9 - Pendências
+
+Conferir no navegador a altura do bloco e o botão "Copiar JSON" (em página sem HTTPS cai no `execCommand`).
+
+## 43.10 - Git
+
+Branch `feature/correcao-interface-backend`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.

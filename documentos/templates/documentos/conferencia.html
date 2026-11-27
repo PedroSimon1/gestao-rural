@@ -112,6 +112,11 @@
 
 <section class="cartao json">
   <div class="cartao__topo"><h2>Dados extraídos originalmente</h2><span class="cadastro">somente leitura</span></div>
-  <pre class="bloco-json bloco-json--curto"><code>{{ json_original }}</code></pre>
+  <div class="acoes-json">
+    <button type="button" class="botao botao--secundario botao--peq" data-copiar-json="json-original" hidden>Copiar JSON</button>
+    {% if analise_id %}<a class="botao botao--secundario botao--peq" href="{% url 'analise_json' analise_id=analise_id %}" download>Baixar .json</a>{% endif %}
+    <span class="texto-apoio" role="status" data-copiar-estado></span>
+  </div>
+  <pre class="bloco-json" id="json-original" tabindex="0" aria-label="Dados extraídos originalmente, em JSON"><code>{{ json_original }}</code></pre>
 </section>
 {% endblock %}

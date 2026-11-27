@@ -12,10 +12,11 @@ import threading
 import time
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest import mock
 from uuid import UUID, uuid4
 
 from django.core.management import call_command
-from django.db import IntegrityError, connection, transaction
+from django.db import Error, IntegrityError, OperationalError, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
@@ -26,7 +27,7 @@ from financeiro.servicos import DadosMovimento, ItemClassificacao, ItemParcela, 
 from .analises import (
     CHAVE_DA_SESSAO, CHAVES_DOS_DADOS, LIMITE_DOS_DADOS, VALIDADE, VERSAO_DADOS, AnaliseError,
     cancelar_analise, confirmar_analise, criar_analise, descartar_analises, expirar_analises,
-    garantir_dono, obter_analise,
+    garantir_dono, obter_analise, verificar_banco,
 )
 from .models import AnalisePendente, StatusAnalise
 from .testing import CNPJ, CPF, nova_sessao, resultado_da_nota
@@ -669,3 +670,13 @@ class ConcorrenciaTests(TransactionTestCase):
         self.assertEqual(resultados, ["gravado", 0])
         analise.refresh_from_db()
         self.assertEqual(analise.status, StatusAnalise.CONFIRMADA)
+
+
+class VerificarBancoTests(TestCase):
+    def test_banco_respondendo_nao_levanta_erro(self):
+        verificar_banco()
+
+    def test_banco_fora_do_ar_levanta_erro_de_banco(self):
+        with mock.patch("documentos.analises.connection.cursor", side_effect=OperationalError("sem conexao")):
+            with self.assertRaises(Error):
+                verificar_banco()
