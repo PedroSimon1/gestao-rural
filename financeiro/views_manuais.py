@@ -11,7 +11,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
 from config.erros_banco import mensagem_de_banco
-from documentos.analises import CHAVE_DA_SESSAO, garantir_dono
+from comum.sessao import codigo_do_dono, garantir_dono
 from usuarios.demo import demo_login_required
 from .duplicidade import movimentos_parecidos
 from .forms_manuais import ContaManualForm, ParcelasManuaisFormSet
@@ -24,8 +24,8 @@ SAL = "financeiro.formulario-manual.v1"
 
 
 def _dono(request):
-    codigo = request.session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
+    codigo = codigo_do_dono(request.session)
+    if codigo is None:
         return None
     # O token não expõe o código bruto usado para autorizar as análises.
     return salted_hmac(SAL, codigo).hexdigest()

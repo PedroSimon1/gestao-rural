@@ -14,9 +14,9 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.utils import timezone
 
 from .analises import (
-    CHAVE_DA_SESSAO, AnaliseError, cancelar_analise, confirmar_analise, correcoes_da_confirmacao,
-    criar_analise, descartar_analises, expirar_analises, obter_analise, registrar_correcoes,
+    AnaliseError, cancelar_analise, confirmar_analise, correcoes_da_confirmacao, criar_analise, descartar_analises, expirar_analises, obter_analise, registrar_correcoes,
 )
+from comum.sessao import CHAVE_DA_SESSAO
 from .correcoes import CAMPOS_CORRIGIVEIS, validar_correcoes
 from .models import AnalisePendente, StatusAnalise
 from financeiro.test_identidade_fiscal import chave

@@ -10,7 +10,8 @@ from cadastros.models import Classificacao, Papel, Pessoa
 from financeiro.models import MovimentoConta
 from financeiro.servicos import DadosMovimento, ItemClassificacao, ItemParcela, registrar_movimento
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import criar_analise, garantir_dono
+from .analises import criar_analise
+from comum.sessao import garantir_dono
 from .testing import CNPJ, CPF, resultado_da_nota
 
 

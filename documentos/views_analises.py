@@ -15,9 +15,11 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from config.erros_banco import mensagem_de_banco, verificar_banco
 from usuarios.demo import demo_login_required
 from cadastros.models import TipoClassificacao
+from .categorias import categorias_de_despesa
 from .analises import (
-    CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
+    AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
 )
+from comum.sessao import codigo_do_dono
 from .conferencia import conferir_nota
 from .forms import DocumentoUploadForm
 from .forms_classificacao_nota import ClassificacaoNaNotaForm
@@ -42,8 +44,7 @@ def _erro_analise(request, erro):
 @require_POST
 @sensitive_variables('gemini_api_key', 'processamento')
 def analise_criar(request):
-    codigo = request.session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
+    if codigo_do_dono(request.session) is None:
         return _erro_analise(request, AnaliseError('sessao_sem_codigo'))
     form = DocumentoUploadForm(request.POST, request.FILES,
         upload_interrompido=getattr(request, "pdf_upload_interrompido", False))
@@ -51,8 +52,10 @@ def analise_criar(request):
     if not form.is_valid():
         return render(request, 'documentos/inicio.html', contexto, status=400)
     # O resultado só vale se puder ser guardado: sem banco, nada de Gemini nem de gasto da chave.
+    # As categorias de despesa (classificações ativas) também vêm do banco e são lidas antes.
     try:
         verificar_banco()
+        categorias = categorias_de_despesa()
     except DBError:
         return _falha(
             request,
@@ -63,7 +66,7 @@ def analise_criar(request):
         gemini_api_key = form.cleaned_data['gemini_api_key']
         arquivo = form.cleaned_data['arquivo']
         contexto['nome_arquivo'] = arquivo.name
-        processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2)
+        processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2, categorias=categorias)
         analise = criar_analise(request.session, processamento.resultado)
     except ProcessamentoError as erro:
         contexto.update(form=DocumentoUploadForm(), erro={

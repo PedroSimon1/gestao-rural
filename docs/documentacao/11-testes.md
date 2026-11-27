@@ -60,9 +60,11 @@ Os testes ficam **ao lado do código**, em `test_*.py` (e `usuarios/tests.py`).
 | Processamento e contratos | `documentos/test_processamento.py`, `test_contrato_agents.py`, `test_fiscal_v2.py`, `test_integracao_final.py` | `processar_pdf`, `montar_resultado`, composição Extrator + Classificador, inconclusiva |
 | Análises | `documentos/test_analises.py`, `test_correcoes.py`, `test_privacidade.py` | Ciclo de vida, dono por sessão, expiração, correções, versão otimista, apagamento de dados |
 | Conferência/confirmação | `test_conferencia.py`, `test_interface_conferencia.py`, `test_fluxo_conferencia.py`, `test_classificacao_na_conferencia.py`, `test_classificacao_pendente.py`, `test_campos_fiscais.py`, `test_interface_consultas.py` | F-3, telas, FLU-07, campos fiscais |
+| Lançamento (F-5) e categorias | `documentos/test_lancamento_nota.py`, `test_lancamento_fiscal.py`, `test_categorias.py`; `agents/classificador/test_categorias.py` | Lançamento atômico, concorrência, categorias do cadastro no Classificador |
+| Dependências entre apps | `config/test_arquitetura.py` | `financeiro` e `cadastros` não importam `documentos` nem `agents` |
 | Telas de documentos | `test_interface.py`, `test_versao_publicada.py` | Upload, mensagens, SHA no rodapé |
 | Cadastros | `cadastros/test_models.py`, `test_classificacao.py`, `test_consultas.py`, `test_resolucao.py`, `test_pendentes.py`, `test_interface_pessoas.py`, `test_interface_classificacoes.py` | Constraints, imutabilidade, consultas, F-4, F-6, telas |
-| Financeiro | `financeiro/test_models.py`, `test_servicos.py`, `test_parcelas.py`, `test_identidade_fiscal.py`, `test_lancamento_nota.py`, `test_lancamento_fiscal.py`, `test_manual.py`, `test_interface_manuais.py`, `test_interface_consultas.py` | Movimento, parcelas, gatilho no COMMIT, identidade fiscal, F-5, contas manuais, concorrência |
+| Financeiro | `financeiro/test_models.py`, `test_servicos.py`, `test_parcelas.py`, `test_identidade_fiscal.py`, `test_manual.py`, `test_interface_manuais.py`, `test_interface_consultas.py` | Movimento, parcelas, gatilho no COMMIT, identidade fiscal, F-5, contas manuais, concorrência |
 | Login | `usuarios/tests.py` | Credenciais, sessão, `demo_login_required`, ciclo das análises |
 | Configuração | `config/test_producao.py`, `config/test_sem_banco.py` | Produção (hosts, CSRF, HTTPS, cookies, static) em **subprocessos** com ambiente controlado; garantias estruturais do banco (não guarda PDF, documentos nem chave; testes sem banco não conectam; testes com banco nunca alcançam `DB_*`; sem migrations faltando) |
 

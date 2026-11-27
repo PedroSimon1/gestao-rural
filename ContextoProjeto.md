@@ -4054,3 +4054,57 @@ Ações humanas (3D), fora do código: `DB_SSLMODE=verify-full` com `DB_SSLROOTC
 ## 46.10 - Git
 
 Branch `feature/etapa-3`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.
+
+# 47 - Etapa 4: Classificador com as categorias do banco e fim do ciclo documentos ↔ financeiro (27/11/2026)
+
+## 47.1 - Identificação
+
+Tarefa: Etapa 4 do plano de correção, duas trilhas escolhidas pelo usuário: (G, Q-05) o Classificador usar as classificações de DESPESA do cadastro, e desfazer o ciclo de importação entre `documentos` e `financeiro`. Data: 27/11/2026. Branch: `feature/etapa-4` (criada a partir de `develop` em `d5072ef`).
+
+## 47.2 - Objetivo
+
+1. O Classificador só conhecia duas categorias fixas (`TipoDespesa`); uma classificação criada na tela de cadastro nunca podia ser escolhida pela IA. 2. `financeiro/lancamento_nota.py` importava `documentos` (análises e conferência) enquanto `documentos` importava `financeiro`; `financeiro/views_manuais.py` também importava a chave da sessão de `documentos.analises`.
+
+## 47.3 - Implementação
+
+**Ciclo (commit `refactor: desfaz o ciclo documentos e financeiro`):**
+- `lancamento_nota.py` e seus dois arquivos de teste saem de `financeiro/` para `documentos/` (a F-5 orquestra análise, conferência, cadastros e financeiro; o sentido das dependências passa a ser só `documentos → financeiro`/`cadastros`).
+- `CHAVE_DA_SESSAO`, `garantir_dono` e a nova `codigo_do_dono` vão para `comum/sessao.py`; `documentos/analises.py`, `documentos/views_analises.py`, `financeiro/views_manuais.py` e `usuarios/demo.py` importam de lá. Os imports em 18 arquivos (quase todos de teste) foram migrados; não ficou reexportação.
+- `config/test_arquitetura.py` falha se `financeiro` importar `documentos`/`agents`, ou `cadastros` importar `documentos`/`agents`/`financeiro` (código de produção, via `ast`).
+
+**Classificador (commit `feat(classificador): ...`):**
+- `agents/classificador/schemas.py`: `CategoriaDespesa(codigo, descricao)` e `classificacao_para(categorias)`, um modelo pydantic derivado de `ClassificacaoDespesa` cujo `tipo_despesa` é `Literal[códigos] | None` (cache por tupla de códigos). Conferido sem rede que o SDK converte para enum + `nullable`, como no schema antigo.
+- `agents/classificador/agent.py`: `classificar(nota, categorias=None)`. Com categorias: `montar_instrucao()` lista código e descrição (as duas iniciais mantêm a orientação de uso, em `DICAS_PADRAO`), o `response_schema` e a validação usam o modelo dinâmico; código fora da lista → `ClassificacaoInvalidaError`; lista vazia → `ClassificacaoInconclusivaError` sem chamar o Gemini. Sem categorias (`None`), o comportamento do MVP fica igual.
+- `documentos/categorias.py`: `categorias_de_despesa()` (DESPESA, ativas, por descrição). `analise_criar` lê as categorias no mesmo bloco da `verificar_banco()` (antes do Gemini; falha de banco → 503 sem gastar a chave) e as passa a `processar_pdf(categorias=...)`, que só as repassa (o módulo continua sem acesso ao banco). O contrato do JSON final e o `ProcessamentoError` não mudaram.
+
+## 47.4 - Arquivos
+
+Criados: `comum/sessao.py`, `config/test_arquitetura.py`, `documentos/categorias.py`, `documentos/test_categorias.py`, `agents/classificador/test_categorias.py`. Movidos de `financeiro/` para `documentos/`: `lancamento_nota.py`, `test_lancamento_nota.py`, `test_lancamento_fiscal.py`. Alterados: `agents/classificador/agent.py`, `schemas.py`, `documentos/processamento.py`, `analises.py`, `views_analises.py`, `views_confirmacao.py`, `forms_confirmacao.py`, `test_interface.py` (patch das categorias e `categorias=` nas asserções), `financeiro/views_manuais.py`, `usuarios/demo.py` e os testes que importavam `garantir_dono`/`CHAVE_DA_SESSAO`. Docs: `docs/documentacao/02, 03, 04, 07, 11, 13`.
+
+## 47.5 - Decisões técnicas
+
+- O Agent não acessa o banco: quem chama lê as categorias e as injeta (mantém a separação de camadas e os testes `SimpleTestCase` sem banco).
+- O enum de `TipoDespesa` continua como conjunto padrão quando `categorias=None`; assim os testes e chamadas diretas anteriores seguem válidos, e as duas categorias iniciais da migration `0003` conservam a orientação de uso no prompt. Categoria criada pelo usuário segue só pela descrição: a qualidade da escolha depende dela.
+- Categoria inativada entre a leitura e a resposta não é aceita (código fora da lista); a conferência (`classificacao_inexistente`/inativa) continua como segunda barreira.
+- RECEITA não é oferecida ao Classificador (Q-06 segue aberta).
+- `comum/sessao.py` em vez de deixar `financeiro` depender de `documentos` só pela chave da sessão.
+
+## 47.6 - Banco de dados
+
+Nenhuma alteração (sem migration).
+
+## 47.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `ruff check .`: sem erros. `git diff --check`: limpo. `manage.py test --noinput`: 1302 testes, OK (era 1288: +1 de arquitetura, +9 do Agent com categorias, +4 de banco com o fluxo real e o `categorias_de_despesa`). Não testado contra o Gemini real: a conversão do schema foi conferida só com o SDK, sem rede.
+
+## 47.8 - Integração
+
+Depende da seção 45/46 (suíte, CI). Os nomes `documentos.lancamento_nota` e `comum.sessao` valem para PRs ainda abertos que importem os antigos (`financeiro.lancamento_nota`, `documentos.analises.garantir_dono`/`CHAVE_DA_SESSAO`): conflito certo se houver.
+
+## 47.9 - Pendências
+
+Testar com uma nota real e uma categoria nova cadastrada (o prompt não foi exercitado no Gemini). Itens fora desta etapa: cancelamento de movimento, pagamento parcial/histórico, itens da nota, NFS-e/emitente CPF, processamento assíncrono. Ações humanas da seção 46.9 continuam abertas.
+
+## 47.10 - Git
+
+Branch `feature/etapa-4`, dois commits de código (ciclo; classificador) e um de documentação, sem co-autor. Nenhum push nem merge. Próximo passo do usuário: `git push -u origin feature/etapa-4` e PR para `develop`.

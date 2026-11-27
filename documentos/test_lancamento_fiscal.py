@@ -15,16 +15,16 @@ from django.db import connection
 from django.test import TestCase, TransactionTestCase
 
 from cadastros.models import Pessoa
-from documentos.analises import criar_analise, registrar_correcoes
-from documentos.models import StatusAnalise
-from documentos.test_fiscal_v2 import resultado_v2
-from documentos.testing import CNPJ, nova_sessao, resultado_da_nota
+from financeiro.models import MovimentoConta, NotaFiscalLancada
+from financeiro.test_identidade_fiscal import chave
 
 from . import lancamento_nota
+from .analises import criar_analise, registrar_correcoes
 from .lancamento_nota import SolicitacaoLancamento, lancar_nota
-from .models import MovimentoConta, NotaFiscalLancada
-from .test_identidade_fiscal import chave
+from .models import StatusAnalise
+from .test_fiscal_v2 import resultado_v2
 from .test_lancamento_nota import CRIAR, TEMPO_LIMITE, cadastrar_pessoas, codigos, contagens
+from .testing import CNPJ, nova_sessao, resultado_da_nota
 
 
 class LancamentoFiscalTests(TestCase):

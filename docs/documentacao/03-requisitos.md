@@ -24,7 +24,7 @@ Legenda de situação: **Atendido** (implementado e testado localmente), **Parci
 | RF-07 | Consultar no banco se a **classificação de despesa** existe | FLU-03 | Atendido | `cadastros/consultas.consultar_classificacao` |
 | RF-08 | Exibir o resultado das consultas ("EXISTE – ID n" / "NÃO EXISTE") | FLU-04 | Atendido | `documentos/views.py::_linhas_consultas`, tela de conferência e de confirmação |
 | RF-09 | Criar fornecedor, faturado e classificação inexistentes | FLU-05, 06, 07 | **Parcial**: pessoas completas e classificação são criadas com decisão explícita; **cadastro incompleto pelo botão da tela (F-6) não** | `cadastros/resolucao.py`, `documentos/views_analises.py` (criar classificação) |
-| RF-10 | Criar o movimento (APAGAR) e suas parcelas | FLU-08, 09 | Atendido | `financeiro/lancamento_nota.py`, `financeiro/servicos.py` |
+| RF-10 | Criar o movimento (APAGAR) e suas parcelas | FLU-08, 09 | Atendido | `documentos/lancamento_nota.py`, `financeiro/servicos.py` |
 | RF-11 | Informar ao usuário que o lançamento foi concluído | FLU-10 | Atendido (só depois do COMMIT) | `documentos/views_confirmacao.py`, `lancamento_sucesso.html` |
 | RF-12 | Manter Fornecedor / Cliente / Faturado (`PESSOAS`) | FUN-01, 02, 03 | Atendido (incluir, consultar, editar, inativar, reativar; vários papéis) | `cadastros/views.py` |
 | RF-13 | Manter Tipo de Receita / Tipo de Despesa (`CLASSIFICACAO`) | FUN-04, 05 | Atendido (tipo e código imutáveis; descrição e status editáveis) | `cadastros/views_classificacoes.py` |

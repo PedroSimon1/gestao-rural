@@ -7,7 +7,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import criar_analise, garantir_dono
+from .analises import criar_analise
+from comum.sessao import garantir_dono
 from .conferencia import Problema
 from .interface_conferencia import preparar_conferencia, validar_conferencia
 from .pendencias_conferencia import resumir_pendencias

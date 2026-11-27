@@ -10,9 +10,8 @@ from django.db import InterfaceError, OperationalError
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from documentos.analises import (
-    CHAVE_DA_SESSAO, AnaliseError, criar_analise, descartar_analises, obter_analise,
-)
+from documentos.analises import AnaliseError, criar_analise, descartar_analises, obter_analise
+from comum.sessao import CHAVE_DA_SESSAO
 from documentos.models import AnalisePendente, StatusAnalise
 from documentos.testing import resultado_da_nota
 

@@ -14,7 +14,8 @@ from django.utils import timezone
 from cadastros.models import Classificacao, Pessoa
 from financeiro.models import MovimentoConta
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import criar_analise, garantir_dono, registrar_correcoes
+from .analises import criar_analise, registrar_correcoes
+from comum.sessao import garantir_dono
 from .models import AnalisePendente, StatusAnalise
 from .processamento import ResultadoProcessamento
 from .testing import resultado_da_nota

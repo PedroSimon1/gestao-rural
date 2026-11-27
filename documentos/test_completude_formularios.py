@@ -13,7 +13,8 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from cadastros.models import Classificacao, Papel, Pessoa, TipoClassificacao
-from documentos.analises import criar_analise, garantir_dono
+from documentos.analises import criar_analise
+from comum.sessao import garantir_dono
 from documentos.testing import CNPJ, CPF, resultado_da_nota
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 

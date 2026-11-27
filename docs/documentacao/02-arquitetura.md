@@ -15,7 +15,7 @@
 | Camada | Responsabilidade | Onde |
 | --- | --- | --- |
 | **Views** | HTTP: autenticação, método, CSRF, montar contexto, redirecionar, traduzir erros em mensagens | `*/views*.py` |
-| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/lancamento_nota.py`, `financeiro/identidade_fiscal.py` |
+| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/identidade_fiscal.py`, `documentos/lancamento_nota.py`, `documentos/categorias.py` |
 | **Models** | Persistência e proteções de integridade (constraints, imutabilidade, sem exclusão) | `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py` |
 | **Forms** | Validação de entrada de tela | `*/forms*.py` |
 | **Schemas Pydantic** | Validação da resposta dos Agents | `agents/*/schemas*.py` |
@@ -40,7 +40,7 @@ flowchart LR
 
 | App | Conteúdo principal |
 | --- | --- |
-| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`TipoDespesa`, `AgentClassificador`) |
+| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`AgentClassificador`, `CategoriaDespesa`, `TipoDespesa` como conjunto padrão) |
 | `cadastros` | Models `Pessoa`, `PapelPessoa`, `Classificacao`; validação de CPF/CNPJ; consultas de existência; resolução de pessoas da nota (F-4); cadastro pendente (F-6); telas de Pessoas e Classificações |
 | `documentos` | Upload e validação do PDF; `processar_pdf`; `AnalisePendente`; correções; `conferir_nota` (F-3); telas de envio, conferência, confirmação; comando `expirar_analises`; tag do SHA publicado |
 | `financeiro` | Models `MovimentoConta`, `MovimentoClassificacao`, `ParcelaConta`, `NotaFiscalLancada`; `registrar_movimento`; `lancar_nota` (F-5); identidade fiscal (F-1); contas manuais; consultas e telas de Contas |
@@ -78,7 +78,7 @@ flowchart LR
 │   ├── migrations/         0001 e 0002
 │   └── templates/ static/
 ├── financeiro/             movimentos, parcelas, notas lançadas
-│   ├── models.py  servicos.py  lancamento_nota.py  identidade_fiscal.py  manual.py
+│   ├── models.py  servicos.py  identidade_fiscal.py  manual.py
 │   ├── forms_manuais.py  forms_consultas.py  views_manuais.py  views_consultas.py  urls.py
 │   ├── migrations/         0001 a 0004
 │   └── templates/ static/
