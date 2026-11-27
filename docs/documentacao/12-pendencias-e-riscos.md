@@ -90,6 +90,5 @@ Nenhuma destas foi verificada pelas auditorias:
 | Misturar versões de JSON | v1 e v2 coexistem; reconhecimento pelo conjunto exato de chaves | Não converta análises existentes; adicione versão nova com decisão |
 | Confiar na tela | A tela pode ser adulterada | Revalide no serviço (como `conferir_nota` e `registrar_movimento` fazem) |
 | Vazar dado sensível em erro/log | Mensagens com valores/documentos | Código estável + mensagem fixa |
-| Duas rotas de processamento | `documento_inicio` (legado) e `analise_criar` | Ao mudar o processamento, confira as duas, ou remova a legada com decisão |
 | Banco compartilhado | QA é compartilhado e coordenado | Nunca rode testes destrutivos, migrations ou SQL contra QA/PROD sem autorização |
 | 1 worker | PDF de minutos bloqueia o serviço | Considere o impacto antes de adicionar trabalho síncrono pesado |
