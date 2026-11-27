@@ -71,7 +71,7 @@ main.container { padding-top: 28px; padding-bottom: 56px; }
   border-bottom: 3px solid transparent;
 }
 .topo__nav a:hover, .topo__nav a:focus-visible { color: #ffffff; border-bottom-color: #7e9a87; }
-.topo__nav a[aria-current="page"] { color: #ffffff; font-weight: 600; border-bottom-color: #ffffff; }
+.topo__nav a[aria-current="page"] { color: #ffffff; border-bottom-color: #ffffff; } /* sem negrito: mudaria a largura e deslocaria os vizinhos */
 .topo__nav a:last-child { margin-left: 12px; padding-left: 20px; border-left: 1px solid #4a6656; }
 .topo :focus-visible { outline-color: #ffffff; }
 
@@ -252,7 +252,7 @@ nav.barra-acoes { margin-bottom: 12px; }
 .etapas { display: flex; flex-wrap: wrap; margin: 0 0 24px; padding: 0; list-style: none; border-bottom: 1px solid var(--cor-borda); }
 .etapas li { margin: 0 20px -1px 0; padding: 8px 0; color: var(--cor-texto-suave); border-bottom: 3px solid transparent; }
 .etapas li b { margin-right: 6px; font-weight: 600; }
-.etapas li[aria-current="step"] { color: var(--cor-texto); font-weight: 600; border-bottom-color: var(--cor-marca); }
+.etapas li[aria-current="step"] { color: var(--cor-texto); border-bottom-color: var(--cor-marca); }
 .etapas li.feita { color: var(--cor-texto); }
 .paginacao { margin-top: 8px; }
 .paginacao .botao { margin-top: 0; }
