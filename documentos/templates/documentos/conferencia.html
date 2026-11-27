@@ -4,37 +4,75 @@
 {% block head_extra %}<script src="{% static 'documentos/conferencia.js' %}" defer></script>{% endblock %}
 {% block conteudo %}
 {% url 'documento_inicio' as url_envio %}
-{% include "documentos/_cabecalho_pagina.html" with titulo="Conferir e corrigir a nota" apoio="Revise os documentos, a classificação e as parcelas. As correções não alteram os dados originalmente extraídos." migalha_url=url_envio migalha_rotulo="Enviar nota" migalha_atual="Conferência" %}
-{% include "documentos/_etapas.html" with atual=2 %}
-{% include "documentos/_aviso.html" with tipo="info" texto="Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado." %}
-{% if expira_em %}<p class="texto-apoio">Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}.</p>{% endif %}
-{% if correcoes_salvas %}{% include "documentos/_aviso.html" with tipo="ok" texto="Correções salvas. Nenhum lançamento financeiro foi realizado." %}{% endif %}
-{% if erro_tela %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro_tela %}{% endif %}
-{% if cadastro_criado %}<div class="aviso aviso--ok" role="status"><p>Classificação {{ cadastro_criado.codigo }} disponível no formulário. Os campos em edição foram preservados. Salve as correções antes de confirmar; nenhum lançamento financeiro foi realizado.</p></div>{% endif %}
-{% if analise_id %}<p><a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a></p>{% endif %}
-{% if revisao.nota.problemas %}
-  {% include "documentos/_aviso.html" with tipo="atencao" titulo="Atenção" texto="Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal." %}
-{% endif %}
-{% if pendencias.total %}
-<section class="pendencias" role="alert" aria-labelledby="titulo-pendencias">
-  <h2 id="titulo-pendencias">{{ pendencias.total }} pendência{{ pendencias.total|pluralize }} para resolver</h2>
-  <p class="texto-apoio">Cada item leva ao campo. Os campos pendentes estão marcados no formulário.</p>
-  <ul>
-    {% for item in pendencias.itens %}
-    <li>{% if item.secao %}<span class="pendencias__secao">{{ item.secao }}. {{ item.secao_rotulo }}</span>{% endif %}{% if item.ancora %}<a href="#{{ item.ancora }}">{{ item.rotulo }}</a>{% else %}<strong>{{ item.rotulo }}</strong>{% endif %}: {{ item.mensagem }}</li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
+<div class="conf">
 
-<div class="duas">
-<div>
+  <aside class="lado" aria-label="Painel da conferência">
+    <div class="lado__bloco lado__bloco--topo">
+      <p class="migalhas"><a href="{{ url_envio }}">Enviar nota</a><span aria-hidden="true">/</span>Conferência</p>
+      <h1>Conferir e corrigir a nota</h1>
+      <p class="sub">{% if revisao.nota.numero_nota %}NF {{ revisao.nota.numero_nota }} · {% endif %}<span data-resumo-fornecedor>{{ form.fornecedor_nome.value|default:"—" }}</span></p>
+      {% include "documentos/_etapas.html" with atual=2 compacto=True %}
+    </div>
+
+    <div class="lado__bloco lado__bloco--pend"{% if pendencias.total %} role="alert"{% endif %}>
+      <h2>Seções {% if pendencias.total %}<strong>{{ pendencias.total }} pendência{{ pendencias.total|pluralize }}</strong>{% else %}<strong class="ok">Sem pendências</strong>{% endif %}</h2>
+      <ul class="sec-lista">
+        {% for secao in pendencias.secoes %}
+        <li>
+          <div class="linha"><a href="#{{ secao.ancora }}"><span class="n">{{ secao.numero }}.</span>{{ secao.rotulo }}</a>{% if secao.total %}<span class="pill pill--erro">{{ secao.total }}<span class="so-leitor"> pendência{{ secao.total|pluralize }}</span></span>{% else %}<span class="pill pill--ok">OK<span class="so-leitor"> (sem pendências)</span></span>{% endif %}</div>
+          {% if secao.itens %}
+          <ul class="lado__pend">
+            {% for item in secao.itens %}<li>{% if item.ancora %}<a href="#{{ item.ancora }}">{{ item.rotulo }}</a>{% else %}{{ item.rotulo }}{% endif %}{% if item.sem_campo %}<span class="motivo">: {{ item.mensagem }}</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+        {% for item in pendencias.gerais %}
+        <li><div class="linha"><span>{{ item.rotulo }}</span><span class="pill pill--erro">1<span class="so-leitor"> pendência</span></span></div><span class="motivo">{{ item.mensagem }}</span></li>
+        {% endfor %}
+      </ul>
+      {% if revisao.nota.problemas %}<p class="nota-bloq" id="nota-bloqueio">Existem pendências na validação da nota. A confirmação permanece bloqueada; confira também a identificação fiscal.</p>{% endif %}
+    </div>
+
+    <div class="lado__bloco lado__bloco--resumo">
+      <dl class="resumo-mini">
+        <dt>Valor total</dt><dd data-resumo-total>{{ form.valor_total.value|moeda }}</dd>
+        <dt>Soma das parcelas</dt><dd data-resumo-soma>—</dd>
+      </dl>
+    </div>
+
+    {% if analise_id %}
+    <div class="lado__bloco lado__acoes">
+      <button type="submit" class="botao" form="form-conferencia" name="acao" value="salvar" data-submit-texto="Salvando...">Salvar correções</button>
+      {% if not revisao.nota.problemas %}
+      <a class="botao botao--secundario" href="{% url 'analise_confirmar' analise_id=analise_id %}">Revisar dados salvos para confirmar</a>
+      <p class="texto-apoio">Salve suas alterações antes de prosseguir. A confirmação usa apenas os dados salvos.</p>
+      {% else %}
+      <button type="button" class="botao botao--secundario" aria-disabled="true" aria-describedby="nota-bloqueio">Revisar para confirmar</button>
+      {% endif %}
+      <button type="submit" class="botao botao--perigo botao--texto" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>
+    </div>
+    {% endif %}
+
+    <div class="lado__bloco lado__bloco--rodape">
+      <p>Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado.</p>
+      {% if expira_em %}<p>Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}.</p>{% endif %}
+      {% if analise_id %}<p><a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a></p>{% endif %}
+    </div>
+  </aside>
+
+  <div class="conf__principal">
+    {% if correcoes_salvas %}{% include "documentos/_aviso.html" with tipo="ok" texto="Correções salvas. Nenhum lançamento financeiro foi realizado." %}{% endif %}
+    {% if erro_tela %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro_tela %}{% endif %}
+    {% if cadastro_criado %}<div class="aviso aviso--ok" role="status"><p>Classificação {{ cadastro_criado.codigo }} disponível no formulário. Os campos em edição foram preservados. Salve as correções antes de confirmar; nenhum lançamento financeiro foi realizado.</p></div>{% endif %}
+    <p class="intro">Revise os documentos, a classificação e as parcelas. As correções não alteram os dados originalmente extraídos. <span class="req">*</span> Campo obrigatório.</p>
+
 {% if analise_id %}
-<form method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota" data-submit-lock>
+<form id="form-conferencia" method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota" data-submit-lock>
   {% csrf_token %}
   <input type="hidden" name="versao_correcoes" value="{{ versao_correcoes }}">
 {% else %}<div class="formulario" aria-label="Conferência da nota">{% endif %}
-  <p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>
   {{ form.non_field_errors }}
 
   {% with secao=pendencias.secoes.0 %}
@@ -42,8 +80,8 @@
     <div class="secao-nota__topo">
       <h2 id="titulo-fornecedor"><span class="n">1.</span>Fornecedor</h2>
       {% include "documentos/_situacao_secao.html" %}
+      {% include "documentos/_consulta_cadastro.html" with consulta=consultas.0 rotulo="Cadastro" %}
     </div>
-    <p class="texto-apoio">Quem emitiu a nota.</p>
     <div class="campos">
       {% include "documentos/_campo.html" with campo=form.fornecedor_nome tamanho="g" pendencia=pendencias.campos.fornecedor_nome %}
       {% include "documentos/_campo.html" with campo=form.fornecedor_documento tamanho="p" pendencia=pendencias.campos.fornecedor_documento %}
@@ -56,8 +94,9 @@
     <div class="secao-nota__topo">
       <h2 id="titulo-faturado"><span class="n">2.</span>Faturado</h2>
       {% include "documentos/_situacao_secao.html" %}
+      {% include "documentos/_consulta_cadastro.html" with consulta=consultas.1 rotulo="Cadastro" %}
     </div>
-    <p class="texto-apoio">Quem recebeu a nota. Se houver CPF e CNPJ, indique qual documento usar.</p>
+    <p class="texto-apoio">Se houver CPF e CNPJ, indique qual documento usar.</p>
     <div class="campos">
       {% include "documentos/_campo.html" with campo=form.faturado_nome tamanho="g" pendencia=pendencias.campos.faturado_nome %}
       {% include "documentos/_campo.html" with campo=form.documento_faturado tamanho="p" pendencia=pendencias.campos.documento_faturado %}
@@ -72,14 +111,14 @@
     <div class="secao-nota__topo">
       <h2 id="titulo-nota"><span class="n">3.</span>Dados da nota</h2>
       {% include "documentos/_situacao_secao.html" %}
+      {% include "documentos/_consulta_cadastro.html" with consulta=consultas.2 rotulo="Classificação" %}
     </div>
-    <p class="texto-apoio">Identificação fiscal, classificação e valor total.</p>
     <div class="campos">
-      {% include "documentos/_campo.html" with campo=form.numero_nota tamanho="p" pendencia=pendencias.campos.numero_nota %}
-      {% include "documentos/_campo.html" with campo=form.serie_nota tamanho="p" pendencia=pendencias.campos.serie_nota %}
-      {% include "documentos/_campo.html" with campo=form.modelo tamanho="p" pendencia=pendencias.campos.modelo %}
-      {% include "documentos/_campo.html" with campo=form.chave_acesso tamanho="g" pendencia=pendencias.campos.chave_acesso %}
-      {% include "documentos/_campo.html" with campo=form.data_emissao tamanho="p" pendencia=pendencias.campos.data_emissao %}
+      {% include "documentos/_campo.html" with campo=form.numero_nota tamanho="q" pendencia=pendencias.campos.numero_nota %}
+      {% include "documentos/_campo.html" with campo=form.serie_nota tamanho="q" pendencia=pendencias.campos.serie_nota %}
+      {% include "documentos/_campo.html" with campo=form.modelo tamanho="q" pendencia=pendencias.campos.modelo %}
+      {% include "documentos/_campo.html" with campo=form.data_emissao tamanho="q" pendencia=pendencias.campos.data_emissao %}
+      {% include "documentos/_campo.html" with campo=form.chave_acesso tamanho="f" pendencia=pendencias.campos.chave_acesso %}
       {% include "documentos/_campo.html" with campo=form.classificacao tamanho="g" pendencia=pendencias.campos.classificacao %}
       {% include "documentos/_campo.html" with campo=form.valor_total tamanho="p" pendencia=pendencias.campos.valor_total %}
     </div>
@@ -96,27 +135,18 @@
     {{ parcelas.management_form }}
     {{ parcelas.non_form_errors }}
     {% for parcela in parcelas %}
-      <fieldset class="parcela">
-        <legend>Parcela {{ forloop.counter }}</legend>
-        {{ parcela.non_field_errors }}
-        <div class="campos">
-          {% include "documentos/_campo.html" with campo=parcela.data_vencimento tamanho="m" %}
-          {% include "documentos/_campo.html" with campo=parcela.valor tamanho="m" %}
-        </div>
-      </fieldset>
+      <div class="parcela" role="group" aria-labelledby="titulo-parcela-{{ forloop.counter }}">
+        <span class="parcela__nome" id="titulo-parcela-{{ forloop.counter }}">Parcela {{ forloop.counter }}</span>
+        {% include "documentos/_campo.html" with campo=parcela.data_vencimento %}
+        {% include "documentos/_campo.html" with campo=parcela.valor %}
+        {% if parcela.non_field_errors %}<div class="parcela__erros">{{ parcela.non_field_errors }}</div>{% endif %}
+      </div>
     {% endfor %}
     <p class="texto-apoio" data-soma-parcelas aria-live="polite" hidden><span class="st" data-soma-situacao></span> <span data-soma-texto></span></p>
   </section>
   {% endwith %}
 
 {% if analise_id %}
-  <div class="barra-acoes barra-acoes--fixa">
-    <button type="submit" class="botao" name="acao" value="salvar" data-submit-texto="Salvando...">Salvar correções</button>
-    {% if not revisao.nota.problemas %}<a class="botao botao--secundario" href="{% url 'analise_confirmar' analise_id=analise_id %}">Revisar dados salvos para confirmar</a>{% endif %}
-    <span class="barra-acoes__espaco"></span>
-    <button type="submit" class="botao botao--perigo" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>
-  </div>
-  {% if not revisao.nota.problemas %}<p class="texto-apoio">Salve suas alterações antes de prosseguir. A confirmação usa apenas os dados salvos.</p>{% endif %}
   {% if nova_classificacao %}
   <details class="recolher"{% if nova_classificacao.errors or cadastro_criado or form.classificacao.errors %} open{% endif %}>
     <summary>Cadastrar nova classificação de despesa</summary>
@@ -132,41 +162,12 @@
 </form>
 <form id="cancelar-analise" method="post" action="{% url 'analise_cancelar' analise_id=analise_id %}" data-submit-lock>{% csrf_token %}</form>
 {% else %}</div>{% endif %}
-</div>
 
-<aside class="lateral" aria-label="Resumo da nota">
-  <nav class="cartao cartao--status" aria-label="Situação por seção">
-    <h2>Situação da conferência</h2>
-    <ul class="situacao-secoes">
-      {% for secao in pendencias.secoes %}
-      <li><a href="#{{ secao.ancora }}"><span class="n">{{ secao.numero }}.</span>{{ secao.rotulo }}</a>{% include "documentos/_situacao_secao.html" %}</li>
-      {% endfor %}
-    </ul>
-    <p class="texto-apoio">{% if pendencias.total %}A confirmação só é liberada quando todas as seções estiverem sem pendências.{% else %}Nenhuma pendência encontrada.{% endif %}</p>
-  </nav>
-  <div class="cartao">
-    <h2>Resumo</h2>
-    <dl>
-      <dt>Fornecedor</dt><dd data-resumo-fornecedor>{{ form.fornecedor_nome.value|default:"—" }}</dd>
-      <dt>Valor total</dt><dd data-resumo-total>{{ form.valor_total.value|moeda }}</dd>
-      <dt>Soma das parcelas</dt><dd data-resumo-soma>—</dd>
-    </dl>
+    <section class="json">
+      <h2>Dados extraídos originalmente</h2>
+      <pre class="bloco-json bloco-json--curto"><code>{{ json_original }}</code></pre>
+    </section>
   </div>
-  {% if consultas %}
-  <div class="cartao">
-    <h2>Consulta aos cadastros</h2>
-    {% for consulta in consultas %}
-      <h3>{{ consulta.rotulo }}</h3>
-      <p>{{ consulta.situacao }}{% if consulta.id %} — ID: {{ consulta.id }}{% endif %}</p>
-      <p>{{ consulta.nome|default:"—" }}{% if consulta.status %} — {{ consulta.status }}{% endif %}{% if consulta.status_papel %} — Papel: {{ consulta.status_papel }}{% endif %}</p>
-    {% endfor %}
-  </div>
-  {% endif %}
-</aside>
-</div>
 
-<section class="cartao">
-  <h2>Dados extraídos originalmente</h2>
-  <pre class="bloco-json"><code>{{ json_original }}</code></pre>
-</section>
+</div>
 {% endblock %}

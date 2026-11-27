@@ -35,17 +35,40 @@ class TelaDeConferenciaTests(TestCase):
             with self.subTest(secao=titulo):
                 self.assertRegex(html, rf'<h2 id="titulo-\w+"><span class="n">{numero}</span>{titulo}</h2>')
         self.assertEqual(html.count('aria-current="step"'), 1)
-        self.assertIn('aria-current="step"><b>2.</b>Conferir os dados', html)
+        self.assertIn('<li aria-current="step"><span class="so-leitor">2. Conferir os dados</span></li>', html)
+        self.assertIn("Etapa <b>2 de 4</b> · Conferir os dados", html)
 
     def test_salvar_e_o_primeiro_botao_de_envio_para_o_enter_nao_cadastrar_classificacao(self):
         html = self.pagina()
         self.assertLess(html.index('value="salvar"'), html.index('value="criar_classificacao"'))
 
-    def test_cancelar_fica_na_barra_e_usa_formulario_proprio(self):
+    def test_acoes_ficam_no_painel_lateral_e_apontam_para_os_formularios(self):
         html = self.pagina()
         cancelar = reverse("analise_cancelar", args=[self.analise.id])
-        self.assertIn('class="botao botao--perigo" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>', html)
+        painel = re.search(r'<aside class="lado".*?</aside>', html, re.S).group(0)
+        self.assertIn('<button type="submit" class="botao" form="form-conferencia" name="acao" value="salvar"', painel)
+        self.assertIn('class="botao botao--perigo botao--texto" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>', painel)
+        self.assertIn('<form id="form-conferencia" method="post"', html)
         self.assertIn(f'<form id="cancelar-analise" method="post" action="{cancelar}" data-submit-lock>', html)
+
+    def test_com_pendencias_o_botao_de_revisar_fica_bloqueado_e_nao_e_link(self):
+        html = self.pagina()
+        self.assertIn('<button type="button" class="botao botao--secundario" aria-disabled="true" aria-describedby="nota-bloqueio">Revisar para confirmar</button>', html)
+        self.assertNotIn("Revisar dados salvos para confirmar", html)
+        # O motivo do bloqueio é o texto que o botão aponta (aria-describedby).
+        self.assertIn('<p class="nota-bloq" id="nota-bloqueio">Existem pendências', html)
+
+    def test_consulta_aos_cadastros_aparece_na_propria_secao(self):
+        html = self.pagina()
+        fornecedor = re.search(r'<section class="secao-nota[^"]*" id="secao-fornecedor".*?</section>', html, re.S).group(0)
+        self.assertRegex(fornecedor, r'<span class="cadastro cadastro--\w+">Cadastro: <b>[^<]+</b>')
+        classificacao = re.search(r'<section class="secao-nota[^"]*" id="secao-nota".*?</section>', html, re.S).group(0)
+        self.assertIn("Classificação: <b>", classificacao)
+
+    def test_parcelas_sao_linhas_nomeadas_para_leitor_de_tela(self):
+        html = self.pagina()
+        self.assertIn('<div class="parcela" role="group" aria-labelledby="titulo-parcela-1">', html)
+        self.assertIn('<span class="parcela__nome" id="titulo-parcela-1">Parcela 1</span>', html)
 
     def test_cadastro_de_classificacao_comeca_recolhido_e_abre_com_erro(self):
         self.assertIn('<details class="recolher">', self.pagina())

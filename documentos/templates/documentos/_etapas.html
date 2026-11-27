@@ -1,6 +1,15 @@
-{% comment %}Etapas do lançamento da nota. Parâmetro: atual (1 a 4). As anteriores aparecem como concluídas.{% endcomment %}<ol class="etapas" aria-label="Etapas do lançamento">
+{% comment %}
+  Etapas do lançamento da nota. Parâmetros: atual (1 a 4); compacto (opcional): barra de 4 segmentos + "Etapa N de 4",
+  para painéis estreitos. As anteriores aparecem como concluídas.
+{% endcomment %}{% if compacto %}<ol class="progresso" aria-label="Etapas do lançamento">
+  <li{% if atual == 1 %} aria-current="step"{% elif atual > 1 %} class="feita"{% endif %}><span class="so-leitor">1. Enviar a nota{% if atual > 1 %} (concluída){% endif %}</span></li>
+  <li{% if atual == 2 %} aria-current="step"{% elif atual > 2 %} class="feita"{% endif %}><span class="so-leitor">2. Conferir os dados{% if atual > 2 %} (concluída){% endif %}</span></li>
+  <li{% if atual == 3 %} aria-current="step"{% elif atual > 3 %} class="feita"{% endif %}><span class="so-leitor">3. Confirmar{% if atual > 3 %} (concluída){% endif %}</span></li>
+  <li{% if atual == 4 %} aria-current="step"{% endif %}><span class="so-leitor">4. Lançamento concluído</span></li>
+</ol>
+<p class="etapa-txt">Etapa <b>{{ atual }} de 4</b> · {% if atual == 1 %}Enviar a nota{% elif atual == 2 %}Conferir os dados{% elif atual == 3 %}Confirmar{% else %}Lançamento concluído{% endif %}</p>{% else %}<ol class="etapas" aria-label="Etapas do lançamento">
   <li{% if atual == 1 %} aria-current="step"{% elif atual > 1 %} class="feita"{% endif %}><b>1.</b>Enviar a nota{% if atual > 1 %}<span class="so-leitor"> (concluída)</span>{% endif %}</li>
   <li{% if atual == 2 %} aria-current="step"{% elif atual > 2 %} class="feita"{% endif %}><b>2.</b>Conferir os dados{% if atual > 2 %}<span class="so-leitor"> (concluída)</span>{% endif %}</li>
   <li{% if atual == 3 %} aria-current="step"{% elif atual > 3 %} class="feita"{% endif %}><b>3.</b>Confirmar{% if atual > 3 %}<span class="so-leitor"> (concluída)</span>{% endif %}</li>
   <li{% if atual == 4 %} aria-current="step"{% endif %}><b>4.</b>Lançamento concluído</li>
-</ol>
+</ol>{% endif %}

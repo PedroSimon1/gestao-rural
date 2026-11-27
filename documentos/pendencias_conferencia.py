@@ -54,7 +54,10 @@ def _destino(problema, form):
 
 def _item(secao, rotulo, mensagem, ancora):
     nome_secao = _SECAO_POR_NUMERO[secao][0] if secao else None
-    return {"secao": secao, "secao_rotulo": nome_secao, "rotulo": rotulo, "mensagem": mensagem, "ancora": ancora}
+    # Sem campo próprio para carregar o motivo: o painel precisa mostrar a mensagem junto do item.
+    sem_campo = ancora is None or ancora.startswith("secao-")
+    return {"secao": secao, "secao_rotulo": nome_secao, "rotulo": rotulo, "mensagem": mensagem,
+            "ancora": ancora, "sem_campo": sem_campo}
 
 
 def resumir_pendencias(nota, form, parcelas):
@@ -98,4 +101,5 @@ def resumir_pendencias(nota, form, parcelas):
     ]
     for secao in secoes:
         secao["total"] = len(secao["itens"])
-    return SimpleNamespace(total=len(itens), itens=itens, secoes=secoes, campos=campos)
+    gerais = [i for i in itens if i["secao"] is None]
+    return SimpleNamespace(total=len(itens), itens=itens, secoes=secoes, gerais=gerais, campos=campos)

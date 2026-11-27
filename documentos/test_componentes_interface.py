@@ -143,6 +143,16 @@ class EtapasETelasDaNotaTests(SimpleTestCase):
         self.assertEqual(self.etapas(3).count("(concluída)"), 2)
         self.assertNotIn("(concluída)", self.etapas(1))
 
+    def test_etapas_compactas_viram_barra_com_texto_para_leitor_e_etapa_n_de_4(self):
+        html = render_to_string("documentos/_etapas.html", {"atual": 3, "compacto": True})
+        self.assertIn('<ol class="progresso"', html)
+        self.assertEqual(html.count('class="feita"'), 2)
+        self.assertEqual(html.count('aria-current="step"'), 1)
+        self.assertIn('<li aria-current="step"><span class="so-leitor">3. Confirmar</span></li>', html)
+        self.assertIn("Etapa <b>3 de 4</b> · Confirmar", html)
+        self.assertEqual(html.count("(concluída)"), 2)
+        self.assertNotIn('class="etapas"', html)
+
     def test_sucesso_leva_a_conta_lancada_e_marca_a_quarta_etapa(self):
         html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3})
         self.assertIn('href="/financeiro/contas/7/"', html)

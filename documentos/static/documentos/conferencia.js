@@ -1,5 +1,5 @@
 /*
- * Gestão Rural — conferência da nota: foco fora da barra fixa, soma das parcelas e resumo ao vivo.
+ * Gestão Rural — conferência da nota: foco fora da barra de ações, links das pendências, soma das parcelas e resumo ao vivo.
  *
  * Só informa e rola a página: não altera valores, não envia nada e não substitui a validação do servidor.
  * Sem JavaScript a tela funciona igual (o aviso de soma fica oculto).
@@ -7,9 +7,10 @@
 (function () {
   "use strict";
 
-  // A barra de ações fixa não pode cobrir o campo que recebeu o foco (WCAG 2.4.11): se cobrir, rola o
-  // suficiente para o campo ficar acima dela. A margem de rolagem do CSS não basta com o campo já visível.
-  var barra = document.querySelector(".barra-acoes--fixa");
+  // No celular a barra de ações fica fixa embaixo e não pode cobrir o campo que recebeu o foco (WCAG 2.4.11):
+  // se cobrir, rola o suficiente para o campo ficar acima dela. A margem de rolagem do CSS não basta com o campo
+  // já visível. No desktop o painel fica ao lado do formulário, sem sobreposição (confere nos dois eixos).
+  var barra = document.querySelector(".lado__acoes");
   if (barra) {
     document.addEventListener("focusin", function (evento) {
       var alvo = evento.target;
@@ -18,7 +19,8 @@
       }
       var campo = alvo.getBoundingClientRect();
       var faixa = barra.getBoundingClientRect();
-      if (campo.bottom > faixa.top && campo.top < faixa.bottom) {
+      var cobre = campo.left < faixa.right && campo.right > faixa.left && campo.bottom > faixa.top && campo.top < faixa.bottom;
+      if (cobre) {
         window.scrollBy(0, campo.bottom - faixa.top + 16);
       }
     });
@@ -26,7 +28,7 @@
 
   // Link da lista de pendências: além de rolar até o campo, leva o foco para ele (o navegador só rola).
   document.addEventListener("click", function (evento) {
-    var link = evento.target.closest ? evento.target.closest(".pendencias a[href^='#']") : null;
+    var link = evento.target.closest ? evento.target.closest(".lado__pend a[href^='#']") : null;
     var alvo = link ? document.getElementById(link.getAttribute("href").slice(1)) : null;
     if (alvo && alvo.matches("input, select, textarea, button")) {
       alvo.focus({ preventScroll: true });

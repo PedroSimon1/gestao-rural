@@ -60,6 +60,14 @@ class ResumoDePendenciasTests(TestCase):
         self.assertEqual([s["total"] for s in r.secoes], [0, 0, 0, 0])
         self.assertEqual(r.total, 1)
 
+    def test_item_sem_campo_proprio_carrega_a_mensagem_e_o_de_campo_nao(self):
+        com_campo = resumo(Problema("fornecedor.documento", "invalido")).itens[0]
+        self.assertFalse(com_campo["sem_campo"])
+        for problema in (Problema("parcelas", "parcela_soma"), Problema("correcoes", "invalido")):
+            self.assertTrue(resumo(problema).itens[0]["sem_campo"])
+        self.assertEqual(len(resumo(Problema("correcoes", "invalido")).gerais), 1)
+        self.assertEqual(resumo(Problema("parcelas", "parcela_soma")).gerais, [])
+
     def test_erros_do_formulario_enviado_entram_na_contagem_por_secao(self):
         dados = {"valor_total": "abc", "parcelas-TOTAL_FORMS": "1", "parcelas-INITIAL_FORMS": "1",
                  "parcelas-0-valor": "", "parcelas-0-data_vencimento": ""}
@@ -86,11 +94,11 @@ class TelaDePendenciasTests(TestCase):
         self.analise = criar_analise(self.client.session, resultado_da_nota())
         self.html = self.client.get(reverse("analise_conferencia", args=[self.analise.id])).content.decode()
 
-    def test_lista_de_pendencias_leva_ao_campo_e_diz_a_secao(self):
-        painel = re.search(r'<section class="pendencias".*?</section>', self.html, re.S).group(0)
-        self.assertRegex(painel, r"\d+ pendência")
-        self.assertIn('<a href="#id_chave_acesso">', painel)
-        self.assertIn('<span class="pendencias__secao">3. Dados da nota</span>', painel)
+    def test_painel_lista_cada_pendencia_com_link_para_o_campo(self):
+        painel = re.search(r'<div class="lado__bloco lado__bloco--pend" role="alert">.*?</aside>', self.html, re.S).group(0)
+        self.assertRegex(painel, r"<strong>\d+ pendência")
+        self.assertIn('<a href="#id_chave_acesso">Identificação fiscal</a>', painel)
+        self.assertIn("Existem pendências na validação da nota", painel)
 
     def test_secao_com_pendencia_e_marcada_e_a_sem_pendencia_diz_que_esta_ok(self):
         secao_nota = re.search(r'<section class="secao-nota[^"]*" id="secao-nota".*?</section>', self.html, re.S).group(0)
@@ -101,12 +109,13 @@ class TelaDePendenciasTests(TestCase):
         self.assertIn('<span class="st st--ok">Sem pendências</span>', secao_parcelas)
 
     def test_campo_pendente_e_marcado_e_o_motivo_aparece_em_texto(self):
-        campo = re.search(r'<div class="campo campo--g campo--pendente">.*?</div>', self.html, re.S).group(0)
+        campo = re.search(r'<div class="campo campo--f campo--pendente">.*?</div>', self.html, re.S).group(0)
         self.assertIn('id="id_chave_acesso"', campo)
         self.assertIn("<strong>Pendente:</strong>", campo)
 
-    def test_painel_lateral_resume_a_situacao_de_cada_secao_com_link(self):
-        lateral = re.search(r'<nav class="cartao cartao--status".*?</nav>', self.html, re.S).group(0)
+    def test_painel_resume_a_situacao_de_cada_secao_com_link_e_contagem(self):
+        bloco = re.search(r'<ul class="sec-lista">.*?</aside>', self.html, re.S).group(0)
         for ancora in ("secao-fornecedor", "secao-faturado", "secao-nota", "secao-parcelas"):
-            self.assertIn(f'href="#{ancora}"', lateral)
-        self.assertEqual(lateral.count('class="st st--'), 4)
+            self.assertIn(f'href="#{ancora}"', bloco)
+        self.assertIn('<span class="pill pill--ok">OK', bloco)
+        self.assertRegex(bloco, r'<span class="pill pill--erro">\d+')
