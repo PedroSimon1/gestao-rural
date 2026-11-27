@@ -35,6 +35,8 @@ class ContaManualForm(forms.Form):
     classificacoes = forms.ModelMultipleChoiceField(label="Classificações", queryset=Classificacao.objects.none(), widget=forms.CheckboxSelectMultiple)
     principal = forms.ModelChoiceField(label="Classificação principal", queryset=Classificacao.objects.none(), empty_label="Selecione a classificação principal")
     confirmar = forms.BooleanField(label="Conferi os dados e confirmo o registro desta conta")
+    # Só aparece quando há conta parecida (financeiro/duplicidade.py); sem marcá-lo, nada é registrado.
+    ciente_duplicidade = forms.BooleanField(required=False, label="Conferi as contas parecidas e quero registrar esta mesmo assim")
 
     def __init__(self, *args, tipo, **kwargs):
         super().__init__(*args, **kwargs)

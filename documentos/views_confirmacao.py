@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from config.erros_banco import mensagem_de_banco
 from usuarios.demo import demo_login_required
 from cadastros.resolucao import ParteNota, avaliar_partes
+from financeiro.duplicidade import movimentos_parecidos
 from financeiro.lancamento_nota import lancar_nota
 from .analises import AnaliseError, obter_analise
 from .conferencia import conferir_nota
@@ -27,6 +28,16 @@ def _avaliacoes(nota):
     return [{'rotulo': rotulo, 'acoes': [ROTULOS_DECISAO[d] for d in ROTULOS_DECISAO if d in avaliacao.decisoes_necessarias],
              'bloqueio': mensagem_validacao(avaliacao.bloqueio) if avaliacao.bloqueio else None}
             for rotulo, avaliacao in zip(('Fornecedor', 'Faturado'), resultado)]
+
+
+def _duplicidades(nota):
+    """Contas já registradas parecidas com esta nota (só aviso: a identidade fiscal é a trava de verdade)."""
+    contraparte_id = nota.fornecedor.consulta.id
+    if contraparte_id is None or nota.valor_total is None:
+        return ()
+    return movimentos_parecidos(
+        contraparte_id, nota.valor_total, min((p.data_vencimento for p in nota.parcelas), default=None),
+    )
 
 
 @sensitive_post_parameters()
@@ -62,6 +73,7 @@ def analise_confirmar(request, analise_id):
         return render(request, 'documentos/confirmacao.html', {
             'analise_id': analise.id, 'form_confirmacao': form, 'nota': nota, 'ficha': ficha_da_nota(nota),
             'pendencias': pendencias_da_nota(nota), 'avaliacoes': _avaliacoes(nota),
+            'duplicidades': _duplicidades(nota),
         }, status=status)
     except AnaliseError as erro:
         return _erro_analise(request, erro)

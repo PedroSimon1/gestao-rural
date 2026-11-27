@@ -35,7 +35,7 @@ Legenda de situação: **Atendido** (implementado e testado localmente), **Parci
 | RF-18 | Conferir e **corrigir** os dados extraídos antes de confirmar, com revalidação no servidor | DQ-11 | Atendido (campos fechados em `CAMPOS_CORRIGIVEIS`) | `documentos/correcoes.py`, `conferencia.py`, `interface_conferencia.py` |
 | RF-19 | **Cancelar** uma análise (apaga os dados da nota) | DQ-09 | Atendido | `views_analises.analise_cancelar`, `analises.cancelar_analise` |
 | RF-20 | **Impedir lançar a mesma nota duas vezes** (identidade fiscal e idempotência da análise) | DQ-10, 15 a 18 | Atendido | `financeiro/identidade_fiscal.py`, `NotaFiscalLancada`, `analise_origem_id` único |
-| RF-21 | **Consultar contas** (lista com filtros e detalhe com classificações e parcelas) | GR-49 | **Parcial**: só consulta; sem editar, cancelar, baixar ou histórico | `financeiro/views_consultas.py` |
+| RF-21 | **Consultar contas** (lista com filtros e detalhe com classificações, parcelas, valor em aberto e nota fiscal) e **dar baixa** em parcela (paga/recebida, com desfazer) | GR-49, D1 | **Parcial**: consulta e baixa simples; sem editar, cancelar movimento/parcela, pagamento parcial ou histórico | `financeiro/views_consultas.py`, `financeiro/views_pagamentos.py`, `financeiro/pagamentos.py` |
 | RF-22 | Criar uma **classificação de despesa** durante a conferência, sem perder o rascunho | FLU-07 | Atendido | `views_analises.analise_conferencia` (ação `criar_classificacao`) |
 
 ### 1.1 Pendente de confirmação (dúvidas de escopo)

@@ -17,7 +17,7 @@
   {{ form.non_field_errors }}
   <p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>
   {% for campo in form.hidden_fields %}{{ campo.errors }}{{ campo }}{% endfor %}
-  {% for campo in form.visible_fields %}{% if campo.name != 'confirmar' %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}
+  {% for campo in form.visible_fields %}{% if campo.name != 'confirmar' and campo.name != 'ciente_duplicidade' %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}
   <h2>Parcelas</h2>
   <p class="texto-apoio">Informe vencimento e valor de cada parcela. A soma deve corresponder ao total; nenhuma parcela será calculada automaticamente.</p>
   {{ parcelas.management_form }}{{ parcelas.non_form_errors }}
@@ -25,6 +25,8 @@
   <template data-nova-parcela><fieldset class="cartao"><legend data-titulo-parcela>Nova parcela</legend>{% for campo in parcelas.empty_form %}{% if campo.name == 'DELETE' %}<label class="opcao">{{ campo }} {{ campo.label }}</label>{% else %}{% include "documentos/_campo.html" %}{% endif %}{% endfor %}</fieldset></template>
   <button class="botao botao--secundario" type="button" data-adicionar-parcela>Adicionar parcela</button>
   <p class="texto-apoio" data-aviso-parcelas role="status" aria-live="polite">Até {{ maximo_parcelas }} parcelas.</p>
+  {% if duplicidades %}{% include "financeiro/_contas_parecidas.html" %}{% endif %}
+  <div{% if not duplicidades %} hidden{% endif %}>{% with campo=form.ciente_duplicidade %}{% include "documentos/_campo.html" %}{% endwith %}</div>
   {% with campo=form.confirmar %}{% include "documentos/_campo.html" %}{% endwith %}
   <div class="barra-acoes">
     <button class="botao" type="submit">Confirmar registro</button>

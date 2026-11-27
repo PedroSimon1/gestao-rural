@@ -160,6 +160,8 @@ Constraints: `movimento_classificacao_unica` (movimento + classificação) e `mo
 | `status` | varchar(9) | `ATIVA` (nasce assim) / `CANCELADA` — o cancelamento **não tem contrato aprovado** |
 
 Imutáveis: `identificador`, `movimento`, `numero`, `data_vencimento`, `valor`, `status`, `criado_em`.
+`pago_em` (date, nulo) é a **baixa**: a data em que a parcela foi paga (a pagar) ou recebida (a receber); nulo = em aberto. É o único campo da
+parcela que muda (`financeiro/pagamentos.py`, com bloqueio da linha). O `status` continua `ATIVA`, então o gatilho da soma não muda.
 A "Identificação" do professor ("ÚNICA" quando há uma só) é **apresentação**; o registro guarda o número.
 
 ### 2.6 `notas_fiscais_lancadas` (`NotaFiscalLancada`)
@@ -175,6 +177,7 @@ A "Identificação" do professor ("ÚNICA" quando há uma só) é **apresentaç�
 
 Constraints: `nota_fiscal_identidade_unica` (CNPJ + modelo + série + número), `nota_fiscal_chave_coerente` (com chave, os 4 campos são os da chave),
 formatos e limites. Todos os campos são imutáveis. **Um movimento cancelado não libera a identidade.**
+`data_emissao` (date, nula) vem da conferência na confirmação; notas lançadas antes da migration 0006 ficam sem ela.
 
 ### 2.7 `analises_pendentes` (`AnalisePendente`)
 
@@ -224,6 +227,8 @@ Regra que não cabe numa constraint por linha, porque movimento e parcelas são 
 | | `0002_parcelas_contas` | `ParcelaConta` + gatilho diferido |
 | | `0003_nota_fiscal_lancada` | `NotaFiscalLancada` |
 | | `0004_chave_idempotencia` | `chave_idempotencia` (nula, única) + constraint "só manual" |
+| | `0005_habilitar_rls` | RLS ligado, sem políticas, nas tabelas dos apps |
+| | `0006_baixa_de_parcela_e_data_de_emissao` | `ParcelaConta.pago_em` e `NotaFiscalLancada.data_emissao` (só campos novos, nulos) |
 | `documentos` | `0001_initial` | `AnalisePendente` |
 | | `0002_correcoes_da_conferencia` | `correcoes`, `versao_correcoes`, `campos_corrigidos` |
 

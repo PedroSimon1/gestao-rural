@@ -353,6 +353,10 @@ details.recolher > div { padding: 0 16px 16px; }
 .acoes-json { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
 .acoes-json .botao { margin: 0; }
 .acoes-json .texto-apoio { margin: 0; }
+.baixa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 0 0; }
+.baixa label { font-size: .85rem; }
+.baixa input[type="date"] { min-height: 34px; padding: 0 8px; }
+.texto-quebra { overflow-wrap: anywhere; font-family: var(--mono); font-size: .9rem; }
 @media (max-width: 1040px) {
   .topo-fluxo { grid-template-columns: 1fr; }
   .passos li { flex: 1 1 0; min-width: 0; }

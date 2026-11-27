@@ -124,8 +124,8 @@ class ConcorrenciaFiscalTests(TransactionTestCase):
         primeira = threading.Lock()
         resultados, erros = {}, []
 
-        def registrar(movimento, identidade):
-            resultado = original(movimento, identidade)
+        def registrar(movimento, identidade, **extras):
+            resultado = original(movimento, identidade, **extras)
             if primeira.acquire(blocking=False):
                 gravado.set()
                 time.sleep(0.5)
