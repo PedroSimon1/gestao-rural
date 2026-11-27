@@ -50,6 +50,7 @@
   </ul>
 </section>
 
+{% include "financeiro/_contas_parecidas.html" %}
 {{ form_confirmacao.non_field_errors }}
 {% if not pendencias %}
 <form method="post" class="formulario formulario-cadastro" data-submit-lock data-submit-texto="Confirmando...">

@@ -129,9 +129,13 @@ class InterfaceManuaisTests(ContaManualBase, TestCase):
         self.assertEqual(str(MovimentoConta.objects.get().valor_total), "150.00")
         self.assertEqual(contagens(), (1, 1, 1))
 
-    def test_nova_conta_identica_com_novo_uuid_e_permitida(self):
-        for _ in range(2):
-            self.assertEqual(self.client.post(self.url, self.dados()).status_code, 302)
+    def test_nova_conta_identica_com_novo_uuid_so_com_ciencia_do_aviso(self):
+        self.assertEqual(self.client.post(self.url, self.dados()).status_code, 302)
+        segunda = self.dados()
+
+        self.assertEqual(self.client.post(self.url, segunda).status_code, 409)
+        self.assertEqual(contagens(), (1, 1, 1))
+        self.assertEqual(self.client.post(self.url, {**segunda, "ciente_duplicidade": "on"}).status_code, 302)
         self.assertEqual(contagens(), (2, 2, 2))
 
     def test_chave_ausente_ou_token_adulterado_nao_chega_ao_servico(self):
