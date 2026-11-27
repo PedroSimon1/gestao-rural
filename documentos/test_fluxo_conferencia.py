@@ -136,6 +136,27 @@ class FluxoConferenciaTests(TestCase):
         self.assertEqual(r.status_code, 503)
         self.assertNotContains(r, 'senha-interna', status_code=503)
 
+    def test_banco_fora_do_ar_nao_chama_o_gemini_nem_expoe_detalhes(self):
+        from django.db import InterfaceError
+        antes = AnalisePendente.objects.count()
+        for erro in (DatabaseError('senha-interna'), InterfaceError('senha-interna')):
+            with self.subTest(erro=type(erro).__name__):
+                with mock.patch('documentos.views_analises.verificar_banco', side_effect=erro), \
+                        mock.patch('documentos.views_analises.processar_pdf') as processar:
+                    r = self.enviar_pdf()
+                processar.assert_not_called()
+                self.assertContains(r, 'A nota não foi enviada ao Gemini', status_code=503)
+                self.assertNotContains(r, 'senha-interna', status_code=503)
+        self.assertEqual(AnalisePendente.objects.count(), antes)
+
+    def test_banco_no_ar_a_checagem_passa_antes_do_processamento(self):
+        ordem = []
+        with mock.patch('documentos.views_analises.verificar_banco', side_effect=lambda: ordem.append('banco')), \
+                mock.patch('documentos.views_analises.processar_pdf',
+                           side_effect=lambda *a, **k: ordem.append('gemini') or ResultadoProcessamento(resultado_da_nota(), 'ok')):
+            self.assertEqual(self.enviar_pdf().status_code, 302)
+        self.assertEqual(ordem, ['banco', 'gemini'])
+
     def test_upload_sem_codigo_de_dono_exige_renovar_sessao(self):
         cliente = Client()
         autenticar_demo(cliente)

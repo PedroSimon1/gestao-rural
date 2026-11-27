@@ -86,7 +86,8 @@ Pontos importantes:
 
 - **Etapa, código interno, traceback, status HTTP e resposta bruta da API não aparecem** na tela. Os logs trazem só código e texto fixo.
 - O PDF e a chave são descartados ao fim da requisição. Reenviar reprocessa e consome cota do Gemini.
-- Falha ao gravar a análise (banco): "Não foi possível guardar a análise agora. Tente novamente." (503).
+- Banco fora do ar: `analise_criar` faz um `SELECT 1` **antes** de chamar o Gemini e, se falhar, responde 503 com "O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes." (nenhuma chamada nem cota gasta).
+- Falha ao gravar a análise depois do processamento (banco): "Não foi possível guardar a análise agora. Tente novamente." (503).
 
 > **Rota única de processamento.** `GET /documentos/` (`documento_inicio`) só mostra a tela de envio; o POST do formulário vai para `analise_criar`.
 > O antigo POST em `/documentos/`, que processava o PDF sem guardar análise, foi removido (responde 405).

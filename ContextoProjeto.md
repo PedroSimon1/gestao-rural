@@ -3824,3 +3824,45 @@ Operar (humano): `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; confer
 ## 41.10 - Git
 
 Branch atual `feature/correcao-interface-backend`, com as quatro branches `fix/*` mescladas localmente (`--no-ff`). Nenhum push foi feito.
+
+# 42 - Checagem do banco antes do Gemini no envio da nota (27/11/2026)
+
+## 42.1 - Identificação
+
+Tarefa: `analise_criar` checar o banco antes de chamar o Gemini, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 42.2 - Objetivo
+
+Com o banco pausado ou fora do ar, o processamento gastava a chamada ao Gemini e a chave do usuário e só então falhava ao guardar a análise.
+
+## 42.3 - Implementação
+
+`documentos/analises.verificar_banco()` executa `SELECT 1`. `analise_criar` chama essa função depois de validar o formulário e antes de `processar_pdf`; qualquer `django.db.Error` (inclui `InterfaceError`) responde 503 com "O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes." A falha ao guardar depois do processamento mantém a mensagem anterior.
+
+## 42.4 - Arquivos
+
+`documentos/analises.py`, `documentos/views_analises.py`; testes em `documentos/test_analises.py`, `test_fluxo_conferencia.py` e `test_interface.py` (a base sem banco simula a checagem); `docs/documentacao/05-fluxos.md`.
+
+## 42.5 - Decisões técnicas
+
+A checagem custa uma ida ao banco por envio (a conexão é aberta por requisição, `CONN_MAX_AGE=0`, e é reaproveitada na gravação). Ela não garante que o banco ainda esteja no ar quando o Gemini terminar; esse caso continua coberto pela mensagem de falha ao guardar. Formulário inválido responde antes da checagem, sem tocar o banco.
+
+## 42.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations. Só o PostgreSQL local de `DB_TEST_*`.
+
+## 42.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1265 testes, OK (4 novos: banco fora do ar com `DatabaseError` e `InterfaceError`, ordem banco → Gemini, `verificar_banco` direto). Não testado contra um Supabase realmente pausado.
+
+## 42.8 - Integração
+
+Complementa as seções 39.1 e 41 (tratamento de falha do banco nas telas).
+
+## 42.9 - Pendências
+
+Nenhuma nova. O banco pausado continua sem mensagem própria nas demais telas ("tente novamente").
+
+## 42.10 - Git
+
+Branch `feature/correcao-interface-backend`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.

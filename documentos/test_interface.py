@@ -105,6 +105,11 @@ class InterfaceTestBase(SimpleTestCase):
         self.criar_analise = patcher.start()
         self.addCleanup(patcher.stop)
 
+        # A checagem do banco antes do Gemini também usa o banco.
+        patcher = mock.patch("documentos.views_analises.verificar_banco")
+        self.verificar_banco = patcher.start()
+        self.addCleanup(patcher.stop)
+
         entrar(self.client)
         self.url = reverse("documento_inicio")
         self.url_envio = reverse("analise_criar")

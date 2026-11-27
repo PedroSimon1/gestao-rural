@@ -4,14 +4,17 @@ from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import DatabaseError, Error as DBError, IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 from django.views.decorators.http import require_http_methods, require_POST
 
 from usuarios.demo import demo_login_required
 from cadastros.models import TipoClassificacao
-from .analises import CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise
+from .analises import (
+    CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
+    verificar_banco,
+)
 from .conferencia import conferir_nota
 from .forms import DocumentoUploadForm
 from .forms_classificacao_nota import ClassificacaoNaNotaForm
@@ -42,6 +45,15 @@ def analise_criar(request):
     contexto = {'form': form, 'limite_upload_mb': settings.MAX_PDF_UPLOAD_SIZE_MB}
     if not form.is_valid():
         return render(request, 'documentos/inicio.html', contexto, status=400)
+    # O resultado só vale se puder ser guardado: sem banco, nada de Gemini nem de gasto da chave.
+    try:
+        verificar_banco()
+    except DBError:
+        return _falha(
+            request,
+            'O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes.',
+            503,
+        )
     try:
         gemini_api_key = form.cleaned_data['gemini_api_key']
         arquivo = form.cleaned_data['arquivo']
