@@ -3775,4 +3775,52 @@ Decidir: bloqueio ou trilha para troca de documento de pessoa com histórico; re
 
 ## 40.10 - Git
 
-Branch `feature/correcao-interface-backend`; alteração local não versionada: `ContextoProjeto.md`. Nenhum commit, push ou merge foi feito.
+Branch `feature/correcao-interface-backend`; registro versionado no commit `docs(auditoria): registra a auditoria do back end de 27/11/2026`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 41 - Correção dos achados médios e do ramo legado (27/11/2026)
+
+## 41.1 - Identificação
+
+Tarefa: corrigir os achados médios da seção 40 e remover o POST legado de `documento_inicio`, a pedido do usuário (sem código GR). Data: 27/11/2026. Branches: `fix/aviso-tls-banco`, `fix/limite-login-proxy`, `fix/edicao-documento-pessoa` e `fix/remove-legado-documento-inicio`, mescladas com `--no-ff` em `feature/correcao-interface-backend`.
+
+## 41.2 - Objetivo
+
+Fechar os três achados médios (TLS do banco, troca de CPF/CNPJ com histórico, origem do cliente no limite de login) e o achado do ramo legado.
+
+## 41.3 - Implementação
+
+- **TLS do banco:** o padrão de `DB_SSLMODE` continua `require` (verify-full exige o certificado da CA, que só existe no ambiente). `config/checks.py` emite `config.W001` em `check --deploy` enquanto o modo for `require`.
+- **Limite de login:** nova variável `DJANGO_PROXIES_CONFIAVEIS` (padrão 1, igual ao comportamento anterior). A origem é o N-ésimo valor de `X-Forwarded-For` contado do fim; com 0, o cabeçalho é ignorado e vale `REMOTE_ADDR`. Valor inválido impede a inicialização.
+- **Troca de documento:** `PessoaForm` desabilita o documento quando a pessoa é contraparte ou faturado de algum movimento; só o nome é editável. O valor postado é ignorado e fica fora do `update_fields`.
+- **Ramo legado:** `documento_inicio` só aceita GET (POST responde 405). Removidos `_processar`, `_resumo`, `_formatar_*`, `_avisos_validacao` e o bloco de resultado de `inicio.html`. `analise_criar` passou a enviar `nome_arquivo` ao template de erro (a mensagem saía com o nome vazio).
+
+## 41.4 - Arquivos
+
+`config/checks.py`, `config/__init__.py`, `config/settings.py`, `usuarios/limite.py`, `cadastros/forms.py`, `documentos/views.py`, `documentos/views_analises.py`, `documentos/templates/documentos/inicio.html`; `.env.example`, `README.md` e `docs/documentacao/05, 08, 09, 10, 12`. Testes: `config/test_checks.py` (novo), `usuarios/test_limite.py`, `cadastros/test_interface_pessoas.py`, `documentos/test_interface.py` (reescrito para `analise_criar`), `documentos/test_classificacao_pendente.py`, `agents/extrator/test_faturado_pj.py` e `test_schema_fiscal_v2.py`. Removido `documentos/test_interface_consultas.py` (testava o painel de consultas do ramo legado).
+
+## 41.5 - Decisões técnicas
+
+- A troca de documento foi **bloqueada** (decisão tomada nesta tarefa, a pedido do usuário; a seção 40.9 a deixava aberta). Não há trilha de alteração; quem errou o documento de uma pessoa com histórico precisa cadastrar outra.
+- O bloqueio é só no formulário; `Pessoa.save()` e o ORM continuam aceitando a troca por código.
+- O padrão de `DJANGO_PROXIES_CONFIAVEIS` não foi verificado no Render: o número real de proxies na frente do app precisa ser conferido e configurado.
+- `documentos/consultas.py` e `documentos/adaptador_financeiro.py` deixaram de ser usados em produção (só os testes os usam); foram mantidos por terem testes próprios e decisão pendente.
+
+## 41.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations (`makemigrations --check` sem mudanças). Só o PostgreSQL local de `DB_TEST_*`.
+
+## 41.7 - Testes
+
+`python manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `python manage.py test --noinput` na branch mesclada: 1261 testes, OK (antes: 1261; 3 novos de documento travado, 5 de origem do cliente, 2 de TLS; menos os do ramo legado e do painel de consultas, retargetados para `analise_criar` ou removidos).
+
+## 41.8 - Integração
+
+Fecha os achados médios e o legado da seção 40. `DJANGO_PROXIES_CONFIAVEIS` entra na tabela de variáveis (README e `docs/documentacao/10`).
+
+## 41.9 - Pendências
+
+Operar (humano): `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; conferir quantos proxies acrescentam o endereço em `X-Forwarded-For` e definir `DJANGO_PROXIES_CONFIAVEIS`. Decidir: remover `documentos/consultas.py` e `adaptador_financeiro.py`; trilha de alteração de cadastros. Os achados de gravidade baixa da seção 40 seguem abertos.
+
+## 41.10 - Git
+
+Branch atual `feature/correcao-interface-backend`, com as quatro branches `fix/*` mescladas localmente (`--no-ff`). Nenhum push foi feito.
