@@ -1,0 +1,7 @@
+# Lint do projeto: só erros de verdade (pyflakes: import sem uso, nome indefinido,
+# variável não usada...). Estilo não é cobrado; o CI roda `ruff check`.
+target-version = "py314"
+extend-exclude = ["prototipo", "staticfiles", "media", "uploads"]
+
+[lint]
+select = ["F"]

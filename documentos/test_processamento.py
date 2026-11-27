@@ -8,7 +8,6 @@ from google.genai import errors
 
 from agents.classificador.agent import (
     AgentClassificador,
-    ClassificacaoInconclusivaError,
     ClassificacaoIndisponivelError,
     ClassificacaoInvalidaError,
 )

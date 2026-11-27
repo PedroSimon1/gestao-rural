@@ -103,7 +103,7 @@ Ver também [12](12-pendencias-e-riscos.md). Itens de segurança abertos:
 | Médio | **Row Level Security**: a migration `financeiro/0005_habilitar_rls` o habilita, sem políticas, nas 8 tabelas dos apps; **aplicada na homologação em 26/11/2026**, ainda **não aplicada** em produção | Com ela aplicada, a Data API do Supabase não lê nem grava as tabelas; confirmar também que a Data API está desativada (não verificável pelo repositório) |
 | Médio | **Limpeza das análises sem agendamento** | `expirar_analises` existe, mas ninguém o executa periodicamente |
 | Baixo | `LOGGING` configurado (5xx no console, sem a mensagem da exceção); sem cabeçalho CSP (as telas usam CSS/JS locais, então um CSP restritivo é viável); validação de PDF superficial (assinatura `%PDF-`) | |
-| Baixo | Dependências: `google-genai` 2.24.0 → 3.x é mudança de versão **maior** e precisa de teste dos Agents antes de adotar; sem `pip-audit` nem hashes em `requirements.txt` | |
+| Baixo | Dependências: `google-genai` 2.24.0 → 3.x é mudança de versão **maior** e precisa de teste dos Agents antes de adotar; `pip-audit` roda no CI desde 27/11/2026 (sem vulnerabilidades conhecidas após atualizar `certifi` e `pyasn1`); sem hashes em `requirements.txt` | |
 
 ## 5. Checklist de segurança para uma mudança
 

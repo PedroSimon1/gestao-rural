@@ -14,7 +14,7 @@ from .consultas import (
 )
 from .models import Classificacao, Papel, PapelPessoa, Pessoa, SituacaoDocumental, Status
 from .test_models import (
-    CNPJ, CNPJ_ALFANUMERICO, CNPJ_DV_INVALIDO, CNPJ_FORMATADO, CPF, CPF_DV_INVALIDO,
+    CNPJ, CNPJ_ALFANUMERICO, CNPJ_DV_INVALIDO, CPF, CPF_DV_INVALIDO,
     CPF_FORMATADO, criar_incompleta, criar_pessoa,
 )
 

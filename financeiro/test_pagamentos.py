@@ -1,6 +1,6 @@
 """D1: baixa de parcela (paga/recebida) e sua tela; D3: nota fiscal no detalhe. PostgreSQL local de teste."""
 import threading
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError

@@ -8,7 +8,6 @@ from django.core.files.uploadedfile import InMemoryUploadedFile, SimpleUploadedF
 from django.core.management import call_command
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
 from agents.extrator.agent import AgentExtrator
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
