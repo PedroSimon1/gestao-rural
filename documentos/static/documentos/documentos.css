@@ -36,6 +36,8 @@ body {
   font-size: 16px;
   line-height: 1.55;
 }
+/* Reserva o espaço da barra de rolagem: sem isso, páginas com e sem rolagem deslocam o conteúdo centralizado (topo incluído) ao navegar. */
+html { scrollbar-gutter: stable; }
 h1, h2, h3 { margin: 0 0 8px; line-height: 1.25; font-weight: 600; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1.15rem; margin-top: 24px; }
