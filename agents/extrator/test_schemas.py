@@ -6,11 +6,11 @@ from decimal import Decimal
 from django.test import SimpleTestCase
 from pydantic import ValidationError
 
+from comum.documentos_br import cnpj_dv_valido, cpf_dv_valido
+
 from .schemas import (
     VERSAO_SCHEMA,
     NotaFiscalExtraida,
-    cnpj_dv_valido,
-    cpf_dv_valido,
 )
 
 # Documentos fictícios com dígitos verificadores válidos.

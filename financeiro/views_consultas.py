@@ -4,18 +4,15 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from config.erros_banco import erros_de_banco
+from config.erros_banco import erros_de_banco, mensagem_de_banco
 from usuarios.demo import demo_login_required
 from .forms_consultas import FiltroContasForm
 from .manual import MOVIMENTO_INEXISTENTE, consultar_movimento, listar_movimentos
 from .models import OrigemMovimento, StatusMovimento, StatusParcela, TipoMovimento
 
 
-_erros_de_banco = erros_de_banco(
-    "financeiro/conta_detalhe.html",
-    # Também cobre falhas ao validar/renderizar os seletores de filtros.
-    "Não foi possível consultar as contas agora. Tente novamente.",
-)
+# Também cobre falhas ao validar/renderizar os seletores de filtros.
+_erros_de_banco = erros_de_banco("financeiro/conta_detalhe.html", mensagem_de_banco("consultar as contas"))
 
 
 def _resumo(item):
