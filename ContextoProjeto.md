@@ -4007,4 +4007,50 @@ Aplicar a migration 0006 em homologação e produção (ação humana, na ordem 
 
 ## 45.10 - Git
 
-Branch `feature/panejamento-correcao-inconsistencias-etapa2` com as três trilhas mescladas (`--no-ff`) e um commit de documentação. Nenhum push foi feito.
+Branch `feature/panejamento-correcao-inconsistencias-etapa2` com as três trilhas mescladas (`--no-ff`) e um commit de documentação; mesclada em `develop` pelo PR #70.
+
+# 46 - Etapa 3: CI com lint e auditoria de dependências (27/11/2026)
+
+## 46.1 - Identificação
+
+Tarefa: Etapa 3 do plano de correção. As trilhas 3A (Gunicorn com threads) e 3B (`/saude/`) já estavam na seção 44; aqui fica a 3C (CI). A 3D são ações humanas (ver 46.9). Data: 27/11/2026. Branch: `feature/etapa-3` (criada pelo usuário). Sem commit, a pedido do fluxo do `AGENTS.md`.
+
+## 46.2 - Objetivo
+
+O CI não tinha lint nem checagem de vulnerabilidades (achado da auditoria da seção 40).
+
+## 46.3 - Implementação
+
+- **Lint:** `ruff.toml` com só as regras `F` (pyflakes: import sem uso, nome indefinido, variável não usada) e passo `ruff check .` no CI. A primeira execução achou 10 imports sem uso, todos em testes, removidos. Estilo não é cobrado.
+- **Auditoria:** passo `pip-audit -r requirements.txt` no CI. A primeira execução achou 6 vulnerabilidades em 2 pacotes; `certifi` 2026.7.22 → 2026.11.20 e `pyasn1` 0.6.4 → 0.6.5 (versões de correção; `pyasn1_modules` não foi afetado). Depois: nenhuma vulnerabilidade conhecida.
+- `ruff` e `pip-audit` são instalados só no passo do CI, não entram em `requirements.txt` (que é o que vai para produção).
+
+## 46.4 - Arquivos
+
+`.github/workflows/ci.yml`, `ruff.toml` (novo), `requirements.txt`; testes com imports removidos: `cadastros/test_consultas.py`, `documentos/test_fluxo_conferencia.py`, `test_integracao_final.py`, `test_privacidade.py`, `test_processamento.py`, `financeiro/test_identidade_fiscal.py`, `test_lancamento_nota.py`, `test_pagamentos.py`; `docs/documentacao/09` e `11`.
+
+## 46.5 - Decisões técnicas
+
+- Só a família `F` do ruff: pega erro de verdade sem gerar centenas de avisos de estilo num código que nunca foi formatado por ferramenta.
+- `pip-audit` no mesmo job: um CVE novo pode derrubar o CI de qualquer PR até a dependência ser atualizada. É o comportamento desejado (sinal), mas é um custo de manutenção.
+- O `requirements.txt` é sensível (AGENTS.md seção 4); a atualização se justifica pelas vulnerabilidades e só mexeu em dois patches, sem mudar versão maior. Dependências atrasadas sem CVE (por exemplo `google-genai` 2.24.0 → 3.x) ficam como estão: mudança maior exige teste dos Agents.
+
+## 46.6 - Banco de dados
+
+Nenhuma alteração.
+
+## 46.7 - Testes
+
+`manage.py check`: sem problemas. `ruff check .`: sem erros. `pip check`: sem conflitos. `pip-audit -r requirements.txt`: sem vulnerabilidades conhecidas. `manage.py test --noinput`: 1288 testes, OK. O YAML do CI foi validado com PyYAML; os passos novos **não rodaram no GitHub** (só localmente, em ambiente separado do `.venv`).
+
+## 46.8 - Integração
+
+Fecha o achado "sem `pip-audit` nem lint no CI" da seção 40. Depende do `pip install` das duas ferramentas no job (rede do GitHub).
+
+## 46.9 - Pendências
+
+Ações humanas (3D), fora do código: `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; conferir o `X-Forwarded-For` e definir `DJANGO_PROXIES_CONFIAVEIS`; apontar o health check do Render para `/saude/`; agendar `expirar_analises`; aplicar a migration 0006 (seção 45) e testar as telas. Seguem de fora: cancelamento de movimento, pagamento parcial e histórico das baixas, classificador com categorias do banco, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono e `google-genai` 3.x.
+
+## 46.10 - Git
+
+Branch `feature/etapa-3`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.
