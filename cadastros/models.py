@@ -186,6 +186,23 @@ class Pessoa(ComStatus):
         except ValidationError as erro:
             raise ValidationError({"documento": erro})
 
+    def _validar_documento_imutavel(self):
+        """Quem consta em movimentos não troca de documento: o histórico passaria a apontar para outra identidade.
+
+        Cadastro sem documento (incompleto) pode recebê-lo (regularizar). QuerySet.update() e
+        fixtures não passam por aqui; a aplicação não os usa para mudar documentos.
+        """
+        if self.pk is None:
+            return
+        original = Pessoa.objects.filter(pk=self.pk).values_list("documento", flat=True).first()
+        if not original or original == self.documento:
+            return
+        if self.movimentos_como_contraparte.exists() or self.movimentos_como_faturado.exists():
+            raise ValidationError({"documento": ValidationError(
+                "O documento não pode ser alterado: esta pessoa já consta em lançamentos financeiros.",
+                code="documento_imutavel",
+            )})
+
     def clean_fields(self, exclude=None):
         # Normaliza antes do max_length: "12.345.678/0001-95" tem 18 caracteres.
         self._normalizar()
@@ -194,6 +211,7 @@ class Pessoa(ComStatus):
     def clean(self):
         super().clean()
         self._validar_documento()
+        self._validar_documento_imutavel()
 
     def save(self, *args, **kwargs):
         # Caminho normal da aplicação: documento com DV inválido é recusado.
@@ -203,6 +221,8 @@ class Pessoa(ComStatus):
         if update_fields is None or campos_validados & set(update_fields):
             self._normalizar()
             self._validar_documento()
+            if update_fields is None or "documento" in update_fields:
+                self._validar_documento_imutavel()
             if update_fields is not None and {"documento", "situacao_documental"} & set(update_fields):
                 # Documento, tipo e situação são gravados juntos: o que foi
                 # validado em memória é o que vai para o banco.
