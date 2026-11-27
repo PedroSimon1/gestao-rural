@@ -18,10 +18,24 @@ class PessoaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.incompleta = bool(self.instance.pk and not self.instance.documentacao_completa)
+        # O documento identifica a pessoa nos lançamentos: com histórico, trocá-lo
+        # reescreveria quem recebeu ou pagou cada movimento. Só o nome muda.
+        self.documento_travado = bool(
+            self.instance.pk and not self.incompleta and (
+                self.instance.movimentos_como_contraparte.exists()
+                or self.instance.movimentos_como_faturado.exists()
+            )
+        )
         if self.incompleta:
             self.fields["documento"].disabled = True
             self.fields["documento"].required = False
             self.fields["documento"].help_text = "Use Regularizar documento para completar este cadastro."
+        elif self.documento_travado:
+            self.fields["documento"].disabled = True
+            self.fields["documento"].help_text = (
+                "Não pode ser alterado: esta pessoa já consta em lançamentos financeiros. "
+                "Cadastre outra pessoa se o documento estiver errado."
+            )
 
     def clean_razao_social(self):
         nome = " ".join(self.cleaned_data["razao_social"].split())
@@ -32,6 +46,8 @@ class PessoaForm(forms.ModelForm):
     def clean_documento(self):
         if self.incompleta:
             return None
+        if self.documento_travado:
+            return self.instance.documento
         documento = normalizar_documento(self.cleaned_data["documento"])
         validar_documento(documento)
         return documento
@@ -42,7 +58,7 @@ class PessoaForm(forms.ModelForm):
             # Editar nome/documento não pode restaurar um status lido antes de
             # uma inativação concorrente, nem sobrescrever uma regularização.
             campos = ["razao_social", "atualizado_em"]
-            if not self.incompleta:
+            if not (self.incompleta or self.documento_travado):
                 campos.append("documento")
             pessoa.save(update_fields=campos)
         return pessoa
