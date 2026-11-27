@@ -12,7 +12,7 @@ from agents.gemini_client import (
 )
 from agents.extrator.schemas import NotaFiscalExtraida
 
-from .schemas import ClassificacaoDespesa
+from .schemas import ClassificacaoDespesa, classificacao_para
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,46 @@ Categorias permitidas:
 
 Regras:
 - Escolha somente uma das categorias permitidas.
+- Não crie categorias novas.
+- Baseie a decisão principalmente na descrição dos itens.
+- Não invente informações que não estejam nos dados recebidos.
+- Se nenhuma categoria for adequada, use null em tipo_despesa.
+- A justificativa deve ser curta e explicar quais itens motivaram a decisão.
+"""
+
+# Orientação por categoria conhecida (as do MVP); as demais seguem só pela descrição cadastrada.
+DICAS_PADRAO = {
+    "MANUTENCAO_E_OPERACAO": (
+        "máquinas, equipamentos e veículos: óleo diesel, óleo lubrificante, peças e materiais de manutenção."
+    ),
+    "INFRAESTRUTURA_E_UTILIDADES": (
+        "infraestrutura da propriedade e utilidades: materiais hidráulicos, elétricos e de construção."
+    ),
+}
+
+
+def montar_instrucao(categorias):
+    """Instrução do sistema com as categorias cadastradas (código, descrição e, se houver, orientação)."""
+    linhas = []
+    for numero, categoria in enumerate(categorias, start=1):
+        descricao = " ".join(categoria.descricao.split())
+        linha = f"{numero}. {categoria.codigo} — {descricao}"
+        if categoria.codigo in DICAS_PADRAO:
+            linha += f"\n   Use para despesas de {DICAS_PADRAO[categoria.codigo]}"
+        linhas.append(linha)
+    lista = "\n".join(linhas)
+    return f"""\
+Você é um classificador de despesas de notas fiscais rurais.
+
+Sua tarefa é analisar os itens da nota fiscal e classificar a despesa em uma
+das categorias cadastradas no sistema.
+
+Categorias permitidas (responda com o código exato):
+
+{lista}
+
+Regras:
+- Escolha somente uma das categorias permitidas, pelo código.
 - Não crie categorias novas.
 - Baseie a decisão principalmente na descrição dos itens.
 - Não invente informações que não estejam nos dados recebidos.
@@ -131,7 +171,13 @@ class AgentClassificador:
         """Modelo Gemini em uso ou None antes da criação do cliente."""
         return getattr(self._cliente, "modelo", None)
 
-    def classificar(self, nota):
+    def classificar(self, nota, categorias=None):
+        """Classifica a despesa da nota.
+
+        `categorias`: classificações de despesa que o sistema aceita (CategoriaDespesa), vindas do
+        cadastro; a resposta só pode ser um desses códigos ou null. Sem elas, vale o conjunto fixo do
+        MVP (TipoDespesa). Lista vazia: nada a escolher, o resultado é inconclusivo sem chamar o Gemini.
+        """
         if not isinstance(nota, NotaFiscalExtraida):
             raise ClassificacaoInvalidaError(
                 "Os dados recebidos para classificação são inválidos."
@@ -141,6 +187,18 @@ class AgentClassificador:
             raise ClassificacaoInvalidaError(
                 "A nota fiscal não possui dados suficientes para classificação."
             )
+
+        if categorias is None:
+            instrucao, modelo = INSTRUCAO_SISTEMA, ClassificacaoDespesa
+        else:
+            categorias = tuple(categorias)
+            if not categorias:
+                logger.warning("Nenhuma classificação de despesa ativa para o Classificador.")
+                raise ClassificacaoInconclusivaError(classificacao=ClassificacaoDespesa(
+                    tipo_despesa=None,
+                    justificativa="Não há classificação de despesa ativa para escolher; cadastre uma.",
+                ))
+            instrucao, modelo = montar_instrucao(categorias), classificacao_para(categorias)
 
         contexto = _montar_contexto(nota)
 
@@ -155,8 +213,8 @@ class AgentClassificador:
 
             dados = self._cliente.gerar_json(
                 conteudo,
-                instrucao_sistema=INSTRUCAO_SISTEMA,
-                schema_resposta=ClassificacaoDespesa,
+                instrucao_sistema=instrucao,
+                schema_resposta=modelo,
                 temperatura=0,
             )
 
@@ -173,7 +231,7 @@ class AgentClassificador:
             raise ClassificacaoIndisponivelError() from exc
 
         try:
-            classificacao = ClassificacaoDespesa.model_validate(dados)
+            classificacao = modelo.model_validate(dados)
         except ValidationError as exc:
             logger.warning(
                 "Resposta da classificação fora do schema (campos: %s).",

@@ -20,6 +20,7 @@ from google.genai import errors
 
 from agents import gemini_client
 from agents.extrator.agent import ExtracaoIndisponivelError
+from agents.classificador.schemas import CategoriaDespesa
 from usuarios.demo import SESSAO_DEMO
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 
@@ -31,6 +32,10 @@ from .test_processamento import dados_nota
 PDF = b"%PDF-1.4\n%%EOF\n"
 # Chave fictícia; nenhuma chamada real ao Gemini é feita.
 CHAVE_FORMULARIO = "CHAVE_CORRETA_DO_TESTE-n2-9f3a"
+CATEGORIAS_DO_TESTE = (
+    CategoriaDespesa("MANUTENCAO_E_OPERACAO", "Manutenção e operação"),
+    CategoriaDespesa("INFRAESTRUTURA_E_UTILIDADES", "Infraestrutura e utilidades"),
+)
 DETALHE_INTERNO = "detalhe-interno-xyz"
 CODIGO_DA_SESSAO = "codigo-de-teste-da-sessao"
 PASTA_APP = Path(__file__).resolve().parent
@@ -108,6 +113,11 @@ class InterfaceTestBase(SimpleTestCase):
         # A checagem do banco antes do Gemini também usa o banco.
         patcher = mock.patch("documentos.views_analises.verificar_banco")
         self.verificar_banco = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # As categorias de despesa também vêm do banco (cadastro de classificações).
+        patcher = mock.patch("documentos.views_analises.categorias_de_despesa", return_value=CATEGORIAS_DO_TESTE)
+        self.categorias_de_despesa = patcher.start()
         self.addCleanup(patcher.stop)
 
         entrar(self.client)
@@ -261,7 +271,9 @@ class ProcessamentoTests(InterfaceTestBase):
     def test_processa_os_bytes_exatos_do_pdf(self):
         _, processar = self.enviar(pdf(conteudo=PDF + b"conteudo"), retorno=processamento())
 
-        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2)
+        processar.assert_called_once_with(
+            PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2, categorias=CATEGORIAS_DO_TESTE,
+        )
 
     def test_sucesso_guarda_o_resultado_e_leva_a_conferencia(self):
         resposta, _ = self.enviar(retorno=processamento())
@@ -527,7 +539,7 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
             with self.subTest(chave=chave):
                 _, processar = self.enviar(chave=chave, retorno=processamento())
 
-                processar.assert_called_once_with(PDF, chave, versao_dados=2)
+                processar.assert_called_once_with(PDF, chave, versao_dados=2, categorias=CATEGORIAS_DO_TESTE)
 
     def test_chave_nao_vai_para_a_analise_nem_para_o_redirecionamento(self):
         resposta, _ = self.enviar(retorno=processamento())

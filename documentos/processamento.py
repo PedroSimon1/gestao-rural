@@ -99,7 +99,7 @@ def _criar_cliente(gemini_api_key):
 
 
 @sensitive_variables("gemini_api_key")
-def _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados=1):
+def _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados=1, categorias=None):
     if extrator is None or classificador is None:
         cliente = _criar_cliente(gemini_api_key)
         if extrator is None:
@@ -114,7 +114,10 @@ def _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados=1
         raise _erro("extracao", exc) from None
 
     try:
-        classificacao = classificador.classificar(nota)
+        if categorias is None:
+            classificacao = classificador.classificar(nota)
+        else:
+            classificacao = classificador.classificar(nota, categorias=categorias)
     except ClassificacaoInconclusivaError as exc:
         # Inconclusão não invalida a extração. Falhas de rede/API/schema
         # continuam no caminho de erro abaixo, sem inventar uma categoria.
@@ -132,13 +135,16 @@ def _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados=1
 
 
 @sensitive_variables("gemini_api_key")
-def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None, versao_dados=1):
+def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=None, versao_dados=1, categorias=None):
     """Processa os bytes de um PDF e devolve o JSON final e a justificativa.
 
     `gemini_api_key` é a chave informada na tela: vai direto para um único
     GeminiClient usado pelo Extrator e pelo Classificador e é descartada ao
     fim da chamada. Nunca é gravada, logada nem devolvida.
     `extrator` e `classificador` só são injetados em testes.
+    `categorias`: classificações de despesa que o Classificador pode escolher
+    (CategoriaDespesa, vindas do cadastro por quem chama; este módulo não acessa
+    o banco). None mantém o conjunto fixo do MVP.
 
     Classificação inconclusiva preserva a extração para revisão manual.
     Toda falha (configuração, extração, classificação ou inesperada) vira
@@ -148,7 +154,7 @@ def processar_pdf(pdf_bytes, gemini_api_key, *, extrator=None, classificador=Non
     if type(versao_dados) is not int or versao_dados not in (1, 2):
         raise ValueError("Versão de dados não suportada.")
     try:
-        return _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados)
+        return _executar(pdf_bytes, gemini_api_key, extrator, classificador, versao_dados, categorias)
     except ProcessamentoError:
         raise
     except Exception:
