@@ -6,7 +6,7 @@
 {% url 'documento_inicio' as url_envio %}
 {% include "documentos/_topo_fluxo.html" with titulo="Conferir e corrigir a nota" apoio="Revise os documentos, a classificação e as parcelas. As correções não alteram os dados originalmente extraídos." migalha_url=url_envio migalha_rotulo="Enviar nota" migalha_atual="Conferência" atual=2 detalhe=pendencias.rotulo alerta=pendencias.total %}
 {% include "documentos/_ficha_nota.html" %}
-<p class="texto-apoio nota-fluxo">Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado.{% if expira_em %} Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}.{% endif %}{% if analise_id %} <a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a>{% endif %}</p>
+<p class="texto-apoio nota-fluxo">Confira os dados antes de prosseguir. Nenhum lançamento financeiro foi realizado.{% if expira_em %} Esta análise pode ser conferida até {{ expira_em|date:"d/m/Y H:i" }}; cada salvamento renova o prazo (até 3 horas depois do envio).{% endif %}{% if analise_id %} <a href="{% url 'analise_conferencia' analise_id=analise_id %}">Recarregar dados salvos</a>{% endif %}</p>
 {% if correcoes_salvas %}{% include "documentos/_aviso.html" with tipo="ok" texto="Correções salvas. Nenhum lançamento financeiro foi realizado." %}{% endif %}
 {% if erro_tela %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro_tela %}{% endif %}
 {% if cadastro_criado %}<div class="aviso aviso--ok" role="status"><p>Classificação {{ cadastro_criado.codigo }} disponível no formulário. Os campos em edição foram preservados. Salve as correções antes de confirmar; nenhum lançamento financeiro foi realizado.</p></div>{% endif %}

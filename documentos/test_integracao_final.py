@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from cadastros.models import Classificacao, Papel, Pessoa, PapelPessoa, Status
-from documentos.analises import criar_analise, garantir_dono, registrar_correcoes
+from documentos.analises import LIMITE_TOTAL, criar_analise, garantir_dono, registrar_correcoes
 from documentos.models import AnalisePendente, StatusAnalise
 from financeiro.models import MovimentoConta, ParcelaConta, NotaFiscalLancada
 from financeiro.test_identidade_fiscal import chave
@@ -101,13 +101,14 @@ class IntegracaoFinalTests(TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(MovimentoConta.objects.count(), 0)
 
-    def test_v1_pode_ser_completada_e_confirmada_sem_converter_ou_mudar_ttl(self):
+    def test_v1_pode_ser_completada_e_confirmada_sem_converter_e_salvar_renova_o_prazo(self):
         self.a = criar_analise(self.client.session, resultado_da_nota())
         prazo = self.a.expira_em
         self.assertEqual(self.client.post(self.url(), self.dados()).status_code, 302)
         self.a.refresh_from_db()
         self.assertEqual(self.a.versao_dados, 1)
-        self.assertEqual(self.a.expira_em, prazo)
+        self.assertGreater(self.a.expira_em, prazo)  # D2: salvar renova a validade
+        self.assertLessEqual(self.a.expira_em - self.a.criado_em, LIMITE_TOTAL)
         self.assertNotIn('documento_fiscal', self.a.dados)
         self.assertContains(self.confirmar('1'), 'Lançamento realizado com sucesso')
 
