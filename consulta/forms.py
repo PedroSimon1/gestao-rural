@@ -9,10 +9,10 @@ from .servico import MODO_SIMPLES, MODOS
 TAMANHO_MAXIMO_PERGUNTA = 500
 
 
-def _campo_da_chave():
+def _campo_da_chave(ajuda):
     # Mesmo tratamento do envio de nota (PasswordInput sem render_value, autocomplete desligado, limite de tamanho).
     campo = deepcopy(DocumentoUploadForm.base_fields["gemini_api_key"])
-    campo.help_text = "A chave é utilizada somente nesta consulta e não é armazenada."
+    campo.help_text = ajuda
     return campo
 
 
@@ -38,4 +38,15 @@ class ConsultaForm(forms.Form):
             "invalid_choice": "Escolha uma forma de busca válida.",
         },
     )
-    gemini_api_key = _campo_da_chave()
+    gemini_api_key = _campo_da_chave("A chave é utilizada somente nesta consulta e não é armazenada.")
+
+
+class IndiceForm(forms.Form):
+    """Só a chave: "Atualizar índice" não recebe mais nada da tela."""
+
+    gemini_api_key = _campo_da_chave("A chave é utilizada somente para atualizar o índice e não é armazenada.")
+
+    def __init__(self, *args, **kwargs):
+        # Outro formulário da mesma página já usa o campo gemini_api_key: ids próprios evitam duplicidade.
+        kwargs.setdefault("auto_id", "id_indice_%s")
+        super().__init__(*args, **kwargs)

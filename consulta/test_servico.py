@@ -133,13 +133,13 @@ class ServicoConsultaTests(DadosConsulta, TestCase):
                 consultar(PERGUNTA, MODO_SIMPLES, CHAVE)
         self.assertEqual(contexto.exception.codigo, "servico_indisponivel")
 
-    def test_modo_desconhecido_ou_ainda_nao_disponivel_e_recusado(self):
+    def test_modo_desconhecido_e_recusado(self):
         self.criar_nota()
-        for modo in ("outro", "", MODO_SEMANTICO):
+        for modo in ("outro", ""):
             with self.subTest(modo=modo), self.assertRaises(ConsultaError) as contexto:
                 self.consultar(ClienteFalso(), modo=modo)
             self.assertEqual(contexto.exception.codigo, "modo_invalido")
-        self.assertNotIn(MODO_SEMANTICO, MODOS)
+        self.assertEqual(list(MODOS), [MODO_SIMPLES, MODO_SEMANTICO])
 
     def test_pergunta_vazia_e_recusada_sem_chamar_o_gemini(self):
         self.criar_nota()

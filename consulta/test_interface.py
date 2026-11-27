@@ -84,7 +84,7 @@ class TelaConsultaTests(DadosConsulta, TestCase):
             ({"gemini_api_key": ""}, "Informe a Gemini API Key."),
             ({"gemini_api_key": "x" * 257}, "no máximo 256 caracteres"),
             ({"pergunta": "a" * 501}, "no máximo 500 caracteres"),
-            ({"modo": "semantico"}, "forma de busca válida"),
+            ({"modo": "inexistente"}, "forma de busca válida"),
             ({"modo": ""}, "Escolha uma forma de busca."),
         )
         for alteracao, mensagem in casos:

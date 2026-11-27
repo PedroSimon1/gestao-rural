@@ -5,7 +5,7 @@
 {% block conteudo %}
   {% include "documentos/_cabecalho_pagina.html" with titulo="Consultar" apoio="Pergunte em linguagem natural sobre as contas cadastradas. A resposta é elaborada pelo Gemini a partir das contas encontradas." %}
 
-  {% include "documentos/_aviso.html" with tipo="atencao" titulo="Privacidade" texto="A pergunta e os dados das contas encontradas (nomes, valores, datas e itens, sem CPF/CNPJ) são enviados ao Google Gemini com a chave informada. Fora de produção, use apenas dados fictícios." %}
+  {% include "documentos/_aviso.html" with tipo="atencao" titulo="Privacidade" texto="A pergunta e os dados das contas encontradas (nomes, valores, datas e itens, sem CPF/CNPJ) são enviados ao Google Gemini com a chave informada. Ao atualizar o índice semântico, os textos de todas as contas indexadas (contraparte, classificações, itens e valores, sem CPF/CNPJ) também são enviados ao Gemini. Fora de produção, use apenas dados fictícios." %}
 
   <form method="post" action="{% url 'consulta' %}" class="formulario" data-submit-lock data-submit-texto="Consultando...">
     {% csrf_token %}
@@ -49,7 +49,7 @@
           {% for fonte in resposta.fontes %}
             <li>
               <p><a href="{% url 'conta_detalhe' fonte.movimento_id %}">{{ fonte.rotulo }}</a></p>
-              <small>{{ fonte.motivo }}{% if fonte.pontuacao is not None %} · pontuação {{ fonte.pontuacao|floatformat:"-2" }}{% endif %}</small>
+              <small>{% if resposta.modo == "semantico" %}similaridade por cosseno {{ fonte.pontuacao|floatformat:"2" }}{% else %}{{ fonte.motivo }}{% if fonte.pontuacao is not None %} · pontuação {{ fonte.pontuacao|floatformat:"-2" }}{% endif %}{% endif %}</small>
             </li>
           {% endfor %}
         </ul>
@@ -58,4 +58,43 @@
       {% endif %}
     </section>
   {% endif %}
+
+  <section class="cartao" aria-labelledby="titulo-indice">
+    <h2 id="titulo-indice">Índice semântico</h2>
+    <p class="texto-apoio">A busca semântica só encontra as contas que já estão no índice. Novas contas e contas alteradas entram nele ao atualizar; cada clique indexa um lote limitado.</p>
+    {% if indice %}
+      <dl class="resumo">
+        <div class="resumo__item"><dt>Contas no sistema</dt><dd>{{ indice.total }}</dd></div>
+        <div class="resumo__item"><dt>Indexadas</dt><dd>{{ indice.indexados }}</dd></div>
+        <div class="resumo__item"><dt>Pendentes (sem índice)</dt><dd>{{ indice.pendentes }}</dd></div>
+        <div class="resumo__item"><dt>Desatualizadas</dt><dd>{{ indice.desatualizados }}</dd></div>
+      </dl>
+    {% else %}
+      {% include "documentos/_aviso.html" with tipo="atencao" titulo="Estado do índice indisponível" texto="A configuração do índice semântico está inválida. Avise a equipe." %}
+    {% endif %}
+
+    <div aria-live="polite">
+      {% if indice_mensagem %}
+        {% include "documentos/_aviso.html" with tipo="ok" titulo="Índice atualizado" texto=indice_mensagem %}
+      {% endif %}
+      {% if indice_erro %}
+        {% include "documentos/_aviso.html" with tipo="erro" titulo="O índice não foi atualizado" texto=indice_erro %}
+      {% endif %}
+    </div>
+
+    <form method="post" action="{% url 'consulta_indice' %}" class="formulario" data-submit-lock data-submit-texto="Atualizando...">
+      {% csrf_token %}
+      {% if indice_form.non_field_errors %}{{ indice_form.non_field_errors }}{% endif %}
+      {% include "documentos/_campo.html" with campo=indice_form.gemini_api_key %}
+
+      <div class="aviso aviso--info" role="status" data-estado hidden>
+        <strong>Atualizando o índice</strong>
+        <p>Isso pode levar alguns segundos. Não feche esta página.</p>
+      </div>
+      <div class="acoes-rodape">
+        <span class="status">Indexa um lote por vez.</span>
+        <button type="submit" class="botao botao--secundario">Atualizar índice</button>
+      </div>
+    </form>
+  </section>
 {% endblock %}
