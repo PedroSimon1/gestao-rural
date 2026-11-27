@@ -6,7 +6,6 @@ import uuid
 from unittest import mock
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection
 from django.test import Client, TestCase, override_settings

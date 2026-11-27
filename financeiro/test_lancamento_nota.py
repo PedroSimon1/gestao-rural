@@ -24,8 +24,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from cadastros.models import Classificacao, Papel, PapelPessoa, Pessoa, SituacaoDocumental, Status
-from cadastros.resolucao import Decisao, resolver_partes
-from documentos import analises
+from cadastros.resolucao import Decisao
 from documentos.analises import AnaliseError, cancelar_analise, criar_analise, registrar_correcoes
 from documentos.conferencia import conferir_nota
 from documentos.models import AnalisePendente, StatusAnalise

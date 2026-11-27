@@ -13,7 +13,7 @@ from unittest import mock
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
-from django.test import SimpleTestCase, TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TransactionTestCase
 
 from .identidade_fiscal import (
     IdentidadeFiscal, identificar_nota, nota_lancada, registrar_identidade_fiscal,
