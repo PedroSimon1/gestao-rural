@@ -11,7 +11,8 @@ from django.urls import reverse
 
 from agents.extrator.agent import AgentExtrator
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import criar_analise, garantir_dono, registrar_correcoes
+from .analises import criar_analise, registrar_correcoes
+from comum.sessao import garantir_dono
 from .models import StatusAnalise
 from .processamento import ProcessamentoError, processar_pdf
 from .testing import resultado_da_nota

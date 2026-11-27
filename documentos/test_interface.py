@@ -24,7 +24,7 @@ from usuarios.demo import SESSAO_DEMO
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 
 from . import forms, processamento as modulo_processamento, views, views_analises
-from .analises import CHAVE_DA_SESSAO
+from comum.sessao import CHAVE_DA_SESSAO
 from .processamento import ProcessamentoError, ResultadoProcessamento
 from .test_processamento import dados_nota
 

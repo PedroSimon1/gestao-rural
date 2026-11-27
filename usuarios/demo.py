@@ -25,7 +25,8 @@ from django.shortcuts import redirect
 from django.utils.crypto import constant_time_compare
 from django.views.decorators.debug import sensitive_variables
 
-from documentos.analises import descartar_analises, garantir_dono
+from documentos.analises import descartar_analises
+from comum.sessao import garantir_dono
 
 logger = logging.getLogger(__name__)
 

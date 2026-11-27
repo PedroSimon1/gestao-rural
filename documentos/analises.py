@@ -43,12 +43,13 @@ dos campos corrigidos.
 import contextvars
 import hashlib
 import json
-import secrets
 from datetime import timedelta
 from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
+
+from comum.sessao import codigo_do_dono
 
 from .correcoes import validar_correcoes
 from .models import AnalisePendente, StatusAnalise
@@ -58,7 +59,6 @@ VALIDADE = timedelta(minutes=30)
 LIMITE_TOTAL = timedelta(hours=3)
 # Versão do JSON v1, o formato emitido hoje pelas rotas.
 VERSAO_DADOS = 1
-CHAVE_DA_SESSAO = "analise_dono"
 # Chaves do JSON final, na ordem de montar_resultado (versão 1).
 CHAVES_DOS_DADOS = (
     "fornecedor", "faturado", "numero_nota", "data_emissao", "itens",
@@ -114,10 +114,8 @@ def _hash(codigo):
 
 def _dono(session):
     """Hash do código da sessão; None se a sessão não tem um."""
-    codigo = session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
-        return None
-    return _hash(codigo)
+    codigo = codigo_do_dono(session)
+    return None if codigo is None else _hash(codigo)
 
 
 def _versao_dos_dados(resultado):
@@ -210,18 +208,6 @@ def _executar_se_valida(session, analise_id, acao):
     if vencida:
         raise AnaliseError("analise_expirada")
     return resultado
-
-
-def garantir_dono(session):
-    """Dá à sessão um código novo (chamado no login, usuarios/demo.py).
-
-    O código nasce no login, e não numa requisição longa de processamento: com
-    cookie assinado, a resposta regrava a sessão inteira e poderia desfazer um
-    logout feito em outra aba nesse meio tempo. Um código novo a cada login
-    impede que o código de uma sessão não autenticada seja reaproveitado; não
-    protege contra quem planta um cookie já autenticado.
-    """
-    session[CHAVE_DA_SESSAO] = secrets.token_urlsafe(32)
 
 
 def criar_analise(session, resultado):

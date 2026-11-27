@@ -5,7 +5,7 @@ Documentos fictícios, com DV calculado; nenhum dado real.
 
 import secrets
 
-from .analises import CHAVE_DA_SESSAO
+from comum.sessao import CHAVE_DA_SESSAO
 
 CNPJ = "11222333000181"
 CPF = "12345678909"

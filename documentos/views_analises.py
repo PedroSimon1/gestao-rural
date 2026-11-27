@@ -16,8 +16,9 @@ from config.erros_banco import mensagem_de_banco, verificar_banco
 from usuarios.demo import demo_login_required
 from cadastros.models import TipoClassificacao
 from .analises import (
-    CHAVE_DA_SESSAO, AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
+    AnaliseError, criar_analise, obter_analise, registrar_correcoes, cancelar_analise,
 )
+from comum.sessao import codigo_do_dono
 from .conferencia import conferir_nota
 from .forms import DocumentoUploadForm
 from .forms_classificacao_nota import ClassificacaoNaNotaForm
@@ -42,8 +43,7 @@ def _erro_analise(request, erro):
 @require_POST
 @sensitive_variables('gemini_api_key', 'processamento')
 def analise_criar(request):
-    codigo = request.session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
+    if codigo_do_dono(request.session) is None:
         return _erro_analise(request, AnaliseError('sessao_sem_codigo'))
     form = DocumentoUploadForm(request.POST, request.FILES,
         upload_interrompido=getattr(request, "pdf_upload_interrompido", False))

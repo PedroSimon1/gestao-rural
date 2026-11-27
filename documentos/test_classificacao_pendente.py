@@ -13,7 +13,7 @@ from agents.extrator.agent import AgentExtrator
 from agents.gemini_client import GeminiClient
 from usuarios.demo import SESSAO_DEMO
 
-from .analises import CHAVE_DA_SESSAO
+from comum.sessao import CHAVE_DA_SESSAO
 from .processamento import ProcessamentoError, processar_pdf
 from .test_processamento import nota_extraida, classificacao, PDF
 from .test_interface import CODIGO_DA_SESSAO, InterfaceTestBase, processamento

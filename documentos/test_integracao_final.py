@@ -14,7 +14,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from cadastros.models import Classificacao, Papel, Pessoa, PapelPessoa, Status
-from documentos.analises import LIMITE_TOTAL, criar_analise, garantir_dono, registrar_correcoes
+from documentos.analises import LIMITE_TOTAL, criar_analise, registrar_correcoes
+from comum.sessao import garantir_dono
 from documentos.models import AnalisePendente, StatusAnalise
 from financeiro.models import MovimentoConta, ParcelaConta, NotaFiscalLancada
 from financeiro.test_identidade_fiscal import chave
@@ -228,7 +229,7 @@ class IntegracaoFinalTests(TestCase):
         self.assertIn(Problema('fornecedor.documento', 'escolha_necessaria'), nota.problemas)
 
     def test_rollback_real_depois_de_criar_pessoas_nao_mostra_sucesso(self):
-        with mock.patch('financeiro.lancamento_nota.registrar_movimento', side_effect=DatabaseError('detalhe-interno')):
+        with mock.patch('documentos.lancamento_nota.registrar_movimento', side_effect=DatabaseError('detalhe-interno')):
             r = self.confirmar()
         self.assertEqual(r.status_code, 503)
         self.assertNotContains(r, 'detalhe-interno', status_code=503)

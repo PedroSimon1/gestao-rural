@@ -9,10 +9,10 @@ from config.erros_banco import mensagem_de_banco
 from usuarios.demo import demo_login_required
 from cadastros.resolucao import ParteNota, avaliar_partes
 from financeiro.duplicidade import movimentos_parecidos
-from financeiro.lancamento_nota import lancar_nota
 from .analises import AnaliseError, obter_analise
 from .conferencia import conferir_nota
 from .forms_confirmacao import ConfirmacaoLancamentoForm, ROTULOS_DECISAO
+from .lancamento_nota import lancar_nota
 from .mensagens_conferencia import ROTULOS_CAMPO, mensagem_validacao
 from .resumo_nota import ficha_da_nota, resumo_do_lancamento
 from .views_analises import _erro_analise, _falha

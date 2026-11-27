@@ -9,7 +9,8 @@ from django.urls import reverse
 
 from cadastros.models import Classificacao
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import criar_analise, garantir_dono
+from .analises import criar_analise
+from comum.sessao import garantir_dono
 from .testing import resultado_da_nota
 
 ARQUIVO_JS = Path(__file__).parent / "static" / "documentos" / "conferencia.js"

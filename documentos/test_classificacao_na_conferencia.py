@@ -12,7 +12,8 @@ from agents.classificador.schemas import TipoDespesa
 from cadastros.models import Classificacao, Papel, Pessoa, Status
 from financeiro.models import MovimentoConta, NotaFiscalLancada, ParcelaConta
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .analises import cancelar_analise, criar_analise, garantir_dono, registrar_correcoes
+from .analises import cancelar_analise, criar_analise, registrar_correcoes
+from comum.sessao import garantir_dono
 from .models import StatusAnalise
 from .testing import CNPJ, CPF, resultado_da_nota
 

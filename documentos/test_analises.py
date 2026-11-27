@@ -24,10 +24,9 @@ from financeiro.models import MovimentoConta, ParcelaConta
 from financeiro.servicos import DadosMovimento, ItemClassificacao, ItemParcela, registrar_movimento
 
 from .analises import (
-    CHAVE_DA_SESSAO, CHAVES_DOS_DADOS, LIMITE_DOS_DADOS, VALIDADE, VERSAO_DADOS, AnaliseError,
-    cancelar_analise, confirmar_analise, criar_analise, descartar_analises, expirar_analises,
-    garantir_dono, obter_analise,
+    CHAVES_DOS_DADOS, LIMITE_DOS_DADOS, VALIDADE, VERSAO_DADOS, AnaliseError, cancelar_analise, confirmar_analise, criar_analise, descartar_analises, expirar_analises, obter_analise,
 )
+from comum.sessao import CHAVE_DA_SESSAO, garantir_dono
 from .models import AnalisePendente, StatusAnalise
 from .testing import CNPJ, CPF, nova_sessao, resultado_da_nota
 

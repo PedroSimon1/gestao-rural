@@ -3,7 +3,7 @@ from django import forms
 
 from cadastros.resolucao import Decisao
 from cadastros.pendentes import listar_incompletos
-from financeiro.lancamento_nota import DecisoesDaParte, SolicitacaoLancamento
+from .lancamento_nota import DecisoesDaParte, SolicitacaoLancamento
 
 ROTULOS_DECISAO = {
     Decisao.REGULARIZAR: 'Regularizar o cadastro incompleto selecionado com o documento conferido',
