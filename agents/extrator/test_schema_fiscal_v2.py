@@ -13,7 +13,6 @@ from agents.extrator.schemas import NotaFiscalExtraida
 from agents.extrator.schemas_v2 import NotaFiscalExtraidaV2
 from documentos.forms_fiscais import preparar_campos_fiscais
 from documentos.processamento import montar_resultado, processar_pdf
-from documentos.views import _avisos_validacao
 from financeiro.test_identidade_fiscal import chave
 
 
@@ -83,7 +82,9 @@ class SchemaFiscalV2Tests(SimpleTestCase):
         self.assertEqual(nota.documento_fiscal.chave_acesso, 'leitura-malformada')
         self.assertEqual(nota.validacoes.chave_acesso.status, 'invalido')
         r = montar_resultado(nota, self.categoria(), versao_dados=2)
-        self.assertTrue(any('Chave de acesso' in aviso for aviso in _avisos_validacao(r)))
+        self.assertEqual(
+            r['validacoes']['chave_acesso'], {'status': 'invalido', 'motivo': 'chave_acesso_invalida'}
+        )
 
     def test_chave_numerica_alfanumerica_e_dv_oficiais(self):
         for cnpj in ('11222333000181', '12ABC34501DE35'):

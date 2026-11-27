@@ -45,6 +45,7 @@ def analise_criar(request):
     try:
         gemini_api_key = form.cleaned_data['gemini_api_key']
         arquivo = form.cleaned_data['arquivo']
+        contexto['nome_arquivo'] = arquivo.name
         processamento = processar_pdf(arquivo.read(), gemini_api_key, versao_dados=2)
         analise = criar_analise(request.session, processamento.resultado)
     except ProcessamentoError as erro:

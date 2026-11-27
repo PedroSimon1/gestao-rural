@@ -13,9 +13,10 @@ from agents.extrator.agent import AgentExtrator
 from agents.gemini_client import GeminiClient
 from usuarios.demo import SESSAO_DEMO
 
+from .analises import CHAVE_DA_SESSAO
 from .processamento import ProcessamentoError, processar_pdf
 from .test_processamento import nota_extraida, classificacao, PDF
-from .test_interface import InterfaceTestBase, processamento
+from .test_interface import CODIGO_DA_SESSAO, InterfaceTestBase, processamento
 
 
 class ProcessamentoPendenteTests(SimpleTestCase):
@@ -72,25 +73,21 @@ class ProcessamentoPendenteTests(SimpleTestCase):
 
 
 class InterfacePendenteTests(InterfaceTestBase):
-    def test_exibe_dados_pendentes_sem_armazenar_na_sessao(self):
+    def test_classificacao_pendente_segue_para_a_conferencia_sem_armazenar_na_sessao(self):
         resposta, _ = self.enviar(retorno=processamento(tipo_despesa=None))
-        self.assertContains(resposta, "Aguardando classificação")
-        self.assertContains(resposta, "JSON final")
-        self.assertContains(resposta, "Pecas Exemplo Ltda")
-        self.assertContains(resposta, "Nenhum lançamento financeiro foi realizado.")
-        self.assertNotContains(resposta, "não foi concluído")
-        self.assertEqual(dict(self.client.session.items()), {SESSAO_DEMO: True})
+
+        self.assert_levou_a_conferencia(resposta)
+        guardado = self.criar_analise.call_args.args[1]
+        self.assertIsNone(guardado["tipo_despesa"])
+        self.assertEqual(guardado["fornecedor"]["razao_social"], "Pecas Exemplo Ltda")
+        self.assertEqual(
+            dict(self.client.session.items()),
+            {SESSAO_DEMO: True, CHAVE_DA_SESSAO: CODIGO_DA_SESSAO},
+        )
 
     def test_nova_visita_nao_simula_persistencia_da_analise(self):
         self.enviar(retorno=processamento(tipo_despesa=None))
         resposta = self.client.get(self.url)
         self.assertNotContains(resposta, "JSON final")
         self.assertNotContains(resposta, "Aguardando classificação")
-
-    def test_justificativa_escapada_e_chave_nao_exposta(self):
-        resposta, _ = self.enviar(retorno=processamento(
-            tipo_despesa=None, justificativa='<script>alert("teste")</script>'
-        ))
-        self.assertNotContains(resposta, '<script>alert("teste")</script>')
-        self.assertContains(resposta, "&lt;script&gt;")
-        self.assertNotContains(resposta, "CHAVE_CORRETA_DO_TESTE-n2-9f3a")
+        self.assertNotContains(resposta, "Pecas Exemplo Ltda")

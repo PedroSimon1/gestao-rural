@@ -10,7 +10,6 @@ from pydantic import ValidationError
 from agents.classificador.schemas import ClassificacaoDespesa
 from agents.gemini_client import GeminiClient
 from documentos.processamento import montar_resultado, processar_pdf
-from documentos.views import _avisos_validacao
 
 from .agent import AgentExtrator
 from .schemas import NotaFiscalExtraida
@@ -115,13 +114,10 @@ class FaturadoPJTests(SimpleTestCase):
         json.dumps(retorno.resultado)
         self.assertNotIn("chave-ficticia", json.dumps(retorno.resultado))
 
-    def test_aviso_cnpj_invalido_chega_a_apresentacao(self):
+    def test_cnpj_invalido_do_faturado_fica_nas_validacoes_do_resultado(self):
         nota = NotaFiscalExtraida.model_validate(nota_pj("11222333000182"))
         categoria = ClassificacaoDespesa(tipo_despesa="MANUTENCAO_E_OPERACAO", justificativa="Teste")
         dados = montar_resultado(nota, categoria)
-        self.assertIn("CNPJ do faturado com dígitos verificadores inválidos.", _avisos_validacao(dados))
-
-    def test_aviso_cnpj_ausente_nao_quebra_resultados_anteriores(self):
-        self.assertEqual(_avisos_validacao({"validacoes": {
-            "fornecedor_cnpj": {"status": "valido"}, "faturado_cpf": {"status": "valido"}
-        }}), [])
+        self.assertEqual(dados["validacoes"]["faturado_cnpj"], {
+            "status": "invalido", "motivo": "digitos_verificadores_invalidos",
+        })
