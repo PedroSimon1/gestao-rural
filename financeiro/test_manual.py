@@ -7,7 +7,7 @@ da carga inicial e a de RECEITA é criada no setUp (DadosDeServico).
 
 import threading
 import uuid
-from dataclasses import replace
+from dataclasses import astuple, replace
 from datetime import date
 from decimal import Decimal
 from unittest import mock
@@ -396,8 +396,8 @@ class RepeticaoTests(ContaManualBase, TestCase):
 
         self.assertNotEqual(primeiro.id, segundo.id)
         self.assertEqual(
-            (primeiro.contraparte_id, primeiro.valor_total, primeiro.parcelas),
-            (segundo.contraparte_id, segundo.valor_total, segundo.parcelas),
+            (primeiro.contraparte_id, primeiro.valor_total, [astuple(p)[:4] for p in primeiro.parcelas]),
+            (segundo.contraparte_id, segundo.valor_total, [astuple(p)[:4] for p in segundo.parcelas]),
         )
         self.assertEqual(contagens(), (2, 2, 2))
 

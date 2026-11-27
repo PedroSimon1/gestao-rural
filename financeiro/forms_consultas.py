@@ -14,6 +14,8 @@ class FiltroContasForm(forms.Form):
         queryset=Pessoa.objects.all(), empty_label="Todas as contrapartes")
     classificacao = forms.ModelChoiceField(label="Classificação", required=False,
         queryset=Classificacao.objects.all(), empty_label="Todas as classificações")
+    pagamento = forms.ChoiceField(label="Pagamento das parcelas", required=False, choices=[
+        ("", "Todas"), ("EM_ABERTO", "Com parcela em aberto"), ("QUITADO", "Todas as parcelas pagas/recebidas")])
     por_pagina = forms.ChoiceField(label="Contas por página", required=False, initial="30",
         choices=[("10", "10"), ("30", "30"), ("100", "100")])
     pagina = forms.IntegerField(required=False, min_value=1, max_value=10**9, widget=forms.HiddenInput)

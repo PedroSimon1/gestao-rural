@@ -131,7 +131,9 @@ def _gravador(solicitacao):
             analise_origem_id=analise_id,
             parcelas=nota.parcelas,
         ))
-        nota_fiscal, _ = registrar_identidade_fiscal(movimento, nota.identidade_fiscal)
+        nota_fiscal, _ = registrar_identidade_fiscal(
+            movimento, nota.identidade_fiscal, data_emissao=nota.data_emissao,
+        )
         return LancamentoNota(movimento, nota_fiscal, fornecedor, faturado)
 
     return gravar

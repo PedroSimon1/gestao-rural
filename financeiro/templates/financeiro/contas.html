@@ -16,13 +16,13 @@
 {% if erro %}{% include "documentos/_aviso.html" with tipo="erro" texto=erro %}{% elif pesquisou %}
 <p class="texto-apoio">{{ pagina.total|default:0 }} lançamento(s). Mais recentes primeiro.</p>
 <div class="tabela-responsiva"><table class="tabela-cadastros">
-  <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col" class="num">Valor total</th><th scope="col">Parcelas ativas</th><th scope="col">Próximo vencimento ativo</th><th scope="col">Ações</th></tr></thead>
+  <thead><tr><th scope="col">Tipo / origem</th><th scope="col">Contraparte</th><th scope="col">Situação</th><th scope="col" class="num">Valor total</th><th scope="col">Parcelas (pagas/total)</th><th scope="col">Próximo vencimento em aberto</th><th scope="col">Ações</th></tr></thead>
   <tbody>{% for linha in linhas %}<tr>
     <td data-rotulo="Tipo / origem">{% situacao linha.tipo %} <span class="texto-apoio">{{ linha.origem }}</span></td>
     <td class="principal">{{ linha.dados.contraparte_nome }}</td>
     <td data-rotulo="Situação">{% situacao linha.status %}</td>
     <td class="num" data-rotulo="Valor total">{{ linha.dados.valor_total|moeda }}</td>
-    <td data-rotulo="Parcelas ativas">{{ linha.dados.quantidade_parcelas }}</td>
+    <td data-rotulo="Parcelas">{{ linha.dados.quantidade_pagas }} / {{ linha.dados.quantidade_parcelas }}</td>
     <td data-rotulo="Próximo vencimento">{{ linha.dados.proximo_vencimento|date:'d/m/Y'|default:'—' }}</td>
     <td class="acoes-linha"><a class="botao botao--secundario botao--peq" href="{% url 'conta_detalhe' linha.dados.id %}">Detalhar</a></td>
   </tr>{% empty %}<tr><td colspan="7">Nenhum lançamento encontrado.</td></tr>{% endfor %}</tbody>

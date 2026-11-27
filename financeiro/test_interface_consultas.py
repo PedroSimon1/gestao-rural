@@ -72,7 +72,7 @@ class InterfaceConsultasTests(ContaManualBase, TestCase):
         self.assertEqual(len(resp.context["parcelas"]), 2)
         self.assertContains(resp, "30/11/2026")
         self.assertContains(resp, "600,00")
-        self.assertContains(resp, "não representam quitação")
+        self.assertContains(resp, "o pagamento aparece na coluna Pagamento")
         self.assertNotContains(resp, "Editar")
         self.assertNotContains(resp, "Reativar")
 
