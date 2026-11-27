@@ -139,6 +139,10 @@ class EtapasETelasDaNotaTests(SimpleTestCase):
         self.assertEqual(ultima.count('class="feita"'), 3)
         self.assertRegex(ultima, r'<li aria-current="step"><b>4\.</b>Lançamento concluído</li>')
 
+    def test_etapas_concluidas_dizem_concluida_para_leitor_de_tela(self):
+        self.assertEqual(self.etapas(3).count("(concluída)"), 2)
+        self.assertNotIn("(concluída)", self.etapas(1))
+
     def test_sucesso_leva_a_conta_lancada_e_marca_a_quarta_etapa(self):
         html = render_to_string("documentos/lancamento_sucesso.html", {"movimento_id": 7, "nota_fiscal_id": 3})
         self.assertIn('href="/financeiro/contas/7/"', html)

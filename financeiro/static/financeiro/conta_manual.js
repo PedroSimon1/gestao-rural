@@ -15,7 +15,10 @@ document.querySelectorAll("[data-parcelas-manuais]").forEach((form) => {
     const copia = document.createElement("template");
     copia.innerHTML = modelo.innerHTML.replaceAll("__prefix__", String(indice));
     lista.append(copia.content.cloneNode(true));
+    const nova = lista.lastElementChild;
+    nova.querySelector("[data-titulo-parcela]").textContent = `Parcela ${indice + 1}`;
     total.value = String(indice + 1);
     aviso.textContent = `${indice + 1} linha(s) de parcela no formulário.`;
+    nova.querySelector("input:not([type=hidden]), select").focus();
   });
 });

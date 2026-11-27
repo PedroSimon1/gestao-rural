@@ -1,4 +1,5 @@
 """Tela de conferência redesenhada: seções, barra de ações, cadastro de classificação e script de soma."""
+import re
 from pathlib import Path
 
 from django.conf import settings
@@ -43,8 +44,8 @@ class TelaDeConferenciaTests(TestCase):
     def test_cancelar_fica_na_barra_e_usa_formulario_proprio(self):
         html = self.pagina()
         cancelar = reverse("analise_cancelar", args=[self.analise.id])
-        self.assertIn('class="botao botao--perigo" form="cancelar-analise">Cancelar análise</button>', html)
-        self.assertIn(f'<form id="cancelar-analise" method="post" action="{cancelar}">', html)
+        self.assertIn('class="botao botao--perigo" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>', html)
+        self.assertIn(f'<form id="cancelar-analise" method="post" action="{cancelar}" data-submit-lock>', html)
 
     def test_cadastro_de_classificacao_comeca_recolhido_e_abre_com_erro(self):
         self.assertIn('<details class="recolher">', self.pagina())
@@ -60,6 +61,16 @@ class TelaDeConferenciaTests(TestCase):
         html = self.pagina()
         self.assertIn('data-soma-parcelas aria-live="polite" hidden', html)
         self.assertIn('/static/documentos/conferencia.js', html)
+
+    def test_formularios_travam_o_duplo_envio_e_cada_botao_tem_o_seu_texto(self):
+        html = self.pagina()
+        formularios = re.findall(r'<form\b[^>]*method="post"[^>]*>', html)
+        self.assertEqual(len(formularios), 2)
+        for tag in formularios:
+            self.assertIn("data-submit-lock", tag)
+        self.assertIn('value="salvar" data-submit-texto="Salvando..."', html)
+        self.assertIn('value="criar_classificacao" formnovalidate data-submit-texto="Cadastrando..."', html)
+        self.assertIn('form="cancelar-analise" data-submit-texto="Cancelando..."', html)
 
     def dados_da_nota(self):
         c = Classificacao.objects.get(tipo="DESPESA", codigo="MANUTENCAO_E_OPERACAO")

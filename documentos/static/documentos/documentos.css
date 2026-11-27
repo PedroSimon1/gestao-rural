@@ -13,7 +13,7 @@
   --cor-superficie: #ffffff;
   --cor-faixa: #e2e5df;
   --cor-borda: #c8cdc7;
-  --cor-borda-forte: #868d88;
+  --cor-borda-forte: #7c837e;
   --cor-marca: #25573a;
   --cor-marca-escura: #1a4029;
   --cor-topo: #1d3b2a;
@@ -44,7 +44,7 @@ p { margin: 0 0 12px; }
 a { color: var(--cor-marca); text-underline-offset: 2px; text-decoration-thickness: 1px; }
 a:hover { color: var(--cor-marca-escura); text-decoration-thickness: 2px; }
 :focus-visible { outline: 2px solid var(--cor-foco); outline-offset: 2px; }
-code { font-family: var(--mono); font-size: .92em; }
+code, .mono { font-family: var(--mono); font-size: .92em; }
 ul, ol { margin: 0 0 12px; padding-left: 22px; }
 .pular {
   position: absolute; left: 8px; top: -60px; z-index: 50;
@@ -52,13 +52,13 @@ ul, ol { margin: 0 0 12px; padding-left: 22px; }
   border: 1px solid var(--cor-texto); border-radius: var(--raio);
 }
 .pular:focus { top: 8px; }
+.so-leitor {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
 
 .container { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 main.container { padding-top: 28px; padding-bottom: 56px; }
-main.container > h1 {
-  padding-bottom: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--cor-borda);
-}
-main.container > h1 + p { margin-top: -8px; color: var(--cor-texto-suave); }
 
 /* ---------- Topo ---------- */
 .topo { background: var(--cor-topo); color: #ffffff; }
@@ -96,7 +96,7 @@ main.container > h1 + p { margin-top: -8px; color: var(--cor-texto-suave); }
 }
 a.botao { margin-top: 0; }
 .botao:hover, .botao:focus-visible { background: var(--cor-marca-escura); border-color: var(--cor-marca-escura); color: #ffffff; }
-.botao:disabled { opacity: .55; cursor: not-allowed; }
+.botao:disabled, .botao[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
 .botao--secundario { background: var(--cor-superficie); color: var(--cor-marca); border-color: var(--cor-borda-forte); }
 .botao--secundario:hover, .botao--secundario:focus-visible { background: var(--cor-faixa); color: var(--cor-marca-escura); border-color: var(--cor-marca); }
 .botao--perigo { background: var(--cor-superficie); color: var(--cor-erro); border-color: var(--cor-borda-forte); }
@@ -243,6 +243,7 @@ nav[aria-label^="Páginas"] { display: flex; align-items: center; gap: 12px; mar
 .filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; align-items: end; }
 .barra-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
 .barra-acoes .botao { margin-top: 0; }
+nav.barra-acoes { margin-bottom: 12px; }
 .botao--peq { min-height: 34px; margin-top: 0; padding: 0 12px; font-size: .9rem; }
 .acoes-linha { text-align: right; white-space: nowrap; }
 .acoes-linha .botao + .botao { margin-left: 6px; }

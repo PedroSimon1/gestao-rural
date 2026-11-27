@@ -5,7 +5,7 @@
 {% include "documentos/_cabecalho_pagina.html" with titulo=titulo migalha_url=url_pessoas migalha_rotulo="Pessoas" %}
 {% if pessoa %}<p class="texto-apoio">{{ pessoa.razao_social }} · {{ pessoa.get_status_display }}</p>{% endif %}
 {% if aviso %}{% include "documentos/_aviso.html" with tipo="info" texto=aviso %}{% endif %}
-<form method="post" class="cartao formulario-cadastro">{% csrf_token %}
+<form method="post" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Confirmando...">{% csrf_token %}
   {{ form.non_field_errors }}
   {% if form.visible_fields|length > 1 %}<p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>{% endif %}
   {% for campo in form %}{% include "documentos/_campo.html" %}{% endfor %}

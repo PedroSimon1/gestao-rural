@@ -63,7 +63,6 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `documentos/_cabecalho_pagina.html`, `_aviso.html`, `_campo.html`, `_etapas.html` | **Componentes**: cabeçalho de página (frase de apoio, trilha, ação principal); aviso (info, atenção, erro, ok); campo de formulário (rótulo, asterisco, dica e erro ligados ao campo); etapas do lançamento (1 a 4) |
 | `documentos/inicio.html` | Envio da chave Gemini e do PDF (posta para `analise_criar`); mostra erro de processamento e limite de upload |
 | `documentos/conferencia.html` | Conferência em 4 seções numeradas (Fornecedor, Faturado, Dados da nota, Parcelas), painel de resumo, barra de ações fixa, "criar classificação" recolhido, JSON original |
-| `documentos/_campos_fiscais.html` | Campos fiscais (chave, modelo, série) |
 | `documentos/confirmacao.html` | Resumo, parcelas, avaliação das partes, autorizações, "Confirmar lançamento financeiro" |
 | `documentos/lancamento_sucesso.html` | "Lançamento realizado com sucesso" (IDs do movimento e do registro fiscal) |
 | `documentos/analise_mensagem.html` | Mensagem de erro/estado de análise (cancelada, expirada, não encontrada…) |
@@ -75,8 +74,8 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | Estático | Função |
 | --- | --- |
 | `documentos/documentos.css` | **Folha de estilo única** (visual formal e minimalista, ≈ 350 linhas): tokens, componentes, tabelas que viram lista de registros no celular |
-| `documentos/documentos.js` | **Proteção visual contra clique duplo**: em formulários com `data-submit-lock`, desabilita o botão e troca o texto (`data-submit-texto`); mostra o aviso de espera `[data-estado]`. O POST é um envio HTML normal; sem JS tudo funciona |
-| `documentos/conferencia.js` | Soma das parcelas e resumo **ao vivo** na conferência. Só lê e mostra; não escreve nos campos nem usa rede |
+| `documentos/documentos.js` | **Proteção visual contra clique duplo**: todo formulário POST tem `data-submit-lock`. No primeiro envio trava **o botão acionado** (`evento.submitter`, mesmo fora do `<form>` por `form="id"`) e troca o texto (`data-submit-texto` no botão ou no formulário); um segundo envio é ignorado. Botão com `name` (ex.: `acao=criar_classificacao`) fica com `aria-disabled` em vez de `disabled`: o navegador deixaria de enviar o valor de um botão desabilitado e a ação cairia em "salvar" (verificado no Chrome). O POST é um envio HTML normal; sem JS tudo funciona |
+| `documentos/conferencia.js` | Na conferência: rola a página se a barra fixa cobrir o campo em foco (WCAG 2.4.11) e mostra a soma das parcelas e o resumo **ao vivo**. Não escreve nos campos nem usa rede |
 | `financeiro/conta_manual.js` | Adiciona linhas de parcela ao formulário manual (limite de 120) usando o `<template data-nova-parcela>` |
 
 Tags de template: `{% situacao %}` (situação em texto com contorno), `{% secao_atual %}` (menu), filtro `moeda` (`R$ 1.234,56`).

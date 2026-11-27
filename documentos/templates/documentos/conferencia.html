@@ -20,7 +20,7 @@
 <div class="duas">
 <div>
 {% if analise_id %}
-<form method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota">
+<form method="post" action="{% url 'analise_conferencia' analise_id=analise_id %}" class="formulario" aria-label="Conferência da nota" data-submit-lock>
   {% csrf_token %}
   <input type="hidden" name="versao_correcoes" value="{{ versao_correcoes }}">
 {% else %}<div class="formulario" aria-label="Conferência da nota">{% endif %}
@@ -81,10 +81,10 @@
 
 {% if analise_id %}
   <div class="barra-acoes barra-acoes--fixa">
-    <button type="submit" class="botao" name="acao" value="salvar">Salvar correções</button>
+    <button type="submit" class="botao" name="acao" value="salvar" data-submit-texto="Salvando...">Salvar correções</button>
     {% if not revisao.nota.problemas %}<a class="botao botao--secundario" href="{% url 'analise_confirmar' analise_id=analise_id %}">Revisar dados salvos para confirmar</a>{% endif %}
     <span class="barra-acoes__espaco"></span>
-    <button type="submit" class="botao botao--perigo" form="cancelar-analise">Cancelar análise</button>
+    <button type="submit" class="botao botao--perigo" form="cancelar-analise" data-submit-texto="Cancelando...">Cancelar análise</button>
   </div>
   {% if not revisao.nota.problemas %}<p class="texto-apoio">Salve suas alterações antes de prosseguir. A confirmação usa apenas os dados salvos.</p>{% endif %}
   {% if nova_classificacao %}
@@ -95,12 +95,12 @@
       <p>A classificação ficará no catálogo mesmo se esta análise encerrar. Para usar ou reativar um cadastro existente, acesse <a href="{% url 'classificacoes' %}">Classificações</a>.</p>
       {{ nova_classificacao.non_field_errors }}
       {% for campo in nova_classificacao %}{% include "documentos/_campo.html" %}{% endfor %}
-      <button type="submit" class="botao botao--secundario" name="acao" value="criar_classificacao" formnovalidate>Cadastrar classificação e continuar conferindo</button>
+      <button type="submit" class="botao botao--secundario" name="acao" value="criar_classificacao" formnovalidate data-submit-texto="Cadastrando...">Cadastrar classificação e continuar conferindo</button>
     </div>
   </details>
   {% endif %}
 </form>
-<form id="cancelar-analise" method="post" action="{% url 'analise_cancelar' analise_id=analise_id %}">{% csrf_token %}</form>
+<form id="cancelar-analise" method="post" action="{% url 'analise_cancelar' analise_id=analise_id %}" data-submit-lock>{% csrf_token %}</form>
 {% else %}</div>{% endif %}
 </div>
 

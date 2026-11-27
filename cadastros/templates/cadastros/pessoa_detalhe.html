@@ -20,7 +20,7 @@
 <tbody>{% for vinculo in pessoa.papeis.all %}<tr><td class="principal">{{ vinculo.get_papel_display }}</td><td data-rotulo="Situação">{% situacao vinculo.get_status_display %}</td><td class="acoes-linha">{% if vinculo.ativo %}<a class="botao botao--perigo botao--peq" href="{% url 'papel_status' pessoa.pk vinculo.pk 'inativar' %}">Inativar papel</a>{% else %}<a class="botao botao--secundario botao--peq" href="{% url 'papel_status' pessoa.pk vinculo.pk 'reativar' %}">Reativar papel</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="3">Nenhum papel atribuído.</td></tr>{% endfor %}</tbody>
 </table></div>
 <h2>Atribuir outro papel</h2>
-<form method="post" action="{% url 'pessoa_atribuir_papel' pessoa.pk %}" class="cartao formulario-cadastro">{% csrf_token %}
+<form method="post" action="{% url 'pessoa_atribuir_papel' pessoa.pk %}" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Atribuindo...">{% csrf_token %}
   {% for campo in papel_form %}{% include "documentos/_campo.html" %}{% endfor %}
   <div class="barra-acoes"><button class="botao" type="submit">Atribuir papel selecionado</button></div>
 </form>
