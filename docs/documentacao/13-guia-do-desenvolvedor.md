@@ -20,7 +20,7 @@ Leia antes de começar uma funcionalidade nova ou uma correção. É um mapa de 
 | Mudar o **upload** do PDF | `documentos/validators.py`, `uploads.py`, `forms.py` | O limite vale pelos bytes recebidos; nada pode ir a disco |
 | Mudar o que a **conferência** mostra/permite corrigir | `documentos/interface_conferencia.py`, `forms_conferencia.py`, `forms_fiscais.py`, `correcoes.py`, `conferencia.py`, templates | **Campo corrigível novo** precisa de: validador em `CAMPOS_CORRIGIVEIS`, tratamento em `conferencia._extraidos/_combinar`, campo no form e no template, e testes (F-2 e F-3) |
 | Mudar regras da **nota** (problemas, identidade) | `documentos/conferencia.py`, `financeiro/identidade_fiscal.py` | Devolva **código + campo**, nunca valores; atualize `MENSAGENS` em `views_confirmacao.py` |
-| Mudar o **lançamento** | `financeiro/lancamento_nota.py`, `financeiro/servicos.py`, `documentos/analises.confirmar_analise` | Transação única; ordem F-3 → F-4 → movimento → identidade; teste de rollback e de concorrência |
+| Mudar o **lançamento** | `documentos/lancamento_nota.py`, `financeiro/servicos.py`, `documentos/analises.confirmar_analise` | Transação única; ordem F-3 → F-4 → movimento → identidade; teste de rollback e de concorrência |
 | Mudar **pessoas/papéis** | `cadastros/models.py`, `resolucao.py`, `consultas.py`, `pendentes.py`, `views.py` | Identificação **só por documento**; nada reativa sozinho; `PROTECT` e sem exclusão |
 | Mudar **classificações** | `cadastros/models.py`, `forms_classificacoes.py`, `views_classificacoes.py` | `tipo` e `codigo` imutáveis |
 | Mudar **contas manuais** | `financeiro/manual.py`, `forms_manuais.py`, `views_manuais.py`, `conta_manual.js` | Idempotência por UUID + token assinado; a validação final é do serviço |

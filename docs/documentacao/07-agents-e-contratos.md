@@ -82,7 +82,7 @@ Sobre o legado:
 
 - Entrada: `NotaFiscalExtraida` (ou V2). Recusa nota sem itens (`ClassificacaoInvalidaError`).
 - **Contexto enviado ao Gemini** (mínimo): `razao_social` e `nome_fantasia` do fornecedor, os itens (`descricao`, `quantidade`, `valor_total`) e o `valor_total` da nota. **Nunca** CPF/CNPJ nem dados do faturado.
-- Categorias (`TipoDespesa`, Enum do schema): `MANUTENCAO_E_OPERACAO` (manutenção e operação de máquinas, equipamentos, veículos: óleo diesel, lubrificantes, peças) e `INFRAESTRUTURA_E_UTILIDADES` (materiais hidráulicos, elétricos, de construção).
+- **Categorias:** as classificações de DESPESA **ativas** do cadastro. `documentos/categorias.py` as lê do banco (código e descrição) em `analise_criar`, antes do Gemini, e as passa a `processar_pdf(categorias=...)` e a `AgentClassificador.classificar(nota, categorias=...)`; o Agent continua sem acesso ao banco. A instrução do sistema lista cada código com a descrição (as duas iniciais, `MANUTENCAO_E_OPERACAO` e `INFRAESTRUTURA_E_UTILIDADES`, ganham também a orientação de uso) e o `response_schema` tem `tipo_despesa` como enum fechado desses códigos (ou `null`). Código fora da lista (inclusive de categoria inativada no meio do caminho) é resposta inválida; lista vazia é inconclusiva e não chama o Gemini. Sem `categorias` (chamada direta, testes), vale o conjunto fixo `TipoDespesa`.
 - Instruções: escolher somente uma das categorias, não criar novas, basear-se nos itens, `null` se nenhuma servir; justificativa curta (≤ 500 caracteres, espaços normalizados).
 
 | Resultado | Tratamento |
@@ -91,8 +91,7 @@ Sobre o legado:
 | `tipo_despesa = null` | `ClassificacaoInconclusivaError` **carregando** a classificação. `processar_pdf` **não** propaga: usa a justificativa recebida (ou "Classificação inconclusiva; é necessária revisão manual.") e segue com `tipo_despesa = null` |
 | Rede/API/schema | `ClassificacaoIndisponivelError` (`servico_indisponivel`) ou `ClassificacaoInvalidaError` (`classificacao_invalida`) — **continuam sendo erro**; nenhuma categoria é inventada |
 
-> O Agent só conhece **duas categorias de DESPESA**. Para suportar mais categorias ou RECEITA é preciso decisão da equipe (Q-05/Q-06):
-> mudar prompt/Enum **e** o mapeamento com o cadastro `Classificacao` (o `codigo` do cadastro espelha o valor do Enum).
+> Categoria nova no cadastro passa a ser oferecida ao Classificador no próximo envio, sem mudar código. **RECEITA** continua fora do Classificador (Q-06): só DESPESA é lida. A qualidade da escolha depende da descrição cadastrada; categorias sem orientação própria seguem só por ela.
 
 ## 5. `processar_pdf` e `montar_resultado` (`documentos/processamento.py`)
 
@@ -158,7 +157,7 @@ Cada gravação **substitui o conjunto inteiro** e incrementa `versao_correcoes`
 | Registrar correções | `documentos.analises.registrar_correcoes(session, analise_id, correcoes, versao)` |
 | Ver a nota como seria lançada (só leitura) | `documentos.conferencia.conferir_nota(dados, correcoes)` |
 | O que falta decidir por parte | `cadastros.resolucao.avaliar_partes([...])` |
-| Lançar a nota | `financeiro.lancamento_nota.lancar_nota(session, analise_id, SolicitacaoLancamento(...))` |
+| Lançar a nota | `documentos.lancamento_nota.lancar_nota(session, analise_id, SolicitacaoLancamento(...))` |
 | Gravar movimento (qualquer origem) | `financeiro.servicos.registrar_movimento(DadosMovimento(...))` |
 | Conta manual | `financeiro.manual.registrar_conta_manual(ContaManual(...))` |
 | Listar/consultar contas | `financeiro.manual.listar_movimentos(...)`, `consultar_movimento(id)` |
