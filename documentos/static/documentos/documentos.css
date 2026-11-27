@@ -266,19 +266,36 @@ nav.barra-acoes { margin-bottom: 12px; }
 .campos > .campo--m { grid-column: span 6; }
 .campos > .campo--p { grid-column: span 4; }
 .duas { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; align-items: start; }
-.lateral { position: sticky; top: 16px; }
+.lateral { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+input, select, textarea { scroll-margin-top: 80px; }
 .lateral .cartao { background: var(--cor-faixa); border-color: var(--cor-borda-forte); }
 .lateral h2 { margin-top: 0; }
 main .lateral dl { grid-template-columns: 1fr; gap: 0; }
 .lateral dt { margin-top: 10px; }
 .lateral dt:first-child { margin-top: 0; }
 .formulario > section, .formulario > details, .formulario > .barra-acoes { align-self: stretch; }
-.secao-nota { padding: 24px 0; border-top: 1px solid var(--cor-borda); }
+.secao-nota { padding: 24px 0 24px 16px; border-top: 1px solid var(--cor-borda); border-left: 4px solid transparent; scroll-margin-top: 16px; }
 .secao-nota:first-of-type { padding-top: 0; border-top: 0; }
-.secao-nota > h2 { margin: 0 0 2px; }
+.secao-nota--pendente { border-left-color: var(--cor-erro); }
+.secao-nota__topo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 2px; }
+.secao-nota__topo > h2 { margin: 0; }
 .secao-nota h2 .n { margin-right: 6px; font-weight: 400; color: var(--cor-texto-suave); }
 .secao-nota > .texto-apoio { margin-bottom: 16px; font-size: .93rem; }
 .parcela { margin: 0 0 12px; padding: 12px 16px 0; }
+.pendencias { margin: 0 0 24px; padding: 14px 18px; background: var(--cor-superficie); border: 1px solid var(--cor-erro); border-left-width: 4px; border-radius: var(--raio); }
+.pendencias h2 { margin: 0 0 2px; font-size: 1.05rem; color: var(--cor-erro); }
+.pendencias .texto-apoio { margin-bottom: 10px; font-size: .9rem; }
+.pendencias ul { margin: 0; padding: 0; list-style: none; }
+.pendencias li { margin: 0; padding: 6px 0; border-top: 1px solid var(--cor-borda); }
+.pendencias__secao { display: inline-block; min-width: 9.5em; margin-right: 8px; font-size: .8rem; font-weight: 600; color: var(--cor-texto-suave); }
+.campo--pendente :where(input, select, textarea) { border-color: var(--cor-aviso); border-width: 2px; }
+.pendencia { margin: 4px 0 0; font-size: .9rem; color: var(--cor-aviso); }
+.situacao-secoes { margin: 0 0 8px; padding: 0; list-style: none; }
+.situacao-secoes li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 7px 0; border-top: 1px solid var(--cor-borda); }
+.situacao-secoes li:first-child { border-top: 0; }
+.situacao-secoes a { color: inherit; }
+.situacao-secoes .n { margin-right: 4px; color: var(--cor-texto-suave); }
+.cartao--status .texto-apoio { margin: 0; font-size: .86rem; }
 .st { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
 .st--ok { color: var(--cor-ok); }
 .st--erro { color: var(--cor-erro); }
@@ -292,7 +309,9 @@ details.recolher > summary { padding: 10px 16px; font-weight: 600; cursor: point
 details.recolher > div { padding: 0 16px 16px; }
 @media (max-width: 900px) {
   .duas { grid-template-columns: 1fr; }
-  .lateral { position: static; order: -1; }
+  .lateral { position: static; max-height: none; overflow: visible; order: 1; }
+  .cartao--status { display: none; }
+  .pendencias__secao { display: block; min-width: 0; }
 }
 
 /* ---------- Login ---------- */

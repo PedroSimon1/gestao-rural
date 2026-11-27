@@ -33,7 +33,7 @@ class TelaDeConferenciaTests(TestCase):
         html = self.pagina()
         for numero, titulo in (("1.", "Fornecedor"), ("2.", "Faturado"), ("3.", "Dados da nota"), ("4.", "Parcelas")):
             with self.subTest(secao=titulo):
-                self.assertIn(f'<h2><span class="n">{numero}</span>{titulo}</h2>', html)
+                self.assertRegex(html, rf'<h2 id="titulo-\w+"><span class="n">{numero}</span>{titulo}</h2>')
         self.assertEqual(html.count('aria-current="step"'), 1)
         self.assertIn('aria-current="step"><b>2.</b>Conferir os dados', html)
 

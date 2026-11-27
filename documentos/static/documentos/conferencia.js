@@ -24,6 +24,15 @@
     });
   }
 
+  // Link da lista de pendências: além de rolar até o campo, leva o foco para ele (o navegador só rola).
+  document.addEventListener("click", function (evento) {
+    var link = evento.target.closest ? evento.target.closest(".pendencias a[href^='#']") : null;
+    var alvo = link ? document.getElementById(link.getAttribute("href").slice(1)) : null;
+    if (alvo && alvo.matches("input, select, textarea, button")) {
+      alvo.focus({ preventScroll: true });
+    }
+  });
+
   var total = document.getElementById("id_valor_total");
   var aviso = document.querySelector("[data-soma-parcelas]");
   if (!total || !aviso) {
