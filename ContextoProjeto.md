@@ -1,6 +1,6 @@
 # Gestão Rural - Contexto do Projeto
 
-> **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
+> **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação. **Para o estado atual do código e das regras, use [`docs/documentacao/`](docs/documentacao/README.md) e as seções 40 a 44 (27/11/2026); as seções 5 a 7, 15.1, 17.3, 18.5 e 28 descrevem o planejamento e estados antigos (ver `docs/documentacao/12-pendencias-e-riscos.md`, seção 5).**
 
 > **Numeração:** as seções 34.16 a 34.25 aparecem depois da seção 35 (foram acrescentadas depois) e a seção 36 fica ao final da parte antiga; use a busca pelo número. As seções 37 a 39 estão em ordem no final do arquivo.
 
@@ -3909,4 +3909,54 @@ Conferir no navegador a altura do bloco e o botão "Copiar JSON" (em página sem
 
 ## 43.10 - Git
 
-Branch `feature/correcao-interface-backend`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.
+Commit `946b66c` na branch `feature/correcao-interface-backend`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 44 - Etapa 1 do plano de correção e trilhas 3A e 3B (27/11/2026)
+
+## 44.1 - Identificação
+
+Tarefa: Etapa 1 do plano de correção das inconsistências (itens 1A a 1F), mais as trilhas 3A (Gunicorn com threads) e 3B (rota `/saude/`), a pedido do usuário, que aprovou D1 a D4. Data: 27/11/2026. Branch: `feature/panejamento-correcao-inconsistencias`. D1 (baixa de parcela), D2 (renovar validade da análise) e D3 (data de emissão no lançamento) estão aprovadas e ficam para a Etapa 2.
+
+## 44.2 - Objetivo
+
+Limpar o código sem uso, desacoplar módulos, proteger o documento da pessoa no modelo, padronizar a mensagem de banco indisponível, alinhar o prompt do Extrator ao que o sistema lança, corrigir documentação defasada, e deixar prontos o servidor com threads e a rota de saúde.
+
+## 44.3 - Implementação
+
+- **1A, código morto:** removidos `documentos/consultas.py`, `documentos/adaptador_financeiro.py`, `cadastros.consultar_nota` e `ResultadoConsultas`, e os testes que só os exercitavam. Ficam `consultar_pessoa` e `consultar_classificacao`, usadas pela conferência.
+- **1B, desacoplamento:** `documentos/mensagens_conferencia.py` recebe `MENSAGENS`, `ROTULOS_CAMPO` e `mensagem_validacao` (saíram de `views_confirmacao`), o que desfaz o ciclo e os imports dentro de função em `views_analises`. `analise_conferencia` foi dividida em `_ler_envio`, `_criar_classificacao`, `_conferencia` e a view. A regra de dígito verificador de CPF/CNPJ foi para `comum/documentos_br.py` (pacote fora dos apps); `cadastros.validators`, `financeiro.identidade_fiscal` e os schemas dos Agents importam de lá.
+- **1C, modelo:** `Pessoa.save()` e `clean()` recusam trocar o documento de quem consta em movimentos (`documento_imutavel`). Documento ausente (cadastro incompleto) continua podendo ser preenchido; gravar só o nome com `update_fields` não reescreve o documento.
+- **1D, banco indisponível:** `config/erros_banco.mensagem_de_banco()` gera a mensagem única, usada em cadastros, contas, conta manual e nas views de análise e confirmação. `verificar_banco()` saiu de `documentos/analises.py` para esse módulo.
+- **1F, nota não suportada:** o prompt do Extrator diz que só NF-e (55) e NFC-e (65) são lançadas e manda marcar `documento_e_nota_fiscal=false` para NFS-e, recibo, boleto etc.; a mensagem do erro explica isso. Um emitente com CPF ou uma nota sem chave continuam aparecendo no painel "Precisa da sua atenção" da conferência, com a mensagem fiscal.
+- **3A:** `start.sh` usa `--worker-class gthread --threads ${WEB_THREADS:-4}`. Smoke test local: o servidor subiu com `gthread` e respondeu o login (200).
+- **3B:** `GET/HEAD /saude/` (`config/saude.py`), pública: 200 `{"status": "ok"}` com o banco no ar; 503 `{"status": "indisponivel"}` sem ele, sem expor o erro.
+
+## 44.4 - Arquivos
+
+Criados: `comum/__init__.py`, `comum/documentos_br.py`, `documentos/mensagens_conferencia.py`, `config/saude.py`, `config/test_banco.py`, `config/test_saude.py`. Removidos: `documentos/consultas.py`, `documentos/adaptador_financeiro.py`, `documentos/test_consultas.py`. Alterados: `cadastros/` (`consultas.py`, `models.py`, `validators.py`, `views.py`), `documentos/` (`analises.py`, `views_analises.py`, `views_confirmacao.py`, `pendencias_conferencia.py`, `forms_fiscais.py`), `financeiro/` (`identidade_fiscal.py`, `views_consultas.py`, `views_manuais.py`), `agents/extrator/` (`agent.py`, `schemas.py`, `schemas_v2.py`), `config/` (`erros_banco.py`, `urls.py`), `usuarios/limite.py`, `start.sh`, `.env.example`, `README.md`, testes correspondentes e `docs/documentacao/` 02, 07, 08, 10 e 12. O `AGENTS.md` local também foi atualizado (banco, versão do Django, testes), sem mudar suas regras.
+
+## 44.5 - Decisões técnicas
+
+- **Não feito, de propósito:** (a) esconder "CANCELADO" e "Confirmados e cancelados" nos filtros de contas: testes existentes cobrem o filtro explícito (e o cancelamento será implementado); (b) tornar o schema 3 o padrão de `AgentExtrator()`: obrigaria reescrever as respostas simuladas de dezenas de testes e nenhuma rota usa o padrão (registrado em `docs/documentacao/07`); (c) mover `lancamento_nota.py` para `documentos/`: o ciclo `documentos` ↔ `financeiro` permanece, sem import em função.
+- O bloqueio de documento no modelo não cobre `QuerySet.update()` nem fixtures, como a imutabilidade de `Classificacao`.
+- Com `gthread`, `GUNICORN_TIMEOUT` deixa de limitar cada requisição; o limite do Gemini passa a ser o timeout do cliente (`GEMINI_TIMEOUT_SEGUNDOS` x `GEMINI_MAX_TENTATIVAS`). O teto de conexões com o banco passa a ser workers x threads (padrão 1 x 4).
+
+## 44.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations (`makemigrations --check` sem mudanças). Só o PostgreSQL local de `DB_TEST_*`.
+
+## 44.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `manage.py test --noinput`: 1244 testes, OK (antes: 1271; os removidos testavam o código morto e o painel legado, e foram adicionados testes de `config/test_banco.py`, `config/test_saude.py` e do bloqueio de documento no modelo). `git diff --check` limpo. Gunicorn `gthread` verificado com `start.sh` real em porta local (sem tocar o banco). Não verificado: o prompt novo com o Gemini real; `/saude/` contra o Supabase; o health check do Render.
+
+## 44.8 - Integração
+
+Segue as seções 40 a 43. Prepara a Etapa 2 (baixa de parcela, data de emissão, aviso de duplicidade e validade da análise), já aprovada nas decisões D1 a D3.
+
+## 44.9 - Pendências
+
+Etapa 2 (D1 a D3). Operar (humano): apontar o health check do Render para `/saude/` (se der 400, ajustar `DJANGO_ALLOWED_HOSTS`), `WEB_THREADS` se necessário, `DB_SSLMODE=verify-full`, `DJANGO_PROXIES_CONFIAVEIS`, agendar `expirar_analises`. Testar o prompt novo com uma NFS-e real. Seguem de fora: classificador com categorias do banco, cancelamento de movimento, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono.
+
+## 44.10 - Git
+
+Branch `feature/panejamento-correcao-inconsistencias`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito. Ao remover arquivos usei `git rm` por engano em três deles (aparecem como `D ` no índice); isso só deixou a remoção já preparada, sem outro efeito.

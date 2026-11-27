@@ -6,7 +6,8 @@ Fluxos completos em [05](05-fluxos.md).
 ## 1. Rotas
 
 Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usuarios.urls` na raiz; `documentos/`, `cadastros/` e `financeiro/` com `include`.
-**Só `/login/` e `/logout/` são públicas.** As outras **21 rotas de negócio** têm `@demo_login_required`; as de escrita exigem POST e CSRF.
+**Só `/login/`, `/logout/` e `/saude/` são públicas.** As outras **21 rotas de negócio** têm `@demo_login_required`; as de escrita exigem POST e CSRF.
+`/saude/` (GET/HEAD) responde `{"status": "ok"}` com o banco no ar e `{"status": "indisponivel"}` com 503 sem ele, sem expor o erro; serve ao health check do Render.
 
 ### 1.1 Autenticação (`usuarios`)
 

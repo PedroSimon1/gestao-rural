@@ -7,9 +7,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
+from comum.documentos_br import cpf_dv_valido
+
 from .schemas import (
     Cpf, Fornecedor, NotaFiscalExtraida, ParcelaExtraida, Validacoes, ValidacaoDocumento,
-    ValorMonetarioPositivo, _ModeloExtracao, _validar_documento, cpf_dv_valido,
+    ValorMonetarioPositivo, _ModeloExtracao, _validar_documento,
 )
 
 VERSAO_SCHEMA = 3

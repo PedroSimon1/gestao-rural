@@ -30,6 +30,7 @@ O `config/settings.py` lê o `.env` com `python-dotenv` **sem sobrescrever** var
 | `MAX_PDF_UPLOAD_SIZE_MB` | Não | `10` (inteiro; inválido impede a inicialização) | Limite do PDF |
 | `GUNICORN_TIMEOUT` | Não | `420` | `start.sh` |
 | `WEB_CONCURRENCY` | Não | `1` | Número de workers (`start.sh`) |
+| `WEB_THREADS` | Não | `4` | Threads por worker (`start.sh`, Gunicorn `gthread`) |
 | `PORT` | (Render define) | `8000` se ausente | Porta do Gunicorn |
 
 A **Gemini API Key não é uma variável de ambiente**: é digitada na tela a cada processamento.
@@ -105,7 +106,7 @@ flowchart LR
 ```
 
 - `build.sh`: `pip install -r requirements.txt` e `collectstatic --noinput`. **Sem banco, sem migrate.**
-- `start.sh`: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-1} --timeout ${GUNICORN_TIMEOUT:-420}`. O timeout alto cobre as duas chamadas sequenciais ao Gemini.
+- `start.sh`: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-1} --worker-class gthread --threads ${WEB_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-420}`. As threads evitam que uma chamada longa ao Gemini trave o serviço; o limite dela é o timeout do cliente Gemini.
 - O Render injeta `PORT`, `RENDER_EXTERNAL_HOSTNAME` e `RENDER_GIT_COMMIT`.
 
 **Verificação humana após publicar** (nada disso é feito pelo código):
@@ -115,7 +116,8 @@ flowchart LR
 3. Migrations aplicadas no banco do ambiente (inclusive `financeiro/0004`).
 4. Login, envio de PDF fictício, conferência, confirmação e conta manual funcionam.
 5. HSTS/redirecionamento HTTPS efetivos (W004/W008) e Data API do Supabase **desativada** (ou RLS habilitada).
-6. `WEB_CONCURRENCY` ≥ 2 se houver mais de um usuário.
+6. O health check do Render aponta para `/saude/`. Se ele falhar com 400, o host da checagem não está em `DJANGO_ALLOWED_HOSTS`. Com 503, o banco está fora do ar (por exemplo, projeto do Supabase pausado).
+7. `WEB_THREADS` (padrão 4) cobre o uso simultâneo normal; suba o valor, ou `WEB_CONCURRENCY`, se mais gente processar PDFs ao mesmo tempo. Lembre que cada thread abre uma conexão com o banco (teto: workers x threads).
 
 ## 7. Rotinas operacionais
 

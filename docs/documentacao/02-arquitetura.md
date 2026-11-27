@@ -70,7 +70,7 @@ flowchart LR
 │   └── templates/ static/
 ├── documentos/             nota fiscal: da entrada à confirmação
 │   ├── processamento.py  analises.py  conferencia.py  correcoes.py
-│   ├── adaptador_financeiro.py  consultas.py  interface_conferencia.py
+│   ├── interface_conferencia.py  mensagens_conferencia.py  pendencias_conferencia.py
 │   ├── forms*.py  views.py  views_analises.py  views_confirmacao.py  urls.py
 │   ├── uploads.py  validators.py  models.py
 │   ├── management/commands/expirar_analises.py
@@ -121,7 +121,8 @@ Detalhes e comandos em [10](10-configuracao-e-operacao.md).
 
 ## 7. Capacidade e desempenho (limites de projeto)
 
-- `start.sh` usa Gunicorn com `WEB_CONCURRENCY` padrão **1** worker síncrono e `GUNICORN_TIMEOUT` padrão **420 s**.
+- `start.sh` usa Gunicorn `gthread`: `WEB_CONCURRENCY` padrão **1** worker com `WEB_THREADS` padrão **4** threads, e `GUNICORN_TIMEOUT` padrão **420 s** (prazo de vida do worker, que nas threads não limita cada requisição).
 - Cada processamento de PDF faz **duas** chamadas ao Gemini em sequência (timeout padrão 60 s por tentativa, até 3 tentativas). No pior caso, ≈ 7 minutos.
-- Enquanto um PDF processa, o único worker não atende ninguém (nem o login). Aceitável para demonstração; fraco para uso real.
+- Uma chamada longa ao Gemini ocupa **uma** thread; o login e as demais telas seguem atendendo nas outras. Com 4 pessoas processando PDFs ao mesmo tempo, as threads se esgotam e o resto espera.
+- `GET /saude/` (sem login) responde 200 com o banco no ar e 503 sem ele; é o endereço para o health check do Render.
 - Cada requisição abre e fecha a própria conexão (`CONN_MAX_AGE = 0`), porque o Session Pooler limita as conexões simultâneas.

@@ -5,7 +5,7 @@ para a tela mostrar, por seção e por campo, o que impede a confirmação.
 """
 from types import SimpleNamespace
 
-from .views_confirmacao import ROTULOS_CAMPO, mensagem_validacao
+from .mensagens_conferencia import ROTULOS_CAMPO, mensagem_validacao
 
 SECOES = (
     (1, "Fornecedor", "secao-fornecedor"),

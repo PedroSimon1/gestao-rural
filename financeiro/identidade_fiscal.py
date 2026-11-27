@@ -29,9 +29,8 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-# Mesmo módulo 11 (ASCII − 48) do CNPJ alfanumérico, já usado pelo Extrator e
-# por cadastros/validators.py.
-from agents.extrator.schemas import _digito_verificador, cnpj_dv_valido
+# Mesmo módulo 11 (ASCII − 48) do CNPJ alfanumérico, compartilhado em comum/documentos_br.py.
+from comum.documentos_br import cnpj_dv_valido, digito_verificador
 from cadastros.validators import TIPO_CNPJ, normalizar_documento, tipo_do_documento
 
 from .models import (
@@ -70,7 +69,7 @@ def validar_chave_acesso(chave):
     chave = normalizar_chave(chave)
     if not re.fullmatch(FORMATO_CHAVE_ACESSO, chave):
         raise _erro("Chave de acesso com formato inválido.", "chave_acesso_invalida")
-    if _digito_verificador(chave[:-1], PESOS_DA_CHAVE) != chave[-1]:
+    if digito_verificador(chave[:-1], PESOS_DA_CHAVE) != chave[-1]:
         raise _erro("Chave de acesso com dígito verificador inválido.", "chave_acesso_invalida")
     return chave
 

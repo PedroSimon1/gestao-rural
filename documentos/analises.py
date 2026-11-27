@@ -46,7 +46,7 @@ import secrets
 from datetime import timedelta
 from uuid import UUID
 
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from .correcoes import validar_correcoes
@@ -219,16 +219,6 @@ def garantir_dono(session):
     protege contra quem planta um cookie já autenticado.
     """
     session[CHAVE_DA_SESSAO] = secrets.token_urlsafe(32)
-
-
-def verificar_banco():
-    """Levanta django.db.Error se o banco não responde.
-
-    Chamada antes de gastar a chamada ao Gemini (e a chave do usuário) num
-    processamento cujo resultado não poderia ser guardado.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT 1")
 
 
 def criar_analise(session, resultado):

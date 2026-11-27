@@ -42,7 +42,7 @@ Severidade: **A** = tratar antes de publicar/entregar; **M** = importante; **B**
 | M-01 | M | Login sem limite de tentativas; sessão de 14 dias; login compartilhado | Definir `SESSION_COOKIE_AGE` (ex.: 8 h) e limitar tentativas por IP/janela; exigir senha longa | **Corrigido no código** (`ContextoProjeto.md` 39.2): sessão de 8 h, limite por origem/global, aviso de senha curta; falta publicar e conferir o IP real no Render |
 | M-02 | M | HSTS e redirecionamento HTTPS não estão no código | Verificar na URL publicada e registrar a evidência | Aberto (humano) |
 | M-03 | M | `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; sem `404.html`/`500.html` | Decorador equivalente ao `_erros_de_banco` do financeiro + templates de erro em português | **Corrigido no código** (`ContextoProjeto.md` 39.1); falta publicar |
-| M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | Aberto |
+| M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | **Mitigado no código** (`start.sh` com `gthread` e 4 threads, `ContextoProjeto.md` seção 44); falta publicar e validar sob carga |
 | M-05 | M | F-6 e GR-39/49 abertas | Fechar com o responsável pelos serviços; agendar `expirar_analises` | Aberto |
 | M-06 | M | Sem RLS nas migrations; depende de a Data API do Supabase estar desativada | Conferir QA/PROD e registrar evidência; por precaução, habilitar RLS sem políticas | **Migration criada** (`financeiro/0005_habilitar_rls`, 39.6) e **aplicada na homologação** (39.7); falta produção e conferir a Data API (ação humana) |
 | B-01 | B | Documentação defasada (ver seção 5) | Corrigir | Parcial |

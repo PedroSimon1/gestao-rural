@@ -12,7 +12,7 @@ from .conferencia import Problema
 from .interface_conferencia import preparar_conferencia, validar_conferencia
 from .pendencias_conferencia import resumir_pendencias
 from .testing import resultado_da_nota
-from .views_confirmacao import mensagem_validacao
+from .mensagens_conferencia import mensagem_validacao
 
 
 def resumo(*problemas):

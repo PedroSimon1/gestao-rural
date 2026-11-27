@@ -10,6 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
+from config.erros_banco import mensagem_de_banco
 from documentos.analises import CHAVE_DA_SESSAO, garantir_dono
 from usuarios.demo import demo_login_required
 from .forms_manuais import ContaManualForm, ParcelasManuaisFormSet
@@ -86,7 +87,8 @@ def conta_manual_nova(request):
                 form.add_error(None, mensagem)
                 status = 400
             except DatabaseError:
-                form.add_error(None, "Não foi possível concluir agora. Reenvie esta mesma solicitação para evitar duplicidade.")
+                form.add_error(None, mensagem_de_banco(
+                    "concluir o registro", "Reenvie esta mesma solicitação para evitar duplicidade."))
                 status = 503
             else:
                 return redirect("conta_detalhe", movimento_id=movimento.id)
