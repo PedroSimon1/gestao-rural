@@ -170,10 +170,11 @@ main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
 }
 main dl:not(.resumo) dd, .resumo:not(:has(.resumo__item)) dd { margin: 0; }
 .justificativa { margin: 0; }
+/* Dados brutos (JSON): fundo escuro de propósito, único fora do padrão claro, para não parecerem campo nem texto da tela. */
 .bloco-json {
   margin: 0; padding: 14px; max-height: 70vh; overflow: auto;
-  border: 1px solid var(--cor-borda); border-radius: var(--raio);
-  background: var(--cor-fundo); color: var(--cor-texto);
+  border: 1px solid #0f1813; border-radius: var(--raio);
+  background: #18231d; color: #e3ece6; color-scheme: dark;
   font-family: var(--mono); font-size: .85rem; line-height: 1.5; white-space: pre;
 }
 
@@ -369,4 +370,5 @@ footer .texto-apoio { margin: 0; font-size: .85rem; }
   .topo, .pular, .botao, nav[aria-label^="Páginas"] { display: none !important; }
   body { background: #ffffff; }
   .cartao, .tabela-responsiva { border-color: #999999; }
+  .bloco-json { background: #ffffff; color: #000000; border-color: #999999; max-height: none; overflow: visible; white-space: pre-wrap; }
 }
