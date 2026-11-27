@@ -3959,4 +3959,52 @@ Etapa 2 (D1 a D3). Operar (humano): apontar o health check do Render para `/saud
 
 ## 44.10 - Git
 
-Branch `feature/panejamento-correcao-inconsistencias`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito. Ao remover arquivos usei `git rm` por engano em três deles (aparecem como `D ` no índice); isso só deixou a remoção já preparada, sem outro efeito.
+Branch `feature/panejamento-correcao-inconsistencias`, mesclada por PR (#69) em `develop`. Os commits da etapa foram feitos pelo usuário. Ao remover arquivos usei `git rm` por engano em três deles; isso só deixou a remoção já preparada, sem outro efeito.
+
+# 45 - Etapa 2: baixa de parcela, data de emissão, conta parecida e validade da análise (27/11/2026)
+
+## 45.1 - Identificação
+
+Tarefa: Etapa 2 do plano de correção (decisões D1, D2 e D3 aprovadas pelo usuário em 27/11/2026). Data: 27/11/2026. Trilhas em três branches (`feature/etapa2-baixa-e-emissao`, `feature/etapa2-duplicidade`, `feature/etapa2-validade-analise`), mescladas com `--no-ff` em `feature/panejamento-correcao-inconsistencias-etapa2`, a pedido do usuário (commits sem co-autor, sem push).
+
+## 45.2 - Objetivo
+
+Dar baixa em parcela (paga/recebida), gravar e mostrar a data de emissão da nota, avisar sobre conta parecida e renovar a validade da análise ao salvar as correções.
+
+## 45.3 - Implementação
+
+- **D1, baixa de parcela:** `ParcelaConta.pago_em` (data, nula). `financeiro/pagamentos.py` (`registrar_pagamento`, `desfazer_pagamento`) relê a parcela com bloqueio, recusa parcela cancelada, movimento cancelado, baixa repetida, data inválida e data futura. Rota `contas/parcelas/<id>/pagamento/` (POST) e botões no detalhe da conta ("Marcar como paga/recebida", "Desfazer baixa"). A lista de contas mostra parcelas pagas/total e o próximo vencimento em aberto, e filtra por pagamento (em aberto / quitado). O detalhe mostra o valor ainda em aberto. O `status` da parcela segue `ATIVA`: o gatilho da soma (migration 0002) não mudou.
+- **D3, data de emissão:** `NotaFiscalLancada.data_emissao` (nula, imutável). `registrar_identidade_fiscal(..., data_emissao=)` a grava na confirmação; o detalhe da conta mostra modelo, série/número, emissão e chave. Notas lançadas antes da migration ficam sem a data ("Não registrada").
+- **2C, conta parecida:** `financeiro/duplicidade.py` (`movimentos_parecidos`: mesma contraparte, valor total e primeiro vencimento, CONFIRMADAS). Na conta manual, com conta parecida o formulário volta com o aviso (409) e só registra com a ciência do usuário (`ciente_duplicidade`); reenviar a mesma solicitação nunca vira aviso (a chave de idempotência é excluída da busca). Na confirmação da nota é só aviso, com links.
+- **D2, validade:** `registrar_correcoes` renova 30 minutos a partir de agora, com teto de 3 horas desde a criação (`LIMITE_TOTAL`); nunca encurta o prazo já dado. Ler, recusar uma correção ou salvar análise vencida não renova.
+
+## 45.4 - Arquivos
+
+`financeiro/` (`models.py`, `migrations/0006_baixa_de_parcela_e_data_de_emissao.py`, `pagamentos.py`, `forms_pagamentos.py`, `views_pagamentos.py`, `duplicidade.py`, `manual.py`, `identidade_fiscal.py`, `lancamento_nota.py`, `views_consultas.py`, `views_manuais.py`, `forms_consultas.py`, `forms_manuais.py`, `urls.py`, templates `conta_detalhe`, `contas`, `conta_manual`, `_contas_parecidas`), `documentos/` (`analises.py`, `views_confirmacao.py`, templates `confirmacao`, `conferencia`, `templatetags/navegacao.py`, CSS), testes (`financeiro/test_pagamentos.py`, `test_duplicidade.py`, `documentos/test_duplicidade_confirmacao.py`, `test_validade_da_analise.py` e ajustes) e `docs/documentacao/` 03, 04, 06, 08 e 12.
+
+## 45.5 - Decisões técnicas
+
+- Baixa só com a data (`pago_em`), sem tabela de histórico nem pagamento parcial: mínimo que atende o uso e não mexe no gatilho de soma nem nos campos imutáveis.
+- O campo `ciente_duplicidade` é sempre renderizado, mas oculto (`<div hidden>`) quando não há conta parecida: o teste `test_completude_formularios` exige que todo campo esperado pelo servidor exista no HTML.
+- Mudanças de comportamento que exigiram ajustar testes antigos: registrar conta manual idêntica agora exige a ciência do usuário; o prazo da análise deixou de ser fixo; o resumo de contas passou a ter `quantidade_pagas`; `ParcelaDoMovimento` ganhou `id` e `pago_em`; testes que simulam `registrar_identidade_fiscal` passaram a repassar argumentos extras.
+- `listar_movimentos`: o "próximo vencimento" agora só considera parcelas em aberto (antes, todas as ATIVAS); sem baixas o resultado é o mesmo.
+
+## 45.6 - Banco de dados
+
+Uma migration: `financeiro/0006_baixa_de_parcela_e_data_de_emissao` (dois `AddField` nulos: `parcelas_contas.pago_em` e `notas_fiscais_lancadas.data_emissao`). Sem alteração de gatilho, constraint ou índice. **Não aplicada em homologação nem em produção** (PT-06: aplicação manual e coordenada); só no PostgreSQL local de testes.
+
+## 45.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `manage.py test --noinput` na branch mesclada: 1288 testes, OK (antes: 1244). Inclui baixa simultânea da mesma parcela (duas threads: só uma passa) e o teto de 3 horas da validade. Não verificado no navegador: aparência do detalhe da conta e do aviso; a tela depende do banco de homologação, que não foi usado.
+
+## 45.8 - Integração
+
+Segue as seções 40 a 44. Depende da migration 0006 aplicada no banco do ambiente antes de publicar (o código usa as colunas novas).
+
+## 45.9 - Pendências
+
+Aplicar a migration 0006 em homologação e produção (ação humana, na ordem da seção 39.7) e testar as telas. Seguem de fora: cancelamento de movimento, pagamento parcial e histórico das baixas, classificador com categorias do banco, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono.
+
+## 45.10 - Git
+
+Branch `feature/panejamento-correcao-inconsistencias-etapa2` com as três trilhas mescladas (`--no-ff`) e um commit de documentação. Nenhum push foi feito.

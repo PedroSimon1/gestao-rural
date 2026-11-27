@@ -99,7 +99,17 @@ Imutabilidade: `tipo`, `origem`, `status`, `contraparte`, `faturado`, `valor_tot
 `movimento`, `numero`, `data_vencimento`, `valor`, `status` e `criado_em`. O cancelamento será uma operação
 própria (**não implementada**). `update()`, `bulk_update()` e `bulk_create(update_conflicts)` também recusam.
 
-Um movimento **nasce `CONFIRMADO`**: não existe rascunho. O pagamento (baixa) de parcelas não existe.
+Um movimento **nasce `CONFIRMADO`**: não existe rascunho.
+
+**Baixa de parcela** (D1, 27/11/2026): cada parcela ATIVA de movimento CONFIRMADO pode ser marcada como paga (a pagar) ou recebida (a receber) com uma
+data que não seja futura, e a baixa pode ser desfeita. Não há pagamento parcial, estorno com histórico nem cancelamento (sem contrato aprovado).
+Duas baixas simultâneas da mesma parcela: só uma passa (a linha é bloqueada).
+
+**Aviso de conta parecida** (2C): antes de registrar uma conta manual, e na confirmação de uma nota, o sistema lista as contas CONFIRMADAS com a mesma
+contraparte, o mesmo valor total e o mesmo primeiro vencimento. Na conta manual o registro só segue com a ciência do usuário; na nota é só aviso (a
+identidade fiscal é a trava de verdade).
+
+**Validade da análise** (D2): 30 minutos desde a criação; cada salvamento das correções renova por mais 30 minutos, com teto de 3 horas desde a criação.
 
 ### 4.1 Idempotência
 
@@ -212,5 +222,5 @@ O resultado só é devolvido depois do COMMIT. `lancar_nota` **não pode** ser c
 | Decisão (F-4) | `REGULARIZAR`, `CRIAR_PESSOA`, `REATIVAR_PESSOA`, `ATRIBUIR_PAPEL`, `REATIVAR_PAPEL` |
 | Situação de consulta | `EXISTE`, `NAO_EXISTE`, `DOCUMENTO_AUSENTE`, `DOCUMENTO_INVALIDO`, `CLASSIFICACAO_AUSENTE` |
 
-> **Atenção:** `CONFIRMADO` (movimento) é um estado **financeiro**, diferente de `ATIVO` (cadastro) e de "quitado". Não os confunda
-> ao implementar filtros, "TODOS" ou baixa de parcelas.
+> **Atenção:** `CONFIRMADO` (movimento) é um estado **financeiro**, diferente de `ATIVO` (cadastro) e de "quitado". "Quitado" é derivado: todas as
+> parcelas ATIVAS com `pago_em` preenchido. Não os confunda ao implementar filtros, "TODOS" ou baixa de parcelas.

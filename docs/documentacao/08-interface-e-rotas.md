@@ -51,7 +51,8 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | --- | --- | --- | --- |
 | `contas/nova/` | `conta_manual_nova` | GET, POST | `?tipo=APAGAR` (padrão) ou `ARECEBER`; trocar o tipo abre novo formulário |
 | `contas/` | `contas` | GET | Lista/pesquisa (`modo=buscar` ou `todos`) |
-| `contas/<id>/` | `conta_detalhe` | GET | Detalhe do movimento |
+| `contas/<id>/` | `conta_detalhe` | GET | Detalhe do movimento: valor em aberto, nota fiscal (se houver) e baixa de cada parcela |
+| `contas/parcelas/<id>/pagamento/` | `parcela_pagamento` | POST | `acao=registrar` + `data_pagamento` (não futura) ou `acao=desfazer`; volta ao detalhe |
 
 **Navegação** (cabeçalho comum, `documentos/templates/documentos/base.html`): Contas · Enviar nota · Pessoas · Classificações · Sair.
 **Rodapé:** "Versão publicada: `<SHA>`" com link para o commit no GitHub, ou "não informada neste ambiente".
@@ -102,8 +103,9 @@ dá erros "Missing staticfiles manifest entry".
 | `ConfirmacaoLancamentoForm` | `documentos/forms_confirmacao.py` | `versao_correcoes`, decisões e cadastro incompleto de cada parte, `confirmar` | `solicitacao()` devolve a `SolicitacaoLancamento` |
 | `NovaPessoaForm` / `PessoaForm` / `PapelForm` / `ConfirmacaoForm` / `RegularizacaoForm` / `PesquisaPessoaForm` | `cadastros/forms.py` | nome, documento, papéis, confirmação, busca | |
 | `NovaClassificacaoForm` / `DescricaoClassificacaoForm` / `PesquisaClassificacaoForm` | `cadastros/forms_classificacoes.py` | tipo, código, descrição, busca | |
-| `ContaManualForm` + `ParcelasManuaisFormSet` | `financeiro/forms_manuais.py` | tipo, UUID, token, contraparte, faturado, valor total, classificações, principal, parcelas, `confirmar` | Formset: mínimo 1, máximo 120, com remoção |
-| `FiltroContasForm` | `financeiro/forms_consultas.py` | tipo, origem, situação, contraparte, classificação, por página, página | Inclui cadastros inativos |
+| `ContaManualForm` + `ParcelasManuaisFormSet` | `financeiro/forms_manuais.py` | tipo, UUID, token, contraparte, faturado, valor total, classificações, principal, parcelas, `confirmar`, `ciente_duplicidade` | Formset: mínimo 1, máximo 120, com remoção. `ciente_duplicidade` só aparece quando há conta parecida (409 até ser marcado) |
+| `FiltroContasForm` | `financeiro/forms_consultas.py` | tipo, origem, situação, contraparte, classificação, pagamento (em aberto / quitado), por página, página | Inclui cadastros inativos |
+| `PagamentoParcelaForm` | `financeiro/forms_pagamentos.py` | `acao` (registrar/desfazer), `data_pagamento` | Recusa data futura no serviço |
 
 Padrões comuns nas views de escrita: **recusar campos fora do formulário e campos escalares repetidos** ("Pedido inválido…"),
 `@sensitive_post_parameters`, e traduzir códigos de erro em mensagens fixas.
