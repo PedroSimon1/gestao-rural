@@ -1,0 +1,9 @@
+{% comment %}
+  Contas já registradas que parecem esta (financeiro/duplicidade.py). Parâmetro: duplicidades.
+{% endcomment %}{% load moeda %}{% if duplicidades %}
+<section class="cartao cartao--pend" role="alert" aria-labelledby="titulo-parecidas">
+  <div class="cartao__topo"><h2 id="titulo-parecidas">Já existe conta parecida</h2><span class="st st--erro">{{ duplicidades|length }}</span></div>
+  <p>Mesma contraparte, mesmo valor total e mesmo primeiro vencimento. Confira antes de registrar para não lançar a mesma conta duas vezes.</p>
+  <ul>{% for conta in duplicidades %}<li><a href="{% url 'conta_detalhe' conta.id %}" target="_blank" rel="noopener">Conta nº {{ conta.id }}</a> — {{ conta.valor_total|moeda }}, 1º vencimento {{ conta.primeiro_vencimento|date:"d/m/Y"|default:"—" }}, registrada em {{ conta.criado_em|date:"d/m/Y H:i" }}</li>{% endfor %}</ul>
+</section>
+{% endif %}

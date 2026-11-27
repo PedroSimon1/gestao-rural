@@ -72,6 +72,17 @@ jobs:
       - name: Dependências consistentes
         run: pip check
 
+      # Ferramentas só do CI (não entram em requirements.txt, que é o que vai para produção).
+      - name: Lint (ruff, import sem uso e nome indefinido)
+        run: |
+          pip install ruff
+          ruff check .
+
+      - name: Vulnerabilidades conhecidas nas dependências
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
       - name: Verificações do Django
         run: python manage.py check
 

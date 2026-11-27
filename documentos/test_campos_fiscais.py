@@ -72,7 +72,7 @@ class CamposFiscaisTests(SimpleTestCase):
     def test_chave_malformada_preservada_no_campo_escapado(self):
         form = CamposFiscaisForm({'chave_acesso': '<script>alert(1)</script>'})
         self.assertFalse(form.is_valid())
-        html = render_to_string('documentos/_campos_fiscais.html', {'fiscal': form})
+        html = render_to_string('documentos/_campo.html', {'campo': form['chave_acesso']})
         self.assertIn('&lt;script&gt;', html)
         self.assertNotIn('<script>alert(1)</script>', html)
         self.assertNotIn('type="submit"', html)

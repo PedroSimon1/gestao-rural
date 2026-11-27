@@ -30,10 +30,14 @@ from django.db.models import Count, Min, Q
 
 from cadastros.models import Classificacao, Pessoa
 
-from .models import MovimentoConta, OrigemMovimento, StatusMovimento, StatusParcela, TipoMovimento
+from .models import (
+    ModeloNota, MovimentoConta, NotaFiscalLancada, OrigemMovimento, StatusMovimento, StatusParcela,
+    TipoMovimento,
+)
 from .servicos import DadosMovimento, ItemClassificacao, ItemParcela, registrar_movimento
 
 MOVIMENTO_INEXISTENTE = "movimento_inexistente"
+PAGAMENTOS = ("EM_ABERTO", "QUITADO")
 POR_PAGINA = 30
 MAXIMO_POR_PAGINA = 100
 
@@ -76,6 +80,9 @@ class ParcelaDoMovimento:
     data_vencimento: date
     valor: Decimal
     status: str
+    id: int
+    # Data da baixa (paga/recebida); None = em aberto.
+    pago_em: date | None
 
 
 @dataclass(frozen=True)
@@ -91,7 +98,18 @@ class ResumoMovimento:
     valor_total: Decimal
     criado_em: datetime
     quantidade_parcelas: int
+    quantidade_pagas: int
     proximo_vencimento: date | None
+
+
+@dataclass(frozen=True)
+class NotaDoMovimento:
+    """Identificação fiscal da nota que originou o movimento (só movimentos NOTA_FISCAL)."""
+    modelo: str
+    serie: int
+    numero: int
+    data_emissao: date | None
+    chave_acesso: str | None
 
 
 @dataclass(frozen=True)
@@ -108,6 +126,9 @@ class DetalheMovimento:
     criado_em: datetime
     classificacoes: tuple[ClassificacaoDoMovimento, ...]
     parcelas: tuple[ParcelaDoMovimento, ...]
+    # Soma das parcelas ATIVAS sem baixa.
+    valor_em_aberto: Decimal
+    nota_fiscal: NotaDoMovimento | None
 
 
 @dataclass(frozen=True)
@@ -224,17 +245,19 @@ def _comum(movimento):
 
 def listar_movimentos(
     *, tipo=None, origem=None, status=None, contraparte_id=None, classificacao_id=None,
-    pagina=1, por_pagina=POR_PAGINA,
+    pagamento=None, pagina=1, por_pagina=POR_PAGINA,
 ):
     """Movimentos do mais recente ao mais antigo, paginados; só leitura.
 
     Filtros opcionais e combináveis. Valor fora das opções → ValueError; a
     tela valida as escolhas antes. Página fora do intervalo → a mais próxima.
-    O vencimento e a quantidade contam só parcelas ATIVAS.
+    A quantidade conta só parcelas ATIVAS; o próximo vencimento, só as ATIVAS em aberto
+    (sem baixa). `pagamento`: EM_ABERTO (alguma parcela sem baixa) ou QUITADO (todas com baixa).
     """
     _escolha(tipo, TipoMovimento.values, "tipo")
     _escolha(origem, OrigemMovimento.values, "origem")
     _escolha(status, StatusMovimento.values, "status")
+    _escolha(pagamento, PAGAMENTOS, "pagamento")
     _identificador(contraparte_id, "contraparte_id", opcional=True)
     _identificador(classificacao_id, "classificacao_id", opcional=True)
     _identificador(pagina, "pagina")
@@ -248,16 +271,24 @@ def listar_movimentos(
     }
     movimentos = _movimentos().filter(**{c: v for c, v in filtros.items() if v is not None})
     ativas = Q(parcelas__status=StatusParcela.ATIVA)
+    abertas = ativas & Q(parcelas__pago_em__isnull=True)
     movimentos = movimentos.annotate(
         quantidade_parcelas=Count("parcelas", filter=ativas, distinct=True),
-        proximo_vencimento=Min("parcelas__data_vencimento", filter=ativas),
-    ).order_by("-criado_em", "-id")
+        quantidade_em_aberto=Count("parcelas", filter=abertas, distinct=True),
+        proximo_vencimento=Min("parcelas__data_vencimento", filter=abertas),
+    )
+    if pagamento == "EM_ABERTO":
+        movimentos = movimentos.filter(quantidade_em_aberto__gt=0)
+    elif pagamento == "QUITADO":
+        movimentos = movimentos.filter(quantidade_em_aberto=0, quantidade_parcelas__gt=0)
+    movimentos = movimentos.order_by("-criado_em", "-id")
 
     folha = Paginator(movimentos, por_pagina).get_page(pagina)
     itens = tuple(
         ResumoMovimento(
             **_comum(movimento),
             quantidade_parcelas=movimento.quantidade_parcelas,
+            quantidade_pagas=movimento.quantidade_parcelas - movimento.quantidade_em_aberto,
             proximo_vencimento=movimento.proximo_vencimento,
         )
         for movimento in folha
@@ -266,12 +297,17 @@ def listar_movimentos(
 
 
 def consultar_movimento(movimento_id):
-    """Movimento com classificações (principal primeiro) e todas as parcelas."""
+    """Movimento com classificações (principal primeiro), todas as parcelas e a nota fiscal, se houver."""
     _identificador(movimento_id, "movimento_id")
     movimento = _movimentos().filter(pk=movimento_id).first()
     if movimento is None:
         raise _erro("Movimento não encontrado.", MOVIMENTO_INEXISTENTE)
     vinculos = movimento.classificacoes.select_related("classificacao").order_by("-principal", "id")
+    parcelas = tuple(
+        ParcelaDoMovimento(p.numero, p.data_vencimento, p.valor, p.status, p.pk, p.pago_em)
+        for p in movimento.parcelas.order_by("numero")
+    )
+    nota = NotaFiscalLancada.objects.filter(movimento_id=movimento.pk).first()
     return DetalheMovimento(
         **_comum(movimento),
         classificacoes=tuple(
@@ -281,8 +317,12 @@ def consultar_movimento(movimento_id):
             )
             for vinculo in vinculos
         ),
-        parcelas=tuple(
-            ParcelaDoMovimento(p.numero, p.data_vencimento, p.valor, p.status)
-            for p in movimento.parcelas.order_by("numero")
+        parcelas=parcelas,
+        valor_em_aberto=sum(
+            (p.valor for p in parcelas if p.status == StatusParcela.ATIVA and p.pago_em is None),
+            Decimal("0.00"),
+        ),
+        nota_fiscal=None if nota is None else NotaDoMovimento(
+            ModeloNota(nota.modelo).label, nota.serie, nota.numero, nota.data_emissao, nota.chave_acesso,
         ),
     )

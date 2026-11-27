@@ -17,7 +17,10 @@ Including another URLconf
 from django.urls import include, path
 from django.views.generic import RedirectView
 
+from .saude import saude
+
 urlpatterns = [
+    path("saude/", saude, name="saude"),
     path("", RedirectView.as_view(pattern_name="documento_inicio"), name="inicio"),
     path("", include("usuarios.urls")),
     path("documentos/", include("documentos.urls")),

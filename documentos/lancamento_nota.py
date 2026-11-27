@@ -29,12 +29,12 @@ from django.core.exceptions import ValidationError
 
 from cadastros.models import Classificacao
 from cadastros.resolucao import Decisao, ParteNota, PessoaResolvida, resolver_partes
-from documentos.analises import confirmar_analise, correcoes_da_confirmacao
-from documentos.conferencia import conferir_nota
+from financeiro.identidade_fiscal import registrar_identidade_fiscal
+from financeiro.models import MovimentoConta, NotaFiscalLancada, OrigemMovimento, TipoMovimento
+from financeiro.servicos import DadosMovimento, ItemClassificacao, registrar_movimento
 
-from .identidade_fiscal import registrar_identidade_fiscal
-from .models import MovimentoConta, NotaFiscalLancada, OrigemMovimento, TipoMovimento
-from .servicos import DadosMovimento, ItemClassificacao, registrar_movimento
+from .analises import confirmar_analise, correcoes_da_confirmacao
+from .conferencia import conferir_nota
 
 CONFERENCIA_PENDENTE = "conferencia_pendente"
 
@@ -131,7 +131,9 @@ def _gravador(solicitacao):
             analise_origem_id=analise_id,
             parcelas=nota.parcelas,
         ))
-        nota_fiscal, _ = registrar_identidade_fiscal(movimento, nota.identidade_fiscal)
+        nota_fiscal, _ = registrar_identidade_fiscal(
+            movimento, nota.identidade_fiscal, data_emissao=nota.data_emissao,
+        )
         return LancamentoNota(movimento, nota_fiscal, fornecedor, faturado)
 
     return gravar

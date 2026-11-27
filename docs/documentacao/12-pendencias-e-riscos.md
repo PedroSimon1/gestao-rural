@@ -9,7 +9,7 @@ e nas auditorias (GR-16, de 27/10/2026, e de 24/11/2026 — [`docs/auditoria/Aud
 | Item | Situação | Detalhe |
 | --- | --- | --- |
 | **F-6 — "Salvar cadastro pendente"** | Serviço existe; **botão não ligado** | `cadastros/pendentes.salvar_cadastro_pendente()` **não é idempotente**: duas chamadas iguais criam duas pessoas incompletas. Falta uma operação oficial com chave de idempotência, vínculo a sessão/análise/versão e erros estáveis — [proposta, **não aprovada**](../contratos/F6-idempotencia-alinhamento.md). Não deduplicar por nome nem criar persistência paralela na tela. FLU-05/06 permanecem **parciais** |
-| **GR-39 / GR-49 — manutenção financeira** | Não implementado | Sem editar, cancelar ou dar baixa em movimento/parcela; sem histórico de parcelas; `StatusMovimento.CANCELADO` e `StatusParcela.CANCELADA` existem no modelo, mas **não há operação que os use**. RN-02/RN-03 e UI-06/08/09 continuam **parciais** para o domínio financeiro. A GR-49 consta "Feito" no Jira, mas é **parcial** no código (divergência registrada) |
+| **GR-39 / GR-49 — manutenção financeira** | Parcial | **Baixa de parcela** (paga/recebida, com desfazer) existe desde 27/11/2026 (D1). Seguem sem existir: editar, **cancelar** movimento ou parcela e histórico das baixas; `StatusMovimento.CANCELADO` e `StatusParcela.CANCELADA` existem no modelo, mas **não há operação que os use**. RN-02/RN-03 e UI-06/08/09 continuam **parciais** para o domínio financeiro. A GR-49 consta "Feito" no Jira, mas é **parcial** no código (divergência registrada) |
 | Mais de uma classificação por nota | Só no fluxo **manual** | O fluxo da nota grava uma única classificação, principal (Q-06) |
 | Contas a receber a partir de documento | Fora do fluxo automático | Os Agents só tratam notas de despesa (Q-10); não há carga inicial de classificações de RECEITA (Q-05) |
 | Notas fora de NF-e 55 / NFC-e 65, ou com emitente CPF | Bloqueadas no fluxo fiscal | Decisão T-06 / DQ-17 até nova decisão |
@@ -30,7 +30,7 @@ e nas auditorias (GR-16, de 27/10/2026, e de 24/11/2026 — [`docs/auditoria/Aud
 | PT-05 | DEV/QA compartilhado ou DEV local obrigatório? | Equipe | O ADR admite compartilhado coordenado; não alterar silenciosamente |
 | — | Uso de pessoa **incompleta** em movimentos financeiros (DQ-05) | Equipe | Hoje: **bloqueado** até regularizar |
 | — | Retenção/LGPD: CPF/CNPJ em texto simples, envio do PDF ao Gemini | Equipe | Sem ADR/aviso (B-03) |
-| — | Cancelamento de movimento e baixa de parcela | Equipe | Sem contrato aprovado |
+| — | Cancelamento de movimento e estorno com histórico | Equipe | Sem contrato aprovado (a baixa simples de parcela foi aprovada e feita: D1) |
 
 ## 3. Achados da auditoria de 24/11/2026
 
@@ -42,7 +42,7 @@ Severidade: **A** = tratar antes de publicar/entregar; **M** = importante; **B**
 | M-01 | M | Login sem limite de tentativas; sessão de 14 dias; login compartilhado | Definir `SESSION_COOKIE_AGE` (ex.: 8 h) e limitar tentativas por IP/janela; exigir senha longa | **Corrigido no código** (`ContextoProjeto.md` 39.2): sessão de 8 h, limite por origem/global, aviso de senha curta; falta publicar e conferir o IP real no Render |
 | M-02 | M | HSTS e redirecionamento HTTPS não estão no código | Verificar na URL publicada e registrar a evidência | Aberto (humano) |
 | M-03 | M | `cadastros/views*.py` só tratam `ValidationError`/`IntegrityError`; sem `404.html`/`500.html` | Decorador equivalente ao `_erros_de_banco` do financeiro + templates de erro em português | **Corrigido no código** (`ContextoProjeto.md` 39.1); falta publicar |
-| M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | Aberto |
+| M-04 | M | Um worker síncrono com chamadas de minutos | `WEB_CONCURRENCY` ≥ 2 no Render ou workers com threads; documentar o limite | **Mitigado no código** (`start.sh` com `gthread` e 4 threads, `ContextoProjeto.md` seção 44); falta publicar e validar sob carga |
 | M-05 | M | F-6 e GR-39/49 abertas | Fechar com o responsável pelos serviços; agendar `expirar_analises` | Aberto |
 | M-06 | M | Sem RLS nas migrations; depende de a Data API do Supabase estar desativada | Conferir QA/PROD e registrar evidência; por precaução, habilitar RLS sem políticas | **Migration criada** (`financeiro/0005_habilitar_rls`, 39.6) e **aplicada na homologação** (39.7); falta produção e conferir a Data API (ação humana) |
 | B-01 | B | Documentação defasada (ver seção 5) | Corrigir | Parcial |
@@ -86,10 +86,9 @@ Nenhuma destas foi verificada pelas auditorias:
 | Quebrar a idempotência | `analise_origem_id` e `chave_idempotencia` são únicos; a comparação do "mesmo lançamento" inclui valores, classificações e parcelas | Não altere `_mesmo_lancamento` nem os campos únicos sem teste de reenvio e de concorrência |
 | Gravar financeiro fora de `registrar_movimento` | Perde bloqueios, validações e o gatilho de soma | Use sempre o serviço; nunca `MovimentoConta.objects.create` direto |
 | Alterar campo imutável | `AlteracaoNaoPermitida` | Cancelamento/edição exigem **operação própria** com contrato aprovado, não um `update()` |
-| Mexer em `CONFIRMADO` | Não é "ativo" nem "quitado" | Defina estados novos explicitamente (ex.: baixa) e atualize filtros "TODOS" |
+| Mexer em `CONFIRMADO` | Não é "ativo" nem "quitado" | "Quitado" é derivado de `pago_em` nas parcelas ATIVAS; cancelamento continua sem operação: defina o contrato antes e atualize filtros "TODOS" |
 | Misturar versões de JSON | v1 e v2 coexistem; reconhecimento pelo conjunto exato de chaves | Não converta análises existentes; adicione versão nova com decisão |
 | Confiar na tela | A tela pode ser adulterada | Revalide no serviço (como `conferir_nota` e `registrar_movimento` fazem) |
 | Vazar dado sensível em erro/log | Mensagens com valores/documentos | Código estável + mensagem fixa |
-| Duas rotas de processamento | `documento_inicio` (legado) e `analise_criar` | Ao mudar o processamento, confira as duas, ou remova a legada com decisão |
 | Banco compartilhado | QA é compartilhado e coordenado | Nunca rode testes destrutivos, migrations ou SQL contra QA/PROD sem autorização |
 | 1 worker | PDF de minutos bloqueia o serviço | Considere o impacto antes de adicionar trabalho síncrono pesado |

@@ -99,7 +99,17 @@ Imutabilidade: `tipo`, `origem`, `status`, `contraparte`, `faturado`, `valor_tot
 `movimento`, `numero`, `data_vencimento`, `valor`, `status` e `criado_em`. O cancelamento será uma operação
 própria (**não implementada**). `update()`, `bulk_update()` e `bulk_create(update_conflicts)` também recusam.
 
-Um movimento **nasce `CONFIRMADO`**: não existe rascunho. O pagamento (baixa) de parcelas não existe.
+Um movimento **nasce `CONFIRMADO`**: não existe rascunho.
+
+**Baixa de parcela** (D1, 27/11/2026): cada parcela ATIVA de movimento CONFIRMADO pode ser marcada como paga (a pagar) ou recebida (a receber) com uma
+data que não seja futura, e a baixa pode ser desfeita. Não há pagamento parcial, estorno com histórico nem cancelamento (sem contrato aprovado).
+Duas baixas simultâneas da mesma parcela: só uma passa (a linha é bloqueada).
+
+**Aviso de conta parecida** (2C): antes de registrar uma conta manual, e na confirmação de uma nota, o sistema lista as contas CONFIRMADAS com a mesma
+contraparte, o mesmo valor total e o mesmo primeiro vencimento. Na conta manual o registro só segue com a ciência do usuário; na nota é só aviso (a
+identidade fiscal é a trava de verdade).
+
+**Validade da análise** (D2): 30 minutos desde a criação; cada salvamento das correções renova por mais 30 minutos, com teto de 3 horas desde a criação.
 
 ### 4.1 Idempotência
 
@@ -157,7 +167,7 @@ senão o **valor extraído**. Tudo é revalidado com as mesmas regras, **só lei
 | Formato de `dados`: v1 (10 chaves) ou v2 (11 chaves, com `documento_fiscal`), reconhecido pelo conjunto **exato** de chaves; nada é convertido; outro conjunto é recusado | P-09 |
 | Confirmar exige a `versao_correcoes` que o usuário viu; se outra aba mudou, recusa (`correcoes_desatualizadas`) | DQ-19, DQ-21 |
 
-### 5.4 Confirmação transacional (`financeiro/lancamento_nota.py`, F-5)
+### 5.4 Confirmação transacional (`documentos/lancamento_nota.py`, F-5)
 
 Dentro de **uma** transação (`transaction.atomic(durable=True)`, em `confirmar_analise`), nesta ordem:
 
@@ -192,7 +202,7 @@ O resultado só é devolvido depois do COMMIT. `lancar_nota` **não pode** ser c
 | Parcelas sem número são numeradas 1..n; numeração **parcial ou repetida invalida** a extração | `NotaFiscalExtraida._validar_numeracao_das_parcelas` |
 | Documento que **não é nota fiscal** ou **sem itens** é recusado | `AgentExtrator.extrair` |
 | Na v2, `valor_total` e o valor de parcela podem ser `null` (corrigíveis pelo usuário); nunca se calcula para completar | `schemas_v2.py` |
-| Classificação em **uma** de duas categorias; nenhuma adequada → **inconclusiva: a extração é preservada** para revisão manual (não é erro) | `AgentClassificador`, `processamento.py` |
+| Classificação em **uma** das classificações de DESPESA **ativas** do cadastro (lidas do banco a cada envio; a resposta só pode ser um desses códigos); nenhuma adequada → **inconclusiva: a extração é preservada** para revisão manual (não é erro) | `AgentClassificador`, `processamento.py` |
 | Falhas de rede/API/schema do Classificador **continuam sendo erro** (sem inventar categoria) | `processamento.py` |
 
 ## 8. Estados e vocabulário
@@ -212,5 +222,5 @@ O resultado só é devolvido depois do COMMIT. `lancar_nota` **não pode** ser c
 | Decisão (F-4) | `REGULARIZAR`, `CRIAR_PESSOA`, `REATIVAR_PESSOA`, `ATRIBUIR_PAPEL`, `REATIVAR_PAPEL` |
 | Situação de consulta | `EXISTE`, `NAO_EXISTE`, `DOCUMENTO_AUSENTE`, `DOCUMENTO_INVALIDO`, `CLASSIFICACAO_AUSENTE` |
 
-> **Atenção:** `CONFIRMADO` (movimento) é um estado **financeiro**, diferente de `ATIVO` (cadastro) e de "quitado". Não os confunda
-> ao implementar filtros, "TODOS" ou baixa de parcelas.
+> **Atenção:** `CONFIRMADO` (movimento) é um estado **financeiro**, diferente de `ATIVO` (cadastro) e de "quitado". "Quitado" é derivado: todas as
+> parcelas ATIVAS com `pago_em` preenchido. Não os confunda ao implementar filtros, "TODOS" ou baixa de parcelas.

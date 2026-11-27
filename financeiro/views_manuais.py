@@ -10,8 +10,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
-from documentos.analises import CHAVE_DA_SESSAO, garantir_dono
+from config.erros_banco import mensagem_de_banco
+from comum.sessao import codigo_do_dono, garantir_dono
 from usuarios.demo import demo_login_required
+from .duplicidade import movimentos_parecidos
 from .forms_manuais import ContaManualForm, ParcelasManuaisFormSet
 from .manual import ClassificacaoManual, ContaManual, ParcelaManual, registrar_conta_manual
 from .models import TipoMovimento
@@ -22,8 +24,8 @@ SAL = "financeiro.formulario-manual.v1"
 
 
 def _dono(request):
-    codigo = request.session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
+    codigo = codigo_do_dono(request.session)
+    if codigo is None:
         return None
     # O token não expõe o código bruto usado para autorizar as análises.
     return salted_hmac(SAL, codigo).hexdigest()
@@ -58,7 +60,7 @@ def conta_manual_nova(request):
             "solicitacao": signing.dumps({"chave": str(chave), "tipo": tipo, "dono": _dono(request)}, salt=SAL)}
     form = ContaManualForm(request.POST if post else None, tipo=tipo, initial=initial)
     parcelas = ParcelasManuaisFormSet(request.POST if post else None, prefix="parcelas")
-    status = 200
+    status, duplicidades = 200, ()
     if post:
         valida = form.is_valid()
         parcelas_validas = parcelas.is_valid()
@@ -73,6 +75,15 @@ def conta_manual_nova(request):
             valida = False
         if valida and parcelas_validas:
             d = form.cleaned_data
+            vencimentos = [p["data_vencimento"] for p in parcelas.cleaned_data if p and not p.get("DELETE")]
+            # Reenviar a mesma solicitação nunca conta como duplicidade: a chave já a identifica.
+            duplicidades = movimentos_parecidos(
+                d["contraparte"].pk, d["valor_total"], min(vencimentos, default=None),
+                excluir_chave=d["chave_idempotencia"],
+            )
+        if valida and parcelas_validas and duplicidades and not d["ciente_duplicidade"]:
+            status = 409  # nada foi registrado: a pessoa confere as contas parecidas e confirma de novo
+        elif valida and parcelas_validas:
             conta = ContaManual(tipo=d["tipo"], contraparte_id=d["contraparte"].pk,
                 faturado_id=d["faturado"].pk if d["faturado"] else None, valor_total=d["valor_total"],
                 classificacoes=tuple(ClassificacaoManual(c.pk, principal=c.pk == d["principal"].pk) for c in d["classificacoes"]),
@@ -86,11 +97,13 @@ def conta_manual_nova(request):
                 form.add_error(None, mensagem)
                 status = 400
             except DatabaseError:
-                form.add_error(None, "Não foi possível concluir agora. Reenvie esta mesma solicitação para evitar duplicidade.")
+                form.add_error(None, mensagem_de_banco(
+                    "concluir o registro", "Reenvie esta mesma solicitação para evitar duplicidade."))
                 status = 503
             else:
                 return redirect("conta_detalhe", movimento_id=movimento.id)
         else:
             status = 400
     return render(request, "financeiro/conta_manual.html", {"form": form, "parcelas": parcelas,
-        "tipo_rotulo": TipoMovimento(tipo).label, "maximo_parcelas": MAXIMO_DE_PARCELAS}, status=status)
+        "tipo_rotulo": TipoMovimento(tipo).label, "maximo_parcelas": MAXIMO_DE_PARCELAS,
+        "duplicidades": duplicidades}, status=status)

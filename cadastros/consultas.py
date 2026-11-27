@@ -76,13 +76,6 @@ class ConsultaClassificacao:
         return self.situacao == Situacao.EXISTE
 
 
-@dataclass(frozen=True)
-class ResultadoConsultas:
-    fornecedor: ConsultaPessoa
-    faturado: ConsultaPessoa
-    classificacao: ConsultaClassificacao
-
-
 def _texto(valor, campo):
     if valor is not None and not isinstance(valor, str):
         raise TypeError(f"{campo} deve ser texto ou None.")
@@ -147,29 +140,4 @@ def consultar_classificacao(codigo, tipo=TipoClassificacao.DESPESA):
         )
     return ConsultaClassificacao(
         tipo=tipo, situacao=Situacao.EXISTE, codigo=codigo, **classificacao
-    )
-
-
-def _bloco(resultado, campo):
-    bloco = resultado.get(campo)
-    if bloco is None:
-        return {}
-    if not isinstance(bloco, dict):
-        raise TypeError(f"{campo} deve ser um dicionário ou None.")
-    return bloco
-
-
-def consultar_nota(resultado):
-    """Consulta fornecedor, faturado e classificação a partir do JSON final do
-    processamento (montar_resultado, ContextoProjeto 17.3)."""
-    if not isinstance(resultado, dict):
-        raise TypeError("resultado deve ser um dicionário.")
-    fornecedor = _bloco(resultado, "fornecedor")
-    faturado = _bloco(resultado, "faturado")
-    return ResultadoConsultas(
-        fornecedor=consultar_pessoa(
-            fornecedor.get("cnpj"), Papel.FORNECEDOR, nome=fornecedor.get("razao_social")
-        ),
-        faturado=consultar_pessoa(faturado.get("cpf"), Papel.FATURADO, nome=faturado.get("nome")),
-        classificacao=consultar_classificacao(resultado.get("tipo_despesa")),
     )

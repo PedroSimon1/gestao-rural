@@ -1,7 +1,7 @@
 {% extends 'cadastros/base.html' %}
 {% block titulo %}Cadastros indisponíveis — Gestão Rural{% endblock %}
 {% block conteudo %}
-<h1>Não foi possível concluir</h1>
-<p role="alert">{{ erro }}</p>
-<p><a href="{% url 'pessoas' %}">Pessoas</a> · <a href="{% url 'classificacoes' %}">Classificações</a></p>
+{% include "documentos/_cabecalho_pagina.html" with titulo="Não foi possível concluir" %}
+{% include "documentos/_aviso.html" with tipo="erro" texto=erro %}
+<p class="barra-acoes"><a class="botao botao--secundario" href="{% url 'pessoas' %}">Pessoas</a> <a class="botao botao--secundario" href="{% url 'classificacoes' %}">Classificações</a></p>
 {% endblock %}

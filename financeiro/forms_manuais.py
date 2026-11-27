@@ -29,12 +29,14 @@ class ContaManualForm(forms.Form):
     tipo = forms.ChoiceField(choices=TipoMovimento.choices, widget=forms.HiddenInput)
     chave_idempotencia = forms.UUIDField(widget=forms.HiddenInput)
     solicitacao = forms.CharField(max_length=512, widget=forms.HiddenInput)
-    contraparte = forms.ModelChoiceField(label="Fornecedor / cliente", queryset=Pessoa.objects.none())
-    faturado = forms.ModelChoiceField(label="Faturado", required=False, queryset=Pessoa.objects.none())
+    contraparte = forms.ModelChoiceField(label="Fornecedor / cliente", queryset=Pessoa.objects.none(), empty_label="Selecione")
+    faturado = forms.ModelChoiceField(label="Faturado", required=False, queryset=Pessoa.objects.none(), empty_label="Selecione o faturado")
     valor_total = ValorManualField(label="Valor total", help_text="Use vírgula ou ponto para centavos, sem separador de milhar.")
     classificacoes = forms.ModelMultipleChoiceField(label="Classificações", queryset=Classificacao.objects.none(), widget=forms.CheckboxSelectMultiple)
-    principal = forms.ModelChoiceField(label="Classificação principal", queryset=Classificacao.objects.none())
+    principal = forms.ModelChoiceField(label="Classificação principal", queryset=Classificacao.objects.none(), empty_label="Selecione a classificação principal")
     confirmar = forms.BooleanField(label="Conferi os dados e confirmo o registro desta conta")
+    # Só aparece quando há conta parecida (financeiro/duplicidade.py); sem marcá-lo, nada é registrado.
+    ciente_duplicidade = forms.BooleanField(required=False, label="Conferi as contas parecidas e quero registrar esta mesmo assim")
 
     def __init__(self, *args, tipo, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,6 +46,7 @@ class ContaManualForm(forms.Form):
         pessoas = Pessoa.objects.filter(status=Status.ATIVO, situacao_documental=SituacaoDocumental.COMPLETO)
         self.fields["contraparte"].queryset = pessoas.filter(papeis__papel=Papel.FORNECEDOR if pagar else Papel.CLIENTE, papeis__status=Status.ATIVO).distinct()
         self.fields["contraparte"].label = "Fornecedor" if pagar else "Cliente"
+        self.fields["contraparte"].empty_label = "Selecione o fornecedor" if pagar else "Selecione o cliente"
         self.fields["faturado"].queryset = pessoas.filter(papeis__papel=Papel.FATURADO, papeis__status=Status.ATIVO).distinct()
         self.fields["faturado"].required = pagar
         self.fields["faturado"].help_text = "Obrigatório para contas a pagar." if pagar else "Opcional; se informado, deve ter o papel Faturado ativo."

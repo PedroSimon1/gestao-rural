@@ -10,12 +10,11 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
 from .consultas import (
-    PAPEL_AUSENTE, ConsultaPessoa, Situacao, consultar_classificacao, consultar_nota,
-    consultar_pessoa,
+    PAPEL_AUSENTE, ConsultaPessoa, Situacao, consultar_classificacao, consultar_pessoa,
 )
 from .models import Classificacao, Papel, PapelPessoa, Pessoa, SituacaoDocumental, Status
 from .test_models import (
-    CNPJ, CNPJ_ALFANUMERICO, CNPJ_DV_INVALIDO, CNPJ_FORMATADO, CPF, CPF_DV_INVALIDO,
+    CNPJ, CNPJ_ALFANUMERICO, CNPJ_DV_INVALIDO, CPF, CPF_DV_INVALIDO,
     CPF_FORMATADO, criar_incompleta, criar_pessoa,
 )
 
@@ -27,26 +26,6 @@ def fornecedor(documento=CNPJ, razao_social="Agropecuária Teste Ltda"):
     pessoa = criar_pessoa(documento, razao_social)
     pessoa.atribuir_papel(FORNECEDOR)
     return pessoa
-
-
-def nota(cnpj=CNPJ_FORMATADO, cpf=CPF_FORMATADO, tipo_despesa="MANUTENCAO_E_OPERACAO", **extra):
-    """JSON final no formato de montar_resultado (ContextoProjeto 17.3)."""
-    return {
-        "fornecedor": {"razao_social": "Agropecuária Teste Ltda", "nome_fantasia": None, "cnpj": cnpj},
-        "faturado": {"nome": "Produtor Teste", "cpf": cpf},
-        "numero_nota": "123",
-        "data_emissao": "2026-10-01",
-        "itens": [],
-        "quantidade_parcelas": 1,
-        "parcelas": [{"numero": 1, "data_vencimento": "2026-11-01", "valor": "150.00"}],
-        "valor_total": "150.00",
-        "tipo_despesa": tipo_despesa,
-        "validacoes": {
-            "fornecedor_cnpj": {"status": "valido", "motivo": None},
-            "faturado_cpf": {"status": "valido", "motivo": None},
-        },
-        **extra,
-    }
 
 
 class PessoaExistenteTests(TestCase):
@@ -248,70 +227,6 @@ class ClassificacaoTests(TestCase):
             consultar_classificacao("MANUTENCAO_E_OPERACAO", "APAGAR")
 
 
-class ConsultarNotaTests(TestCase):
-    def test_tudo_existe(self):
-        pessoa_fornecedor = fornecedor()
-        faturado = criar_pessoa(CPF, "Produtor Teste")
-        faturado.atribuir_papel(FATURADO)
-
-        resultado = consultar_nota(nota())
-
-        self.assertEqual(resultado.fornecedor.id, pessoa_fornecedor.pk)
-        self.assertEqual(resultado.fornecedor.papel, FORNECEDOR)
-        self.assertEqual(resultado.fornecedor.nome, "Agropecuária Teste Ltda")
-        self.assertEqual(resultado.faturado.id, faturado.pk)
-        self.assertEqual(resultado.faturado.papel, FATURADO)
-        self.assertEqual(resultado.faturado.nome, "Produtor Teste")
-        self.assertEqual(resultado.classificacao.codigo, "MANUTENCAO_E_OPERACAO")
-        self.assertTrue(all(
-            consulta.existe
-            for consulta in (resultado.fornecedor, resultado.faturado, resultado.classificacao)
-        ))
-
-    def test_nada_existe(self):
-        resultado = consultar_nota(nota(tipo_despesa="INSUMOS"))
-
-        self.assertEqual(
-            (resultado.fornecedor.situacao, resultado.faturado.situacao, resultado.classificacao.situacao),
-            (Situacao.NAO_EXISTE,) * 3,
-        )
-
-    def test_mesma_pessoa_como_fornecedor_e_faturado(self):
-        pessoa = fornecedor(CPF)
-
-        resultado = consultar_nota(nota(cnpj=CPF, cpf=CPF))
-
-        self.assertEqual((resultado.fornecedor.id, resultado.faturado.id), (pessoa.pk, pessoa.pk))
-        self.assertEqual(
-            (resultado.fornecedor.status_papel, resultado.faturado.status_papel),
-            (Status.ATIVO, PAPEL_AUSENTE),
-        )
-
-    def test_faturado_sem_cpf(self):
-        resultado = consultar_nota(nota(cpf=None))
-
-        self.assertEqual(resultado.faturado.situacao, Situacao.DOCUMENTO_AUSENTE)
-
-    def test_validacoes_do_json_nao_substituem_a_revalidacao(self):
-        # O bloco validacoes diz "valido", mas o documento não é.
-        resultado = consultar_nota(nota(cnpj=CNPJ_DV_INVALIDO))
-
-        self.assertEqual(resultado.fornecedor.situacao, Situacao.DOCUMENTO_INVALIDO)
-
-    def test_entrada_fora_do_contrato_e_recusada(self):
-        for dados in (None, [], {"fornecedor": "x"}, {"faturado": []}, {"tipo_despesa": 123}):
-            with self.subTest(dados=dados), self.assertRaises(TypeError):
-                consultar_nota(dados)
-
-    def test_blocos_ausentes_viram_dados_ausentes(self):
-        resultado = consultar_nota({})
-
-        self.assertEqual(
-            (resultado.fornecedor.situacao, resultado.faturado.situacao, resultado.classificacao.situacao),
-            (Situacao.DOCUMENTO_AUSENTE, Situacao.DOCUMENTO_AUSENTE, Situacao.CLASSIFICACAO_AUSENTE),
-        )
-
-
 class SomenteLeituraTests(TestCase):
     """A consulta não grava nada (P03, critério 2)."""
 
@@ -321,15 +236,22 @@ class SomenteLeituraTests(TestCase):
             Pessoa.objects.filter(situacao_documental=SituacaoDocumental.INCOMPLETO).count(),
         )
 
+    def consultar_tudo(self, fornecedor_doc, faturado_doc, codigo):
+        return (
+            consultar_pessoa(fornecedor_doc, FORNECEDOR),
+            consultar_pessoa(faturado_doc, FATURADO),
+            consultar_classificacao(codigo),
+        )
+
     def test_so_executa_select(self):
         fornecedor()
         criar_pessoa(CPF).atribuir_papel(FATURADO)
 
-        for dados in (nota(), nota(cnpj=CNPJ_ALFANUMERICO, cpf=None, tipo_despesa="INSUMOS")):
-            with self.subTest(dados=dados["fornecedor"]["cnpj"]):
+        for dados in ((CNPJ, CPF, "MANUTENCAO_E_OPERACAO"), (CNPJ_ALFANUMERICO, None, "INSUMOS")):
+            with self.subTest(fornecedor=dados[0]):
                 antes = self.contagens()
                 with CaptureQueriesContext(connection) as consultas:
-                    consultar_nota(dados)
+                    self.consultar_tudo(*dados)
 
                 self.assertTrue(consultas.captured_queries)
                 for consulta in consultas.captured_queries:
@@ -342,4 +264,4 @@ class SomenteLeituraTests(TestCase):
 
         # Pessoa e papel para cada pessoa encontrada, mais a classificação.
         with self.assertNumQueries(5):
-            consultar_nota(nota())
+            self.consultar_tudo(CNPJ, CPF, "MANUTENCAO_E_OPERACAO")

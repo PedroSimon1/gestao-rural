@@ -1,6 +1,6 @@
 # Gestão Rural - Contexto do Projeto
 
-> **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação.
+> **Estado atual verificado:** auditoria de 24/11/2026 em `5f19ce0`, na [seção 37](#auditoria-2026-11-24), sobre a auditoria integrada de 27/10/2026 na [seção 36](#auditoria-gr16). Seções anteriores preservam seus estados históricos; não são evidência de publicação. **Para o estado atual do código e das regras, use [`docs/documentacao/`](docs/documentacao/README.md) e as seções 40 a 44 (27/11/2026); as seções 5 a 7, 15.1, 17.3, 18.5 e 28 descrevem o planejamento e estados antigos (ver `docs/documentacao/12-pendencias-e-riscos.md`, seção 5).**
 
 > **Numeração:** as seções 34.16 a 34.25 aparecem depois da seção 35 (foram acrescentadas depois) e a seção 36 fica ao final da parte antiga; use a busca pelo número. As seções 37 a 39 estão em ordem no final do arquivo.
 
@@ -3719,3 +3719,392 @@ Execução dos achados de [`docs/auditoria/Auditoria-2026-11-24.md`](docs/audito
 - **Integração:** fecha a parte de homologação do achado M-06 da [auditoria de 24/11/2026](docs/auditoria/Auditoria-2026-11-24.md).
 - **Pendências:** produção (repetir a verificação do papel e do dono antes de aplicar); conferir a Data API desativada em QA e PROD; teste manual das telas em homologação; itens humanos de Render e da equipe listados nas seções 39.1 a 39.6.
 - **Git:** commit na branch acima, sem co-autor.
+
+# 40 - Auditoria do back end (27/11/2026)
+
+## 40.1 - Identificação
+
+Tarefa: auditoria completa do back end, solicitada pelo usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 40.2 - Objetivo
+
+Revisar `config`, `usuarios`, `documentos`, `cadastros`, `financeiro` e `agents` (código, models, migrations, serviços, views, forms, dependências) à procura de falhas de correção, segurança, concorrência e manutenção.
+
+## 40.3 - Implementação
+
+Somente leitura. Nenhum código, migration ou configuração foi alterado. Templates e JavaScript não foram auditados.
+
+## 40.4 - Arquivos
+
+Apenas esta seção 40 em `ContextoProjeto.md`. Um teste descartável em `cadastros/` foi criado para confirmar um comportamento e removido em seguida.
+
+## 40.5 - Decisões técnicas e achados
+
+Nenhuma decisão de escopo. Achados novos, por gravidade:
+
+- **Médio — TLS do banco sem verificação do servidor.** `DB_SSLMODE` padrão é `require` (`config/settings.py`): criptografa, mas não confere o certificado. `verify-full` com `DB_SSLROOTCERT` já é suportado; falta definir no Render.
+- **Médio — edição de CPF/CNPJ de pessoa com histórico.** `pessoa_editar` aceita trocar o documento de um cadastro completo, inclusive CPF por CNPJ (confirmado em teste descartável: 302 e `tipo_documento` mudou). Sem bloqueio quando há movimentos e sem trilha de quem alterou. Decisão de produto pendente; o agente não decidiu.
+- **Médio — chave do limite de login (`usuarios/limite.py`).** Usa o último valor de `X-Forwarded-For`. Se o proxy da plataforma acrescentar o IP de um edge compartilhado, todos caem no mesmo balde por origem; se o app for alcançável sem proxy, o cabeçalho é forjável. Não verificado no Render.
+- **Baixo — fluxo legado em `documentos/views.py`.** O ramo POST de `documento_inicio` (com `_processar`, `_resumo`, `_formatar_moeda`) não é usado pela tela (o formulário envia para `analise_criar`), mas continua acessível por POST direto e duplica o pipeline.
+- **Baixo — acoplamento.** `documentos` ↔ `financeiro` se importam; `cadastros.validators` depende de `agents`; `pendencias_conferencia` importa de `views_confirmacao`, o que obriga imports dentro de `analise_conferencia`. A view `analise_conferencia` concentra a regra do POST em ~80 linhas.
+- **Baixo — retenção.** Os dados da nota (inclui CPF) de análises pendentes ficam no banco até expirar por uso ou pelo comando `expirar_analises`, que é manual.
+- **Baixo — dependências e CI.** Sem `pip-audit` nem lint no CI; `google-genai` 2.24.0 (última 3.6.1) e outros pacotes atrás da última versão.
+- **Baixo — documentação.** Docstring de `documentos/forms_fiscais.py` diz "não conectado às rotas", mas o módulo é usado; o `AGENTS.md` local ainda descreve a aplicação como stateless (`DATABASES = {}`) e Django 6.1.1.
+- **Descartado após teste:** cadastrar pessoa com documento já existente não mescla nem duplica; o ModelForm recusa por unicidade.
+
+Já conhecidos e registrados antes (não repetidos como novos): 1 worker síncrono (M-04), login compartilhado e limite por worker (M-01), `django_migrations` sem RLS (39.6).
+
+## 40.6 - Banco de dados
+
+Nenhuma alteração. Só o PostgreSQL local de `DB_TEST_*`, criado e destruído pelos testes. O banco de `DB_*` não foi acessado.
+
+## 40.7 - Testes
+
+- `python manage.py check`: sem problemas. `check --deploy`: 6 avisos (HSTS, `SECURE_SSL_REDIRECT`, cookies seguros, `DEBUG`, `ALLOWED_HOSTS`), todos do `.env` local com `DEBUG=True` e da decisão de deixar HTTPS com a plataforma (34.7).
+- `python manage.py makemigrations --check --dry-run`: sem mudanças. `pip check`: sem conflitos.
+- `python manage.py test --noinput`: 1261 testes, OK (25 s).
+- Não executados: `pip-audit` (não instalado), Gemini real, Supabase, Render, carga e concorrência real.
+
+## 40.8 - Integração
+
+Complementa a auditoria de 24/11/2026 e as seções 39.x. Nenhuma tarefa depende desta.
+
+## 40.9 - Pendências
+
+Decidir: bloqueio ou trilha para troca de documento de pessoa com histórico; remover ou manter o ramo legado de `documento_inicio`. Operar: `DB_SSLMODE=verify-full`, conferir `X-Forwarded-For` no Render, agendar `expirar_analises`. Rodar `pip-audit` fora do repositório.
+
+## 40.10 - Git
+
+Branch `feature/correcao-interface-backend`; registro versionado no commit `docs(auditoria): registra a auditoria do back end de 27/11/2026`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 41 - Correção dos achados médios e do ramo legado (27/11/2026)
+
+## 41.1 - Identificação
+
+Tarefa: corrigir os achados médios da seção 40 e remover o POST legado de `documento_inicio`, a pedido do usuário (sem código GR). Data: 27/11/2026. Branches: `fix/aviso-tls-banco`, `fix/limite-login-proxy`, `fix/edicao-documento-pessoa` e `fix/remove-legado-documento-inicio`, mescladas com `--no-ff` em `feature/correcao-interface-backend`.
+
+## 41.2 - Objetivo
+
+Fechar os três achados médios (TLS do banco, troca de CPF/CNPJ com histórico, origem do cliente no limite de login) e o achado do ramo legado.
+
+## 41.3 - Implementação
+
+- **TLS do banco:** o padrão de `DB_SSLMODE` continua `require` (verify-full exige o certificado da CA, que só existe no ambiente). `config/checks.py` emite `config.W001` em `check --deploy` enquanto o modo for `require`.
+- **Limite de login:** nova variável `DJANGO_PROXIES_CONFIAVEIS` (padrão 1, igual ao comportamento anterior). A origem é o N-ésimo valor de `X-Forwarded-For` contado do fim; com 0, o cabeçalho é ignorado e vale `REMOTE_ADDR`. Valor inválido impede a inicialização.
+- **Troca de documento:** `PessoaForm` desabilita o documento quando a pessoa é contraparte ou faturado de algum movimento; só o nome é editável. O valor postado é ignorado e fica fora do `update_fields`.
+- **Ramo legado:** `documento_inicio` só aceita GET (POST responde 405). Removidos `_processar`, `_resumo`, `_formatar_*`, `_avisos_validacao` e o bloco de resultado de `inicio.html`. `analise_criar` passou a enviar `nome_arquivo` ao template de erro (a mensagem saía com o nome vazio).
+
+## 41.4 - Arquivos
+
+`config/checks.py`, `config/__init__.py`, `config/settings.py`, `usuarios/limite.py`, `cadastros/forms.py`, `documentos/views.py`, `documentos/views_analises.py`, `documentos/templates/documentos/inicio.html`; `.env.example`, `README.md` e `docs/documentacao/05, 08, 09, 10, 12`. Testes: `config/test_checks.py` (novo), `usuarios/test_limite.py`, `cadastros/test_interface_pessoas.py`, `documentos/test_interface.py` (reescrito para `analise_criar`), `documentos/test_classificacao_pendente.py`, `agents/extrator/test_faturado_pj.py` e `test_schema_fiscal_v2.py`. Removido `documentos/test_interface_consultas.py` (testava o painel de consultas do ramo legado).
+
+## 41.5 - Decisões técnicas
+
+- A troca de documento foi **bloqueada** (decisão tomada nesta tarefa, a pedido do usuário; a seção 40.9 a deixava aberta). Não há trilha de alteração; quem errou o documento de uma pessoa com histórico precisa cadastrar outra.
+- O bloqueio é só no formulário; `Pessoa.save()` e o ORM continuam aceitando a troca por código.
+- O padrão de `DJANGO_PROXIES_CONFIAVEIS` não foi verificado no Render: o número real de proxies na frente do app precisa ser conferido e configurado.
+- `documentos/consultas.py` e `documentos/adaptador_financeiro.py` deixaram de ser usados em produção (só os testes os usam); foram mantidos por terem testes próprios e decisão pendente.
+
+## 41.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations (`makemigrations --check` sem mudanças). Só o PostgreSQL local de `DB_TEST_*`.
+
+## 41.7 - Testes
+
+`python manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `python manage.py test --noinput` na branch mesclada: 1261 testes, OK (antes: 1261; 3 novos de documento travado, 5 de origem do cliente, 2 de TLS; menos os do ramo legado e do painel de consultas, retargetados para `analise_criar` ou removidos).
+
+## 41.8 - Integração
+
+Fecha os achados médios e o legado da seção 40. `DJANGO_PROXIES_CONFIAVEIS` entra na tabela de variáveis (README e `docs/documentacao/10`).
+
+## 41.9 - Pendências
+
+Operar (humano): `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; conferir quantos proxies acrescentam o endereço em `X-Forwarded-For` e definir `DJANGO_PROXIES_CONFIAVEIS`. Decidir: remover `documentos/consultas.py` e `adaptador_financeiro.py`; trilha de alteração de cadastros. Os achados de gravidade baixa da seção 40 seguem abertos.
+
+## 41.10 - Git
+
+Branch atual `feature/correcao-interface-backend`, com as quatro branches `fix/*` mescladas localmente (`--no-ff`). Nenhum push foi feito.
+
+# 42 - Checagem do banco antes do Gemini no envio da nota (27/11/2026)
+
+## 42.1 - Identificação
+
+Tarefa: `analise_criar` checar o banco antes de chamar o Gemini, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 42.2 - Objetivo
+
+Com o banco pausado ou fora do ar, o processamento gastava a chamada ao Gemini e a chave do usuário e só então falhava ao guardar a análise.
+
+## 42.3 - Implementação
+
+`documentos/analises.verificar_banco()` executa `SELECT 1`. `analise_criar` chama essa função depois de validar o formulário e antes de `processar_pdf`; qualquer `django.db.Error` (inclui `InterfaceError`) responde 503 com "O banco de dados está indisponível no momento. A nota não foi enviada ao Gemini; tente novamente em instantes." A falha ao guardar depois do processamento mantém a mensagem anterior.
+
+## 42.4 - Arquivos
+
+`documentos/analises.py`, `documentos/views_analises.py`; testes em `documentos/test_analises.py`, `test_fluxo_conferencia.py` e `test_interface.py` (a base sem banco simula a checagem); `docs/documentacao/05-fluxos.md`.
+
+## 42.5 - Decisões técnicas
+
+A checagem custa uma ida ao banco por envio (a conexão é aberta por requisição, `CONN_MAX_AGE=0`, e é reaproveitada na gravação). Ela não garante que o banco ainda esteja no ar quando o Gemini terminar; esse caso continua coberto pela mensagem de falha ao guardar. Formulário inválido responde antes da checagem, sem tocar o banco.
+
+## 42.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations. Só o PostgreSQL local de `DB_TEST_*`.
+
+## 42.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1265 testes, OK (4 novos: banco fora do ar com `DatabaseError` e `InterfaceError`, ordem banco → Gemini, `verificar_banco` direto). Não testado contra um Supabase realmente pausado.
+
+## 42.8 - Integração
+
+Complementa as seções 39.1 e 41 (tratamento de falha do banco nas telas).
+
+## 42.9 - Pendências
+
+Nenhuma nova. O banco pausado continua sem mensagem própria nas demais telas ("tente novamente").
+
+## 42.10 - Git
+
+Commit `9ce4957` na branch `feature/correcao-interface-backend`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 43 - JSON original maior, com copiar e baixar, na conferência (27/11/2026)
+
+## 43.1 - Identificação
+
+Tarefa: melhorar o bloco "Dados extraídos originalmente" da conferência, a pedido do usuário (sem código GR). Data: 27/11/2026. Branch: `feature/correcao-interface-backend`.
+
+## 43.2 - Objetivo
+
+O bloco tinha altura fixa de 220 px. Passa a mostrar o JSON por inteiro quando couber, com limite de altura e rolagem quando não couber, e ganha botões para copiar e baixar.
+
+## 43.3 - Implementação
+
+- Removida a classe `bloco-json--curto`; vale o limite padrão de `.bloco-json` (`max-height: 70vh`, `overflow: auto`). O bloco é focável por teclado.
+- "Baixar .json": link para a nova rota `analises/<uuid>/json/` (`analise_json`), que devolve os mesmos dados da tela em UTF-8, indentados, como anexo. Nome: `nota-fiscal_<número>_<fornecedor>_<emissão>_dados-extraidos.json` (partes ausentes são omitidas; sem nenhuma, usa os 8 primeiros caracteres do id). Funciona sem JavaScript.
+- "Copiar JSON": botão que só aparece com JavaScript (`conferencia.js`); usa `navigator.clipboard` e, sem ela, seleção + `execCommand("copy")`. Mostra "JSON copiado." ou orienta a usar o download.
+
+## 43.4 - Arquivos
+
+`documentos/views_analises.py`, `documentos/urls.py`, `documentos/templates/documentos/conferencia.html`, `documentos/static/documentos/conferencia.js` e `documentos.css`; testes em `documentos/test_fluxo_conferencia.py`; `docs/documentacao/08-interface-e-rotas.md`.
+
+## 43.5 - Decisões técnicas
+
+Download pelo servidor, e não por Blob no navegador: o nome do arquivo é controlado no servidor, não há JavaScript a mais e a rota reaproveita `obter_analise` (dono, prazo e estado). O arquivo contém os dados extraídos originais, nunca as correções. Depois de confirmar, cancelar ou expirar, os dados são apagados e a rota recusa.
+
+## 43.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations.
+
+## 43.7 - Testes
+
+`manage.py check`: sem problemas. `manage.py test --noinput`: 1271 testes, OK (6 novos: botões na tela, nome e conteúdo do arquivo, nome sem identificação, acesso só da sessão dona, análise expirada, falha de banco). Não verificado no navegador: aparência do bloco e o botão de copiar (a tela depende do banco de homologação, que não foi usado).
+
+## 43.8 - Integração
+
+Usa `obter_analise` (GR-43) e a tela de conferência (GR-45).
+
+## 43.9 - Pendências
+
+Conferir no navegador a altura do bloco e o botão "Copiar JSON" (em página sem HTTPS cai no `execCommand`).
+
+## 43.10 - Git
+
+Commit `946b66c` na branch `feature/correcao-interface-backend`. Nenhum push, merge ou deploy foi feito nesta seção.
+
+# 44 - Etapa 1 do plano de correção e trilhas 3A e 3B (27/11/2026)
+
+## 44.1 - Identificação
+
+Tarefa: Etapa 1 do plano de correção das inconsistências (itens 1A a 1F), mais as trilhas 3A (Gunicorn com threads) e 3B (rota `/saude/`), a pedido do usuário, que aprovou D1 a D4. Data: 27/11/2026. Branch: `feature/panejamento-correcao-inconsistencias`. D1 (baixa de parcela), D2 (renovar validade da análise) e D3 (data de emissão no lançamento) estão aprovadas e ficam para a Etapa 2.
+
+## 44.2 - Objetivo
+
+Limpar o código sem uso, desacoplar módulos, proteger o documento da pessoa no modelo, padronizar a mensagem de banco indisponível, alinhar o prompt do Extrator ao que o sistema lança, corrigir documentação defasada, e deixar prontos o servidor com threads e a rota de saúde.
+
+## 44.3 - Implementação
+
+- **1A, código morto:** removidos `documentos/consultas.py`, `documentos/adaptador_financeiro.py`, `cadastros.consultar_nota` e `ResultadoConsultas`, e os testes que só os exercitavam. Ficam `consultar_pessoa` e `consultar_classificacao`, usadas pela conferência.
+- **1B, desacoplamento:** `documentos/mensagens_conferencia.py` recebe `MENSAGENS`, `ROTULOS_CAMPO` e `mensagem_validacao` (saíram de `views_confirmacao`), o que desfaz o ciclo e os imports dentro de função em `views_analises`. `analise_conferencia` foi dividida em `_ler_envio`, `_criar_classificacao`, `_conferencia` e a view. A regra de dígito verificador de CPF/CNPJ foi para `comum/documentos_br.py` (pacote fora dos apps); `cadastros.validators`, `financeiro.identidade_fiscal` e os schemas dos Agents importam de lá.
+- **1C, modelo:** `Pessoa.save()` e `clean()` recusam trocar o documento de quem consta em movimentos (`documento_imutavel`). Documento ausente (cadastro incompleto) continua podendo ser preenchido; gravar só o nome com `update_fields` não reescreve o documento.
+- **1D, banco indisponível:** `config/erros_banco.mensagem_de_banco()` gera a mensagem única, usada em cadastros, contas, conta manual e nas views de análise e confirmação. `verificar_banco()` saiu de `documentos/analises.py` para esse módulo.
+- **1F, nota não suportada:** o prompt do Extrator diz que só NF-e (55) e NFC-e (65) são lançadas e manda marcar `documento_e_nota_fiscal=false` para NFS-e, recibo, boleto etc.; a mensagem do erro explica isso. Um emitente com CPF ou uma nota sem chave continuam aparecendo no painel "Precisa da sua atenção" da conferência, com a mensagem fiscal.
+- **3A:** `start.sh` usa `--worker-class gthread --threads ${WEB_THREADS:-4}`. Smoke test local: o servidor subiu com `gthread` e respondeu o login (200).
+- **3B:** `GET/HEAD /saude/` (`config/saude.py`), pública: 200 `{"status": "ok"}` com o banco no ar; 503 `{"status": "indisponivel"}` sem ele, sem expor o erro.
+
+## 44.4 - Arquivos
+
+Criados: `comum/__init__.py`, `comum/documentos_br.py`, `documentos/mensagens_conferencia.py`, `config/saude.py`, `config/test_banco.py`, `config/test_saude.py`. Removidos: `documentos/consultas.py`, `documentos/adaptador_financeiro.py`, `documentos/test_consultas.py`. Alterados: `cadastros/` (`consultas.py`, `models.py`, `validators.py`, `views.py`), `documentos/` (`analises.py`, `views_analises.py`, `views_confirmacao.py`, `pendencias_conferencia.py`, `forms_fiscais.py`), `financeiro/` (`identidade_fiscal.py`, `views_consultas.py`, `views_manuais.py`), `agents/extrator/` (`agent.py`, `schemas.py`, `schemas_v2.py`), `config/` (`erros_banco.py`, `urls.py`), `usuarios/limite.py`, `start.sh`, `.env.example`, `README.md`, testes correspondentes e `docs/documentacao/` 02, 07, 08, 10 e 12. O `AGENTS.md` local também foi atualizado (banco, versão do Django, testes), sem mudar suas regras.
+
+## 44.5 - Decisões técnicas
+
+- **Não feito, de propósito:** (a) esconder "CANCELADO" e "Confirmados e cancelados" nos filtros de contas: testes existentes cobrem o filtro explícito (e o cancelamento será implementado); (b) tornar o schema 3 o padrão de `AgentExtrator()`: obrigaria reescrever as respostas simuladas de dezenas de testes e nenhuma rota usa o padrão (registrado em `docs/documentacao/07`); (c) mover `lancamento_nota.py` para `documentos/`: o ciclo `documentos` ↔ `financeiro` permanece, sem import em função.
+- O bloqueio de documento no modelo não cobre `QuerySet.update()` nem fixtures, como a imutabilidade de `Classificacao`.
+- Com `gthread`, `GUNICORN_TIMEOUT` deixa de limitar cada requisição; o limite do Gemini passa a ser o timeout do cliente (`GEMINI_TIMEOUT_SEGUNDOS` x `GEMINI_MAX_TENTATIVAS`). O teto de conexões com o banco passa a ser workers x threads (padrão 1 x 4).
+
+## 44.6 - Banco de dados
+
+Nenhuma alteração de models ou migrations (`makemigrations --check` sem mudanças). Só o PostgreSQL local de `DB_TEST_*`.
+
+## 44.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `manage.py test --noinput`: 1244 testes, OK (antes: 1271; os removidos testavam o código morto e o painel legado, e foram adicionados testes de `config/test_banco.py`, `config/test_saude.py` e do bloqueio de documento no modelo). `git diff --check` limpo. Gunicorn `gthread` verificado com `start.sh` real em porta local (sem tocar o banco). Não verificado: o prompt novo com o Gemini real; `/saude/` contra o Supabase; o health check do Render.
+
+## 44.8 - Integração
+
+Segue as seções 40 a 43. Prepara a Etapa 2 (baixa de parcela, data de emissão, aviso de duplicidade e validade da análise), já aprovada nas decisões D1 a D3.
+
+## 44.9 - Pendências
+
+Etapa 2 (D1 a D3). Operar (humano): apontar o health check do Render para `/saude/` (se der 400, ajustar `DJANGO_ALLOWED_HOSTS`), `WEB_THREADS` se necessário, `DB_SSLMODE=verify-full`, `DJANGO_PROXIES_CONFIAVEIS`, agendar `expirar_analises`. Testar o prompt novo com uma NFS-e real. Seguem de fora: classificador com categorias do banco, cancelamento de movimento, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono.
+
+## 44.10 - Git
+
+Branch `feature/panejamento-correcao-inconsistencias`, mesclada por PR (#69) em `develop`. Os commits da etapa foram feitos pelo usuário. Ao remover arquivos usei `git rm` por engano em três deles; isso só deixou a remoção já preparada, sem outro efeito.
+
+# 45 - Etapa 2: baixa de parcela, data de emissão, conta parecida e validade da análise (27/11/2026)
+
+## 45.1 - Identificação
+
+Tarefa: Etapa 2 do plano de correção (decisões D1, D2 e D3 aprovadas pelo usuário em 27/11/2026). Data: 27/11/2026. Trilhas em três branches (`feature/etapa2-baixa-e-emissao`, `feature/etapa2-duplicidade`, `feature/etapa2-validade-analise`), mescladas com `--no-ff` em `feature/panejamento-correcao-inconsistencias-etapa2`, a pedido do usuário (commits sem co-autor, sem push).
+
+## 45.2 - Objetivo
+
+Dar baixa em parcela (paga/recebida), gravar e mostrar a data de emissão da nota, avisar sobre conta parecida e renovar a validade da análise ao salvar as correções.
+
+## 45.3 - Implementação
+
+- **D1, baixa de parcela:** `ParcelaConta.pago_em` (data, nula). `financeiro/pagamentos.py` (`registrar_pagamento`, `desfazer_pagamento`) relê a parcela com bloqueio, recusa parcela cancelada, movimento cancelado, baixa repetida, data inválida e data futura. Rota `contas/parcelas/<id>/pagamento/` (POST) e botões no detalhe da conta ("Marcar como paga/recebida", "Desfazer baixa"). A lista de contas mostra parcelas pagas/total e o próximo vencimento em aberto, e filtra por pagamento (em aberto / quitado). O detalhe mostra o valor ainda em aberto. O `status` da parcela segue `ATIVA`: o gatilho da soma (migration 0002) não mudou.
+- **D3, data de emissão:** `NotaFiscalLancada.data_emissao` (nula, imutável). `registrar_identidade_fiscal(..., data_emissao=)` a grava na confirmação; o detalhe da conta mostra modelo, série/número, emissão e chave. Notas lançadas antes da migration ficam sem a data ("Não registrada").
+- **2C, conta parecida:** `financeiro/duplicidade.py` (`movimentos_parecidos`: mesma contraparte, valor total e primeiro vencimento, CONFIRMADAS). Na conta manual, com conta parecida o formulário volta com o aviso (409) e só registra com a ciência do usuário (`ciente_duplicidade`); reenviar a mesma solicitação nunca vira aviso (a chave de idempotência é excluída da busca). Na confirmação da nota é só aviso, com links.
+- **D2, validade:** `registrar_correcoes` renova 30 minutos a partir de agora, com teto de 3 horas desde a criação (`LIMITE_TOTAL`); nunca encurta o prazo já dado. Ler, recusar uma correção ou salvar análise vencida não renova.
+
+## 45.4 - Arquivos
+
+`financeiro/` (`models.py`, `migrations/0006_baixa_de_parcela_e_data_de_emissao.py`, `pagamentos.py`, `forms_pagamentos.py`, `views_pagamentos.py`, `duplicidade.py`, `manual.py`, `identidade_fiscal.py`, `lancamento_nota.py`, `views_consultas.py`, `views_manuais.py`, `forms_consultas.py`, `forms_manuais.py`, `urls.py`, templates `conta_detalhe`, `contas`, `conta_manual`, `_contas_parecidas`), `documentos/` (`analises.py`, `views_confirmacao.py`, templates `confirmacao`, `conferencia`, `templatetags/navegacao.py`, CSS), testes (`financeiro/test_pagamentos.py`, `test_duplicidade.py`, `documentos/test_duplicidade_confirmacao.py`, `test_validade_da_analise.py` e ajustes) e `docs/documentacao/` 03, 04, 06, 08 e 12.
+
+## 45.5 - Decisões técnicas
+
+- Baixa só com a data (`pago_em`), sem tabela de histórico nem pagamento parcial: mínimo que atende o uso e não mexe no gatilho de soma nem nos campos imutáveis.
+- O campo `ciente_duplicidade` é sempre renderizado, mas oculto (`<div hidden>`) quando não há conta parecida: o teste `test_completude_formularios` exige que todo campo esperado pelo servidor exista no HTML.
+- Mudanças de comportamento que exigiram ajustar testes antigos: registrar conta manual idêntica agora exige a ciência do usuário; o prazo da análise deixou de ser fixo; o resumo de contas passou a ter `quantidade_pagas`; `ParcelaDoMovimento` ganhou `id` e `pago_em`; testes que simulam `registrar_identidade_fiscal` passaram a repassar argumentos extras.
+- `listar_movimentos`: o "próximo vencimento" agora só considera parcelas em aberto (antes, todas as ATIVAS); sem baixas o resultado é o mesmo.
+
+## 45.6 - Banco de dados
+
+Uma migration: `financeiro/0006_baixa_de_parcela_e_data_de_emissao` (dois `AddField` nulos: `parcelas_contas.pago_em` e `notas_fiscais_lancadas.data_emissao`). Sem alteração de gatilho, constraint ou índice. **Não aplicada em homologação nem em produção** (PT-06: aplicação manual e coordenada); só no PostgreSQL local de testes.
+
+## 45.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `manage.py test --noinput` na branch mesclada: 1288 testes, OK (antes: 1244). Inclui baixa simultânea da mesma parcela (duas threads: só uma passa) e o teto de 3 horas da validade. Não verificado no navegador: aparência do detalhe da conta e do aviso; a tela depende do banco de homologação, que não foi usado.
+
+## 45.8 - Integração
+
+Segue as seções 40 a 44. Depende da migration 0006 aplicada no banco do ambiente antes de publicar (o código usa as colunas novas).
+
+## 45.9 - Pendências
+
+Aplicar a migration 0006 em homologação e produção (ação humana, na ordem da seção 39.7) e testar as telas. Seguem de fora: cancelamento de movimento, pagamento parcial e histórico das baixas, classificador com categorias do banco, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono.
+
+## 45.10 - Git
+
+Branch `feature/panejamento-correcao-inconsistencias-etapa2` com as três trilhas mescladas (`--no-ff`) e um commit de documentação; mesclada em `develop` pelo PR #70.
+
+# 46 - Etapa 3: CI com lint e auditoria de dependências (27/11/2026)
+
+## 46.1 - Identificação
+
+Tarefa: Etapa 3 do plano de correção. As trilhas 3A (Gunicorn com threads) e 3B (`/saude/`) já estavam na seção 44; aqui fica a 3C (CI). A 3D são ações humanas (ver 46.9). Data: 27/11/2026. Branch: `feature/etapa-3` (criada pelo usuário). Sem commit, a pedido do fluxo do `AGENTS.md`.
+
+## 46.2 - Objetivo
+
+O CI não tinha lint nem checagem de vulnerabilidades (achado da auditoria da seção 40).
+
+## 46.3 - Implementação
+
+- **Lint:** `ruff.toml` com só as regras `F` (pyflakes: import sem uso, nome indefinido, variável não usada) e passo `ruff check .` no CI. A primeira execução achou 10 imports sem uso, todos em testes, removidos. Estilo não é cobrado.
+- **Auditoria:** passo `pip-audit -r requirements.txt` no CI. A primeira execução achou 6 vulnerabilidades em 2 pacotes; `certifi` 2026.7.22 → 2026.11.20 e `pyasn1` 0.6.4 → 0.6.5 (versões de correção; `pyasn1_modules` não foi afetado). Depois: nenhuma vulnerabilidade conhecida.
+- `ruff` e `pip-audit` são instalados só no passo do CI, não entram em `requirements.txt` (que é o que vai para produção).
+
+## 46.4 - Arquivos
+
+`.github/workflows/ci.yml`, `ruff.toml` (novo), `requirements.txt`; testes com imports removidos: `cadastros/test_consultas.py`, `documentos/test_fluxo_conferencia.py`, `test_integracao_final.py`, `test_privacidade.py`, `test_processamento.py`, `financeiro/test_identidade_fiscal.py`, `test_lancamento_nota.py`, `test_pagamentos.py`; `docs/documentacao/09` e `11`.
+
+## 46.5 - Decisões técnicas
+
+- Só a família `F` do ruff: pega erro de verdade sem gerar centenas de avisos de estilo num código que nunca foi formatado por ferramenta.
+- `pip-audit` no mesmo job: um CVE novo pode derrubar o CI de qualquer PR até a dependência ser atualizada. É o comportamento desejado (sinal), mas é um custo de manutenção.
+- O `requirements.txt` é sensível (AGENTS.md seção 4); a atualização se justifica pelas vulnerabilidades e só mexeu em dois patches, sem mudar versão maior. Dependências atrasadas sem CVE (por exemplo `google-genai` 2.24.0 → 3.x) ficam como estão: mudança maior exige teste dos Agents.
+
+## 46.6 - Banco de dados
+
+Nenhuma alteração.
+
+## 46.7 - Testes
+
+`manage.py check`: sem problemas. `ruff check .`: sem erros. `pip check`: sem conflitos. `pip-audit -r requirements.txt`: sem vulnerabilidades conhecidas. `manage.py test --noinput`: 1288 testes, OK. O YAML do CI foi validado com PyYAML; os passos novos **não rodaram no GitHub** (só localmente, em ambiente separado do `.venv`).
+
+## 46.8 - Integração
+
+Fecha o achado "sem `pip-audit` nem lint no CI" da seção 40. Depende do `pip install` das duas ferramentas no job (rede do GitHub).
+
+## 46.9 - Pendências
+
+Ações humanas (3D), fora do código: `DB_SSLMODE=verify-full` com `DB_SSLROOTCERT` no Render; conferir o `X-Forwarded-For` e definir `DJANGO_PROXIES_CONFIAVEIS`; apontar o health check do Render para `/saude/`; agendar `expirar_analises`; aplicar a migration 0006 (seção 45) e testar as telas. Seguem de fora: cancelamento de movimento, pagamento parcial e histórico das baixas, classificador com categorias do banco, usuários reais, itens da nota, NFS-e e emitente CPF, processamento assíncrono e `google-genai` 3.x.
+
+## 46.10 - Git
+
+Branch `feature/etapa-3`; alterações locais não versionadas (ver `git status`). Nenhum commit, push ou merge foi feito.
+
+# 47 - Etapa 4: Classificador com as categorias do banco e fim do ciclo documentos ↔ financeiro (27/11/2026)
+
+## 47.1 - Identificação
+
+Tarefa: Etapa 4 do plano de correção, duas trilhas escolhidas pelo usuário: (G, Q-05) o Classificador usar as classificações de DESPESA do cadastro, e desfazer o ciclo de importação entre `documentos` e `financeiro`. Data: 27/11/2026. Branch: `feature/etapa-4` (criada a partir de `develop` em `d5072ef`).
+
+## 47.2 - Objetivo
+
+1. O Classificador só conhecia duas categorias fixas (`TipoDespesa`); uma classificação criada na tela de cadastro nunca podia ser escolhida pela IA. 2. `financeiro/lancamento_nota.py` importava `documentos` (análises e conferência) enquanto `documentos` importava `financeiro`; `financeiro/views_manuais.py` também importava a chave da sessão de `documentos.analises`.
+
+## 47.3 - Implementação
+
+**Ciclo (commit `refactor: desfaz o ciclo documentos e financeiro`):**
+- `lancamento_nota.py` e seus dois arquivos de teste saem de `financeiro/` para `documentos/` (a F-5 orquestra análise, conferência, cadastros e financeiro; o sentido das dependências passa a ser só `documentos → financeiro`/`cadastros`).
+- `CHAVE_DA_SESSAO`, `garantir_dono` e a nova `codigo_do_dono` vão para `comum/sessao.py`; `documentos/analises.py`, `documentos/views_analises.py`, `financeiro/views_manuais.py` e `usuarios/demo.py` importam de lá. Os imports em 18 arquivos (quase todos de teste) foram migrados; não ficou reexportação.
+- `config/test_arquitetura.py` falha se `financeiro` importar `documentos`/`agents`, ou `cadastros` importar `documentos`/`agents`/`financeiro` (código de produção, via `ast`).
+
+**Classificador (commit `feat(classificador): ...`):**
+- `agents/classificador/schemas.py`: `CategoriaDespesa(codigo, descricao)` e `classificacao_para(categorias)`, um modelo pydantic derivado de `ClassificacaoDespesa` cujo `tipo_despesa` é `Literal[códigos] | None` (cache por tupla de códigos). Conferido sem rede que o SDK converte para enum + `nullable`, como no schema antigo.
+- `agents/classificador/agent.py`: `classificar(nota, categorias=None)`. Com categorias: `montar_instrucao()` lista código e descrição (as duas iniciais mantêm a orientação de uso, em `DICAS_PADRAO`), o `response_schema` e a validação usam o modelo dinâmico; código fora da lista → `ClassificacaoInvalidaError`; lista vazia → `ClassificacaoInconclusivaError` sem chamar o Gemini. Sem categorias (`None`), o comportamento do MVP fica igual.
+- `documentos/categorias.py`: `categorias_de_despesa()` (DESPESA, ativas, por descrição). `analise_criar` lê as categorias no mesmo bloco da `verificar_banco()` (antes do Gemini; falha de banco → 503 sem gastar a chave) e as passa a `processar_pdf(categorias=...)`, que só as repassa (o módulo continua sem acesso ao banco). O contrato do JSON final e o `ProcessamentoError` não mudaram.
+
+## 47.4 - Arquivos
+
+Criados: `comum/sessao.py`, `config/test_arquitetura.py`, `documentos/categorias.py`, `documentos/test_categorias.py`, `agents/classificador/test_categorias.py`. Movidos de `financeiro/` para `documentos/`: `lancamento_nota.py`, `test_lancamento_nota.py`, `test_lancamento_fiscal.py`. Alterados: `agents/classificador/agent.py`, `schemas.py`, `documentos/processamento.py`, `analises.py`, `views_analises.py`, `views_confirmacao.py`, `forms_confirmacao.py`, `test_interface.py` (patch das categorias e `categorias=` nas asserções), `financeiro/views_manuais.py`, `usuarios/demo.py` e os testes que importavam `garantir_dono`/`CHAVE_DA_SESSAO`. Docs: `docs/documentacao/02, 03, 04, 07, 11, 13`.
+
+## 47.5 - Decisões técnicas
+
+- O Agent não acessa o banco: quem chama lê as categorias e as injeta (mantém a separação de camadas e os testes `SimpleTestCase` sem banco).
+- O enum de `TipoDespesa` continua como conjunto padrão quando `categorias=None`; assim os testes e chamadas diretas anteriores seguem válidos, e as duas categorias iniciais da migration `0003` conservam a orientação de uso no prompt. Categoria criada pelo usuário segue só pela descrição: a qualidade da escolha depende dela.
+- Categoria inativada entre a leitura e a resposta não é aceita (código fora da lista); a conferência (`classificacao_inexistente`/inativa) continua como segunda barreira.
+- RECEITA não é oferecida ao Classificador (Q-06 segue aberta).
+- `comum/sessao.py` em vez de deixar `financeiro` depender de `documentos` só pela chave da sessão.
+
+## 47.6 - Banco de dados
+
+Nenhuma alteração (sem migration).
+
+## 47.7 - Testes
+
+`manage.py check`: sem problemas. `makemigrations --check --dry-run`: sem mudanças. `ruff check .`: sem erros. `git diff --check`: limpo. `manage.py test --noinput`: 1302 testes, OK (era 1288: +1 de arquitetura, +9 do Agent com categorias, +4 de banco com o fluxo real e o `categorias_de_despesa`). Não testado contra o Gemini real: a conversão do schema foi conferida só com o SDK, sem rede.
+
+## 47.8 - Integração
+
+Depende da seção 45/46 (suíte, CI). Os nomes `documentos.lancamento_nota` e `comum.sessao` valem para PRs ainda abertos que importem os antigos (`financeiro.lancamento_nota`, `documentos.analises.garantir_dono`/`CHAVE_DA_SESSAO`): conflito certo se houver.
+
+## 47.9 - Pendências
+
+Testar com uma nota real e uma categoria nova cadastrada (o prompt não foi exercitado no Gemini). Itens fora desta etapa: cancelamento de movimento, pagamento parcial/histórico, itens da nota, NFS-e/emitente CPF, processamento assíncrono. Ações humanas da seção 46.9 continuam abertas.
+
+## 47.10 - Git
+
+Branch `feature/etapa-4`, dois commits de código (ciclo; classificador) e um de documentação, sem co-autor. Nenhum push nem merge. Próximo passo do usuário: `git push -u origin feature/etapa-4` e PR para `develop`.

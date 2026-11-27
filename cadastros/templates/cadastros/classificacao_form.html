@@ -1,16 +1,24 @@
 {% extends 'cadastros/base.html' %}
+{% load interface %}
 {% block titulo %}{{ titulo }} — Gestão Rural{% endblock %}
 {% block conteudo %}
-<h1>{{ titulo }}</h1>
+{% url 'classificacoes' as url_classificacoes %}
+{% include "documentos/_cabecalho_pagina.html" with titulo=titulo migalha_url=url_classificacoes migalha_rotulo="Classificações" %}
 {% if classificacao %}
-<dl><dt>Tipo</dt><dd>{{ classificacao.get_tipo_display }}</dd><dt>Código</dt><dd>{{ classificacao.codigo }}</dd><dt>Situação</dt><dd>{{ classificacao.get_status_display }}</dd></dl>
-<p>Tipo e código identificam o cadastro e não podem ser alterados. Para outra identidade, crie uma nova classificação e inative a anterior.</p>
-<p>{% if classificacao.ativo %}<a href="{% url 'classificacao_status' classificacao.pk 'inativar' %}">Inativar classificação</a>{% else %}<a href="{% url 'classificacao_status' classificacao.pk 'reativar' %}">Reativar classificação</a>{% endif %}</p>
+<section class="cartao">
+<dl><dt>Tipo</dt><dd>{{ classificacao.get_tipo_display }}</dd><dt>Código</dt><dd><span class="mono">{{ classificacao.codigo }}</span></dd><dt>Situação</dt><dd>{% situacao classificacao.get_status_display %}</dd></dl>
+<p class="texto-apoio">Tipo e código identificam o cadastro e não podem ser alterados. Para outra identidade, crie uma nova classificação e inative a anterior.</p>
+<div class="barra-acoes">{% if classificacao.ativo %}<a class="botao botao--perigo" href="{% url 'classificacao_status' classificacao.pk 'inativar' %}">Inativar classificação</a>{% else %}<a class="botao botao--secundario" href="{% url 'classificacao_status' classificacao.pk 'reativar' %}">Reativar classificação</a>{% endif %}</div>
+</section>
 {% endif %}
-{% if aviso %}<p role="status">{{ aviso }}</p>{% endif %}
-<form method="post" class="cartao formulario-cadastro">{% csrf_token %}
-  {{ form.as_p }}
-  <button class="botao" type="submit">Confirmar</button>
-  <a href="{% url 'classificacoes' %}">Voltar sem alterar</a>
+{% if aviso %}{% include "documentos/_aviso.html" with tipo="info" texto=aviso %}{% endif %}
+<form method="post" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Confirmando...">{% csrf_token %}
+  {{ form.non_field_errors }}
+  {% if form.visible_fields|length > 1 %}<p class="nota-obrig"><span class="req">*</span> Campo obrigatório</p>{% endif %}
+  {% for campo in form %}{% include "documentos/_campo.html" %}{% endfor %}
+  <div class="barra-acoes">
+    <button class="botao" type="submit">Confirmar</button>
+    <a href="{% url 'classificacoes' %}">Voltar sem alterar</a>
+  </div>
 </form>
 {% endblock %}

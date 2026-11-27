@@ -24,22 +24,21 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from cadastros.models import Classificacao, Papel, PapelPessoa, Pessoa, SituacaoDocumental, Status
-from cadastros.resolucao import Decisao, resolver_partes
-from documentos import analises
-from documentos.analises import AnaliseError, cancelar_analise, criar_analise, registrar_correcoes
-from documentos.conferencia import conferir_nota
-from documentos.models import AnalisePendente, StatusAnalise
-from documentos.testing import CNPJ, CPF, nova_sessao, resultado_da_nota
+from cadastros.resolucao import Decisao
+from financeiro.identidade_fiscal import identificar_nota
+from financeiro.models import (
+    MovimentoClassificacao, MovimentoConta, NotaFiscalLancada, ParcelaConta, StatusMovimento,
+)
+from financeiro.test_identidade_fiscal import chave
 
 from . import lancamento_nota
-from .identidade_fiscal import identificar_nota
+from .analises import AnaliseError, cancelar_analise, criar_analise, registrar_correcoes
+from .conferencia import conferir_nota
 from .lancamento_nota import (
     DecisoesDaParte, LancamentoNota, SolicitacaoLancamento, lancar_nota,
 )
-from .models import (
-    MovimentoClassificacao, MovimentoConta, NotaFiscalLancada, ParcelaConta, StatusMovimento,
-)
-from .test_identidade_fiscal import chave
+from .models import AnalisePendente, StatusAnalise
+from .testing import CNPJ, CPF, nova_sessao, resultado_da_nota
 
 TEMPO_LIMITE = 30
 CRIAR = DecisoesDaParte(frozenset({Decisao.CRIAR_PESSOA}))
@@ -137,6 +136,7 @@ class LancamentoValidoTests(LancamentoTestBase):
         self.assertEqual(lancamento.nota_fiscal.pk, nota.pk)
         self.assertEqual((nota.movimento_id, nota.emitente_cnpj, nota.modelo, nota.serie, nota.numero),
                          (movimento.pk, CNPJ, "55", 1, 123))
+        self.assertEqual(nota.data_emissao, date(2026, 10, 1))  # D3: emissão da nota gravada
         self.assertEqual(lancamento.fornecedor.acoes, ())
         self.assertEqual(lancamento.faturado.acoes, ())
         self.assertEqual(Pessoa.objects.count(), 2)
@@ -374,10 +374,10 @@ class RollbackTests(LancamentoTestBase):
         self.assert_nada_gravado(analise, antes)
 
     def test_falha_depois_dos_cadastros(self):
-        self.lancar_com_falha("financeiro.lancamento_nota.registrar_movimento")
+        self.lancar_com_falha("documentos.lancamento_nota.registrar_movimento")
 
     def test_falha_depois_do_movimento(self):
-        self.lancar_com_falha("financeiro.lancamento_nota.registrar_identidade_fiscal")
+        self.lancar_com_falha("documentos.lancamento_nota.registrar_identidade_fiscal")
 
     def test_falha_ao_finalizar_a_analise(self):
         self.lancar_com_falha("documentos.analises._finalizar")
@@ -386,7 +386,7 @@ class RollbackTests(LancamentoTestBase):
         fornecedor, _ = cadastrar_pessoas()
         fornecedor.inativar()
         analise = self.nova_analise()
-        with com_modelo(), mock.patch("financeiro.lancamento_nota.registrar_identidade_fiscal",
+        with com_modelo(), mock.patch("documentos.lancamento_nota.registrar_identidade_fiscal",
                                       side_effect=RuntimeError):
             with self.assertRaises(RuntimeError):
                 self.lancar(analise, DecisoesDaParte({Decisao.REATIVAR_PESSOA}))
@@ -535,8 +535,8 @@ class ConcorrenciaTests(TransactionTestCase):
         original = lancamento_nota.registrar_identidade_fiscal
         primeira = threading.Lock()
 
-        def registrar(movimento, identidade):
-            resultado = original(movimento, identidade)
+        def registrar(movimento, identidade, **extras):
+            resultado = original(movimento, identidade, **extras)
             if primeira.acquire(blocking=False):
                 gravado.set()
                 time.sleep(segurar)

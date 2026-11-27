@@ -1,15 +1,28 @@
 {% extends 'cadastros/base.html' %}
+{% load interface %}
 {% block titulo %}{{ pessoa.razao_social }} — Gestão Rural{% endblock %}
 {% block conteudo %}
-<h1>{{ pessoa.razao_social }}</h1>
-<dl><dt>Documento</dt><dd>{{ pessoa.documento|default:'Pendente de regularização' }}</dd><dt>Tipo</dt><dd>{{ pessoa.get_tipo_documento_display|default:'Pendente' }}</dd><dt>Situação</dt><dd>{{ pessoa.get_status_display }}</dd></dl>
-<p><a href="{% url 'pessoa_editar' pessoa.pk %}">Editar nome e documento</a> · {% if pessoa.ativo %}<a href="{% url 'pessoa_status' pessoa.pk 'inativar' %}">Inativar pessoa</a>{% else %}<a href="{% url 'pessoa_status' pessoa.pk 'reativar' %}">Reativar pessoa</a>{% endif %}</p>
-{% if not pessoa.documentacao_completa %}<p><a href="{% url 'pessoa_regularizar' pessoa.pk %}">Regularizar documento</a></p>{% endif %}
+{% url 'pessoas' as url_pessoas %}{% url 'pessoa_editar' pessoa.pk as url_editar %}
+{% include "documentos/_cabecalho_pagina.html" with titulo=pessoa.razao_social migalha_url=url_pessoas migalha_rotulo="Pessoas" migalha_atual="Detalhe" acao_url=url_editar acao_rotulo="Editar nome e documento" %}
+<section class="cartao">
+<dl><dt>Documento</dt><dd>{% if pessoa.documento %}<span class="mono">{{ pessoa.documento }}</span>{% else %}Pendente de regularização{% endif %}</dd><dt>Tipo</dt><dd>{{ pessoa.get_tipo_documento_display|default:'Pendente' }}</dd><dt>Situação</dt><dd>{% situacao pessoa.get_status_display %}</dd></dl>
+<div class="barra-acoes">
+{% if pessoa.ativo %}<a class="botao botao--perigo" href="{% url 'pessoa_status' pessoa.pk 'inativar' %}">Inativar pessoa</a>{% else %}<a class="botao botao--secundario" href="{% url 'pessoa_status' pessoa.pk 'reativar' %}">Reativar pessoa</a>{% endif %}
+{% if not pessoa.documentacao_completa %}<a class="botao botao--secundario" href="{% url 'pessoa_regularizar' pessoa.pk %}">Regularizar documento</a>{% endif %}
+</div>
+</section>
 <h2>Papéis</h2>
-<p>O documento não determina o papel. Inativar ou reativar um papel não altera os demais nem a pessoa.</p>
-{% if not pessoa.ativo %}<p>Esta pessoa está inativa. Papéis ativos só voltam a vigorar após a reativação explícita da pessoa.</p>{% endif %}
-<ul>{% for vinculo in pessoa.papeis.all %}<li>{{ vinculo.get_papel_display }} — {{ vinculo.get_status_display }} · {% if vinculo.ativo %}<a href="{% url 'papel_status' pessoa.pk vinculo.pk 'inativar' %}">Inativar papel</a>{% else %}<a href="{% url 'papel_status' pessoa.pk vinculo.pk 'reativar' %}">Reativar papel</a>{% endif %}</li>{% empty %}<li>Nenhum papel atribuído.</li>{% endfor %}</ul>
-{% if aviso %}<p role="status">{{ aviso }}</p>{% endif %}
-<form method="post" action="{% url 'pessoa_atribuir_papel' pessoa.pk %}" class="cartao formulario-cadastro">{% csrf_token %}{{ papel_form.as_p }}<button class="botao" type="submit">Atribuir papel selecionado</button></form>
-<p><a href="{% url 'pessoas' %}">Voltar à pesquisa</a></p>
+<p class="texto-apoio">O documento não determina o papel. Inativar ou reativar um papel não altera os demais nem a pessoa.</p>
+{% if not pessoa.ativo %}{% include "documentos/_aviso.html" with tipo="atencao" texto="Esta pessoa está inativa. Papéis ativos só voltam a vigorar após a reativação explícita da pessoa." %}{% endif %}
+{% if aviso %}{% include "documentos/_aviso.html" with tipo="info" texto=aviso %}{% endif %}
+<div class="tabela-responsiva"><table class="tabela-cadastros">
+<thead><tr><th scope="col">Papel</th><th scope="col">Situação</th><th scope="col">Ações</th></tr></thead>
+<tbody>{% for vinculo in pessoa.papeis.all %}<tr><td class="principal">{{ vinculo.get_papel_display }}</td><td data-rotulo="Situação">{% situacao vinculo.get_status_display %}</td><td class="acoes-linha">{% if vinculo.ativo %}<a class="botao botao--perigo botao--peq" href="{% url 'papel_status' pessoa.pk vinculo.pk 'inativar' %}">Inativar papel</a>{% else %}<a class="botao botao--secundario botao--peq" href="{% url 'papel_status' pessoa.pk vinculo.pk 'reativar' %}">Reativar papel</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="3">Nenhum papel atribuído.</td></tr>{% endfor %}</tbody>
+</table></div>
+<h2>Atribuir outro papel</h2>
+<form method="post" action="{% url 'pessoa_atribuir_papel' pessoa.pk %}" class="cartao formulario-cadastro" data-submit-lock data-submit-texto="Atribuindo...">{% csrf_token %}
+  {% for campo in papel_form %}{% include "documentos/_campo.html" %}{% endfor %}
+  <div class="barra-acoes"><button class="botao" type="submit">Atribuir papel selecionado</button></div>
+</form>
+<p><a class="botao botao--secundario" href="{% url 'pessoas' %}">Voltar à pesquisa</a></p>
 {% endblock %}

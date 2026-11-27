@@ -279,6 +279,8 @@ class ScriptsDeDeployTests(SimpleTestCase):
         self.assertIn("gunicorn config.wsgi:application", start)
         self.assertIn('--bind "0.0.0.0:${PORT:-8000}"', start)
         self.assertIn('--workers "${WEB_CONCURRENCY:-1}"', start)
+        self.assertIn("--worker-class gthread", start)
+        self.assertIn('--threads "${WEB_THREADS:-4}"', start)
         self.assertIn('--timeout "${GUNICORN_TIMEOUT:-420}"', start)
         self.assertNotIn("runserver", start)
 

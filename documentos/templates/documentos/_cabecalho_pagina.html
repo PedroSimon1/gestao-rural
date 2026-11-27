@@ -1,0 +1,12 @@
+{% comment %}
+  Cabeçalho padrão das telas. Parâmetros: titulo (obrigatório); apoio (frase que diz o que fazer na tela);
+  migalha_url e migalha_rotulo (nível anterior); migalha_atual (texto do nível atual; padrão: titulo);
+  acao_url e acao_rotulo (botão principal à direita).
+{% endcomment %}{% if migalha_url %}<p class="migalhas"><a href="{{ migalha_url }}">{{ migalha_rotulo }}</a><span aria-hidden="true">/</span>{{ migalha_atual|default:titulo }}</p>{% endif %}
+<div class="cabecalho">
+  <div>
+    <h1>{{ titulo }}</h1>
+    {% if apoio %}<p>{{ apoio }}</p>{% endif %}
+  </div>
+  {% if acao_url %}<a class="botao" href="{{ acao_url }}">{{ acao_rotulo }}</a>{% endif %}
+</div>

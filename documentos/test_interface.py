@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import re
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import httpx
@@ -18,17 +20,24 @@ from google.genai import errors
 
 from agents import gemini_client
 from agents.extrator.agent import ExtracaoIndisponivelError
+from agents.classificador.schemas import CategoriaDespesa
 from usuarios.demo import SESSAO_DEMO
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 
-from . import forms, processamento as modulo_processamento, views
+from . import forms, processamento as modulo_processamento, views, views_analises
+from comum.sessao import CHAVE_DA_SESSAO
 from .processamento import ProcessamentoError, ResultadoProcessamento
 from .test_processamento import dados_nota
 
 PDF = b"%PDF-1.4\n%%EOF\n"
 # Chave fictícia; nenhuma chamada real ao Gemini é feita.
 CHAVE_FORMULARIO = "CHAVE_CORRETA_DO_TESTE-n2-9f3a"
+CATEGORIAS_DO_TESTE = (
+    CategoriaDespesa("MANUTENCAO_E_OPERACAO", "Manutenção e operação"),
+    CategoriaDespesa("INFRAESTRUTURA_E_UTILIDADES", "Infraestrutura e utilidades"),
+)
 DETALHE_INTERNO = "detalhe-interno-xyz"
+CODIGO_DA_SESSAO = "codigo-de-teste-da-sessao"
 PASTA_APP = Path(__file__).resolve().parent
 PASTA_TEMPLATES = PASTA_APP / "templates" / "documentos"
 ARQUIVO_JS = PASTA_APP / "static" / "documentos" / "documentos.js"
@@ -68,6 +77,15 @@ def processamento(justificativa="Itens de manutenção de máquinas.", **alterac
     return ResultadoProcessamento(resultado(**alteracoes), justificativa)
 
 
+def entrar(cliente):
+    """Sessão da demonstração com o código que identifica as análises (GR-43)."""
+    autenticar_demo(cliente)
+    sessao = cliente.session
+    sessao[CHAVE_DA_SESSAO] = CODIGO_DA_SESSAO
+    sessao.save()
+    cliente.cookies[settings.SESSION_COOKIE_NAME] = sessao.session_key
+
+
 # SimpleTestCase: não há banco, e qualquer consulta faria o teste falhar.
 class InterfaceTestBase(SimpleTestCase):
     """Sessão da demonstração e redes de segurança contra Gemini e gravação de arquivos."""
@@ -77,17 +95,6 @@ class InterfaceTestBase(SimpleTestCase):
         configuracao.enable()
         self.addCleanup(configuracao.disable)
 
-        # Estes testes da apresentação/Agents não acessam banco. A integração
-        # real das consultas tem TestCase próprio em test_interface_consultas.
-        from cadastros.consultas import ResultadoConsultas, consultar_pessoa, consultar_classificacao
-        consulta_vazia = ResultadoConsultas(
-            consultar_pessoa(None, "FORNECEDOR"), consultar_pessoa(None, "FATURADO"),
-            consultar_classificacao(None),
-        )
-        consulta_patcher = mock.patch("documentos.views.consultar_resultado", return_value=consulta_vazia)
-        consulta_patcher.start()
-        self.addCleanup(consulta_patcher.stop)
-
         for alvo, mensagem in (
             ("agents.gemini_client.genai.Client", "O SDK real do Gemini não deve ser usado."),
             ("django.core.files.storage.FileSystemStorage._save", "Nenhum arquivo deve ser gravado."),
@@ -96,8 +103,26 @@ class InterfaceTestBase(SimpleTestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-        autenticar_demo(self.client)
+        # Guardar a análise usa o banco, que estes testes não têm; a gravação
+        # tem testes próprios (test_analises, test_fluxo_conferencia).
+        self.analise = SimpleNamespace(id=uuid.uuid4())
+        patcher = mock.patch("documentos.views_analises.criar_analise", return_value=self.analise)
+        self.criar_analise = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # A checagem do banco antes do Gemini também usa o banco.
+        patcher = mock.patch("documentos.views_analises.verificar_banco")
+        self.verificar_banco = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # As categorias de despesa também vêm do banco (cadastro de classificações).
+        patcher = mock.patch("documentos.views_analises.categorias_de_despesa", return_value=CATEGORIAS_DO_TESTE)
+        self.categorias_de_despesa = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        entrar(self.client)
         self.url = reverse("documento_inicio")
+        self.url_envio = reverse("analise_criar")
 
     def dados(self, arquivo=None, chave=CHAVE_FORMULARIO):
         dados = {} if arquivo is False else {"arquivo": arquivo or pdf()}
@@ -108,11 +133,17 @@ class InterfaceTestBase(SimpleTestCase):
     def enviar(self, arquivo=None, retorno=None, chave=CHAVE_FORMULARIO, **kwargs):
         """POST da chave e do PDF com processar_pdf simulado; devolve (resposta, mock)."""
         dados = self.dados(arquivo, chave)
-        with mock.patch("documentos.views.processar_pdf", **kwargs) as processar:
+        with mock.patch("documentos.views_analises.processar_pdf", **kwargs) as processar:
             if retorno is not None:
                 processar.return_value = retorno
-            resposta = self.client.post(self.url, dados)
+            resposta = self.client.post(self.url_envio, dados)
         return resposta, processar
+
+    def assert_levou_a_conferencia(self, resposta):
+        self.assertRedirects(
+            resposta, reverse("analise_conferencia", args=[self.analise.id]),
+            fetch_redirect_response=False,
+        )
 
 
 class AcessoTests(InterfaceTestBase):
@@ -136,18 +167,21 @@ class AcessoTests(InterfaceTestBase):
     def test_anonimo_nao_envia_nem_processa(self):
         self.client.cookies.clear()
 
-        for metodo in ("get", "post"):
-            with self.subTest(metodo=metodo):
-                with mock.patch("documentos.views.processar_pdf") as processar:
-                    resposta = getattr(self.client, metodo)(self.url, self.dados())
+        for url, metodo in ((self.url, "get"), (self.url_envio, "post")):
+            with self.subTest(url=url, metodo=metodo):
+                with mock.patch("documentos.views_analises.processar_pdf") as processar:
+                    resposta = getattr(self.client, metodo)(url, self.dados())
 
                 self.assertRedirects(resposta, "/login/", fetch_redirect_response=False)
                 processar.assert_not_called()
 
-    def test_metodos_nao_permitidos(self):
-        for metodo in ("put", "delete", "patch"):
-            with self.subTest(metodo=metodo):
+    def test_tela_de_envio_so_aceita_get_e_o_envio_so_aceita_post(self):
+        for metodo in ("post", "put", "delete", "patch"):
+            with self.subTest(url="tela", metodo=metodo):
                 self.assertEqual(getattr(self.client, metodo)(self.url).status_code, 405)
+        for metodo in ("get", "put", "delete", "patch"):
+            with self.subTest(url="envio", metodo=metodo):
+                self.assertEqual(getattr(self.client, metodo)(self.url_envio).status_code, 405)
 
     def test_rotas_da_arquitetura_antiga_nao_existem(self):
         for url in ("/documentos/upload/", "/documentos/1/", "/documentos/1/processar/", "/admin/"):
@@ -188,10 +222,11 @@ class ValidacaoTests(InterfaceTestBase):
     def assert_recusado(self, arquivo, mensagem):
         resposta, processar = self.enviar(arquivo)
 
-        self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, mensagem)
-        self.assertContains(resposta, 'aria-invalid="true"')
+        self.assertEqual(resposta.status_code, 400)
+        self.assertContains(resposta, mensagem, status_code=400)
+        self.assertContains(resposta, 'aria-invalid="true"', status_code=400)
         processar.assert_not_called()
+        self.criar_analise.assert_not_called()
 
     def test_sem_arquivo(self):
         self.assert_recusado(False, "Selecione um arquivo PDF.")
@@ -215,128 +250,77 @@ class ValidacaoTests(InterfaceTestBase):
         self.assert_recusado(pdf(conteudo=PDF + b"x" * 20), "O arquivo excede o limite de 1 MB.")
 
     def test_nome_do_arquivo_e_sanitizado(self):
-        resposta, _ = self.enviar(pdf("../pasta/minha nota.pdf"), retorno=processamento())
+        resposta, _ = self.enviar(
+            pdf("../pasta/minha nota.pdf"),
+            side_effect=ProcessamentoError("x", "erro_interno", "Falhou."),
+        )
 
-        self.assertContains(resposta, "minha_nota.pdf")
-        self.assertNotContains(resposta, "../pasta")
+        self.assertContains(resposta, "minha_nota.pdf", status_code=400)
+        self.assertNotContains(resposta, "../pasta", status_code=400)
 
-    def test_validacao_nao_e_duplicada_na_view(self):
-        codigo = inspect.getsource(views)
+    def test_validacao_nao_e_duplicada_nas_views(self):
+        for modulo in (views, views_analises):
+            with self.subTest(modulo=modulo.__name__):
+                codigo = inspect.getsource(modulo)
 
-        self.assertNotIn("%PDF", codigo)
-        self.assertNotIn("content_type", codigo)
+                self.assertNotIn("%PDF", codigo)
+                self.assertNotIn("content_type", codigo)
 
 
 class ProcessamentoTests(InterfaceTestBase):
     def test_processa_os_bytes_exatos_do_pdf(self):
         _, processar = self.enviar(pdf(conteudo=PDF + b"conteudo"), retorno=processamento())
 
-        processar.assert_called_once_with(PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2)
-
-    def test_resumo_justificativa_e_json(self):
-        resposta, _ = self.enviar(retorno=processamento())
-
-        self.assertEqual(resposta.status_code, 200)
-        for esperado in (
-            "Resultado — nota.pdf",
-            "Manutenção e operação",
-            "R$ 1.500,00",
-            "Pecas Exemplo Ltda",
-            "000123",
-            "20/09/2026",
-            "Justificativa da classificação",
-            "Itens de manutenção de máquinas.",
-            "JSON final",
-            "&quot;quantidade_parcelas&quot;: 1",
-            "CPF do faturado com dígitos verificadores inválidos.",
-        ):
-            with self.subTest(esperado=esperado):
-                self.assertContains(resposta, esperado)
-
-    def test_json_na_ordem_do_contrato(self):
-        resposta, _ = self.enviar(retorno=processamento())
-
-        json_tela = re.search(r"<code>(.*?)</code>", resposta.content.decode(), re.S).group(1)
-        posicoes = [
-            # Só chaves do primeiro nível (indentação de 2 espaços).
-            json_tela.index(f"\n  &quot;{chave}&quot;: ")
-            for chave in (
-                "fornecedor", "faturado", "numero_nota", "data_emissao", "itens",
-                "quantidade_parcelas", "parcelas", "valor_total", "tipo_despesa", "validacoes",
-            )
-        ]
-        self.assertEqual(posicoes, sorted(posicoes))
-        self.assertNotIn("justificativa", json_tela)
-
-    def test_variacoes_do_resumo(self):
-        valido = {"status": "valido", "motivo": None}
-        resposta, _ = self.enviar(
-            retorno=processamento(
-                tipo_despesa="INFRAESTRUTURA_E_UTILIDADES",
-                fornecedor={"razao_social": None, "nome_fantasia": "Loja Fantasia", "cnpj": None},
-                quantidade_parcelas=0,
-                parcelas=[],
-                validacoes={"fornecedor_cnpj": valido, "faturado_cpf": valido},
-            )
+        processar.assert_called_once_with(
+            PDF + b"conteudo", CHAVE_FORMULARIO, versao_dados=2, categorias=CATEGORIAS_DO_TESTE,
         )
 
-        self.assertContains(resposta, "Infraestrutura e utilidades")
-        self.assertContains(resposta, "Loja Fantasia")
-        self.assertContains(resposta, "<dd>0</dd>", html=True)
-        self.assertNotContains(resposta, "dígitos verificadores inválidos")
+    def test_sucesso_guarda_o_resultado_e_leva_a_conferencia(self):
+        resposta, _ = self.enviar(retorno=processamento())
+
+        self.assert_levou_a_conferencia(resposta)
+        self.criar_analise.assert_called_once()
+        self.assertEqual(self.criar_analise.call_args.args[1], resultado())
 
     def test_erro_mostra_mensagem_segura_e_sugestao(self):
         erro = ProcessamentoError("extracao", "servico_indisponivel", "Serviço de extração indisponível no momento.")
         resposta, _ = self.enviar(side_effect=erro)
 
-        self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, "O processamento de “nota.pdf” não foi concluído.")
-        self.assertContains(resposta, "Serviço de extração indisponível no momento.")
-        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"])
-        self.assertNotContains(resposta, "JSON final")
+        self.assertEqual(resposta.status_code, 400)
+        self.assertContains(resposta, "O processamento de “nota.pdf” não foi concluído.", status_code=400)
+        self.assertContains(resposta, "Serviço de extração indisponível no momento.", status_code=400)
+        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"], status_code=400)
         for interno in ("servico_indisponivel", "extracao"):
-            self.assertNotContains(resposta, interno)
+            self.assertNotContains(resposta, interno, status_code=400)
+        self.criar_analise.assert_not_called()
 
     def test_sugestao_por_codigo(self):
         for codigo, sugestao in views.SUGESTOES_ERRO.items():
             with self.subTest(codigo=codigo):
                 resposta, _ = self.enviar(side_effect=ProcessamentoError("x", codigo, "Falhou."))
 
-                self.assertContains(resposta, sugestao)
+                self.assertContains(resposta, sugestao, status_code=400)
 
     def test_codigo_desconhecido_usa_sugestao_padrao(self):
         resposta, _ = self.enviar(side_effect=ProcessamentoError("x", "novo_codigo", "Falhou."))
 
-        self.assertContains(resposta, views.SUGESTAO_ERRO_PADRAO)
+        self.assertContains(resposta, views.SUGESTAO_ERRO_PADRAO, status_code=400)
 
-    def test_formulario_continua_disponivel_apos_resultado_ou_erro(self):
-        for kwargs in ({"retorno": processamento()},
-                       {"side_effect": ProcessamentoError("x", "erro_interno", "Falhou.")}):
-            with self.subTest(kwargs=list(kwargs)):
-                resposta, _ = self.enviar(**kwargs)
+    def test_formulario_continua_disponivel_apos_erro(self):
+        resposta, _ = self.enviar(side_effect=ProcessamentoError("x", "erro_interno", "Falhou."))
 
-                self.assertContains(resposta, '<button type="submit" class="botao">Processar</button>', html=False)
+        self.assertContains(
+            resposta, '<button type="submit" class="botao">Processar</button>',
+            status_code=400, html=False,
+        )
 
 
 class SegurancaTests(InterfaceTestBase):
-    def test_resultado_e_justificativa_sao_escapados(self):
-        script = "<script>alert(1)</script>"
-        resposta, _ = self.enviar(
-            retorno=processamento(
-                justificativa=script,
-                fornecedor={"razao_social": script, "nome_fantasia": None, "cnpj": None},
-                numero_nota=script,
-            )
-        )
-
-        self.assertNotContains(resposta, script)
-        self.assertContains(resposta, "&lt;script&gt;alert(1)&lt;/script&gt;")
-
     def test_mensagem_de_erro_e_escapada(self):
         resposta, _ = self.enviar(side_effect=ProcessamentoError("x", "y", "<b>falhou</b>"))
 
-        self.assertNotContains(resposta, "<b>falhou</b>")
-        self.assertContains(resposta, "&lt;b&gt;falhou&lt;/b&gt;")
+        self.assertNotContains(resposta, "<b>falhou</b>", status_code=400)
+        self.assertContains(resposta, "&lt;b&gt;falhou&lt;/b&gt;", status_code=400)
 
     def test_templates_nao_usam_safe(self):
         templates = [*PASTA_TEMPLATES.glob("*.html"), *PASTA_TEMPLATES_USUARIOS.glob("*.html")]
@@ -348,30 +332,33 @@ class SegurancaTests(InterfaceTestBase):
 
     def test_csrf_obrigatorio(self):
         cliente = Client(enforce_csrf_checks=True)
-        autenticar_demo(cliente)
+        entrar(cliente)
 
-        with mock.patch("documentos.views.processar_pdf") as processar:
-            resposta = cliente.post(self.url, self.dados())
+        with mock.patch("documentos.views_analises.processar_pdf") as processar:
+            resposta = cliente.post(self.url_envio, self.dados())
 
         self.assertEqual(resposta.status_code, 403)
         processar.assert_not_called()
 
     def test_csrf_do_formulario_da_pagina_e_aceito(self):
         cliente = Client(enforce_csrf_checks=True)
-        autenticar_demo(cliente)
+        entrar(cliente)
         pagina = cliente.get(self.url).content.decode()
         token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', pagina).group(1)
 
-        with mock.patch("documentos.views.processar_pdf", return_value=processamento()) as processar:
-            resposta = cliente.post(self.url, {**self.dados(), "csrfmiddlewaretoken": token})
+        with mock.patch("documentos.views_analises.processar_pdf", return_value=processamento()) as processar:
+            resposta = cliente.post(self.url_envio, {**self.dados(), "csrfmiddlewaretoken": token})
 
-        self.assertEqual(resposta.status_code, 200)
+        self.assert_levou_a_conferencia(resposta)
         processar.assert_called_once()
 
     def test_resultado_nao_vai_para_a_sessao(self):
         self.enviar(retorno=processamento())
 
-        self.assertEqual(dict(self.client.session.items()), {SESSAO_DEMO: True})
+        self.assertEqual(
+            dict(self.client.session.items()),
+            {SESSAO_DEMO: True, CHAVE_DA_SESSAO: CODIGO_DA_SESSAO},
+        )
 
     def test_resultado_nao_e_repetido_em_nova_visita(self):
         self.enviar(retorno=processamento())
@@ -404,28 +391,22 @@ class IntegracaoTestBase(InterfaceTestBase):
         ]
 
     def enviar_real(self, chave=CHAVE_FORMULARIO):
-        return self.client.post(self.url, self.dados(chave=chave))
+        return self.client.post(self.url_envio, self.dados(chave=chave))
 
 
 class IntegracaoTests(IntegracaoTestBase):
     def test_sucesso_ponta_a_ponta(self):
         resposta = self.enviar_real()
 
-        self.assertEqual(resposta.status_code, 200)
+        self.assert_levou_a_conferencia(resposta)
         parte_pdf = self.generate_content.call_args_list[0].kwargs["contents"][1]
         self.assertEqual(parte_pdf.inline_data.data, PDF)
-        for esperado in (
-            "Manutenção e operação",
-            "R$ 1.500,00",
-            "Peças de manutenção.",
-            "&quot;tipo_despesa&quot;: &quot;MANUTENCAO_E_OPERACAO&quot;",
-            "&quot;quantidade_parcelas&quot;: 1",
-            "&quot;valor_total&quot;: &quot;1500.00&quot;",
-            "&quot;cpf&quot;: &quot;99999999999&quot;",
-            "CPF do faturado com dígitos verificadores inválidos.",
-        ):
-            with self.subTest(esperado=esperado):
-                self.assertContains(resposta, esperado)
+        guardado = self.criar_analise.call_args.args[1]
+        self.assertEqual(guardado["tipo_despesa"], "MANUTENCAO_E_OPERACAO")
+        self.assertEqual(guardado["valor_total"], "1500.00")
+        self.assertEqual(guardado["quantidade_parcelas"], 1)
+        self.assertEqual(guardado["faturado"]["cpf"], "99999999999")
+        self.assertEqual(guardado["validacoes"]["faturado_cpf"]["status"], "invalido")
 
     def test_extrator_e_classificador_usam_um_cliente_com_a_chave_do_formulario(self):
         self.enviar_real()
@@ -445,7 +426,7 @@ class IntegracaoTests(IntegracaoTestBase):
             os.environ.pop("GEMINI_API_KEY", None)
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "JSON final")
+        self.assert_levou_a_conferencia(resposta)
         self.assertEqual(self.sdk_classe.call_args.kwargs["api_key"], CHAVE_FORMULARIO)
 
     def test_gemini_indisponivel_na_extracao(self):
@@ -456,10 +437,11 @@ class IntegracaoTests(IntegracaoTestBase):
         ):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao)
-        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"])
-        self.assertNotContains(resposta, DETALHE_INTERNO)
+        self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao, status_code=400)
+        self.assertContains(resposta, views.SUGESTOES_ERRO["servico_indisponivel"], status_code=400)
+        self.assertNotContains(resposta, DETALHE_INTERNO, status_code=400)
         self.assertEqual(self.generate_content.call_count, 1)
+        self.criar_analise.assert_not_called()
 
     def test_chave_recusada_pela_api_mostra_erro_seguro(self):
         self.generate_content.side_effect = errors.ClientError(
@@ -471,11 +453,11 @@ class IntegracaoTests(IntegracaoTestBase):
         with self.assertLogs(level="WARNING") as logs:
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao)
-        self.assertContains(resposta, "Confira se a Gemini API Key informada é válida.")
+        self.assertContains(resposta, ExtracaoIndisponivelError.mensagem_padrao, status_code=400)
+        self.assertContains(resposta, "Confira se a Gemini API Key informada é válida.", status_code=400)
         for vazamento in (CHAVE_FORMULARIO, "INVALID_ARGUMENT", "API key not valid", "Traceback"):
             with self.subTest(vazamento=vazamento):
-                self.assertNotContains(resposta, vazamento)
+                self.assertNotContains(resposta, vazamento, status_code=400)
         self.assertNotIn(CHAVE_FORMULARIO, "\n".join(logs.output))
 
     def test_erro_inesperado(self):
@@ -484,25 +466,21 @@ class IntegracaoTests(IntegracaoTestBase):
         with self.assertLogs("documentos.processamento", "ERROR"):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "Erro inesperado ao processar o documento.")
-        self.assertNotContains(resposta, DETALHE_INTERNO)
-        self.assertNotContains(resposta, "Traceback")
+        self.assertContains(resposta, "Erro inesperado ao processar o documento.", status_code=400)
+        self.assertNotContains(resposta, DETALHE_INTERNO, status_code=400)
+        self.assertNotContains(resposta, "Traceback", status_code=400)
         self.assertEqual(self.generate_content.call_count, 1)
 
-    def test_classificacao_inconclusiva(self):
+    def test_classificacao_inconclusiva_preserva_a_extracao(self):
         self.respostas({"tipo_despesa": None, "justificativa": "Itens fora das categorias."})
 
         with self.assertLogs("agents.classificador.agent", "WARNING"):
             resposta = self.enviar_real()
 
-        self.assertContains(resposta, "Aguardando classificação")
-        self.assertContains(resposta, "A extração foi preservada.")
-        self.assertContains(resposta, "JSON final")
-        self.assertContains(resposta, "Filtro de oleo")
-        self.assertContains(resposta, "Itens fora das categorias.")
-        self.assertContains(resposta, '&quot;tipo_despesa&quot;: null')
-        self.assertNotContains(resposta, "não foi concluído")
-        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assert_levou_a_conferencia(resposta)
+        guardado = self.criar_analise.call_args.args[1]
+        self.assertIsNone(guardado["tipo_despesa"])
+        self.assertEqual(guardado["itens"][0]["descricao"], "Filtro de oleo")
         self.assertEqual(self.generate_content.call_count, 2)
 
 
@@ -543,8 +521,8 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
             with self.subTest(chave=chave):
                 resposta, processar = self.enviar(chave=chave)
 
-                self.assertEqual(resposta.status_code, 200)
-                self.assertContains(resposta, "Informe a Gemini API Key.")
+                self.assertEqual(resposta.status_code, 400)
+                self.assertContains(resposta, "Informe a Gemini API Key.", status_code=400)
                 self.assertIn('aria-invalid="true"', self.campo(resposta))
                 processar.assert_not_called()
 
@@ -552,8 +530,8 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
         chave = "k" * 300
         resposta, processar = self.enviar(chave=chave)
 
-        self.assertContains(resposta, "A Gemini API Key deve ter no máximo 256 caracteres.")
-        self.assertNotContains(resposta, chave[:40])
+        self.assertContains(resposta, "A Gemini API Key deve ter no máximo 256 caracteres.", status_code=400)
+        self.assertNotContains(resposta, chave[:40], status_code=400)
         processar.assert_not_called()
 
     def test_formato_da_chave_nao_e_validado_localmente(self):
@@ -561,20 +539,20 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
             with self.subTest(chave=chave):
                 _, processar = self.enviar(chave=chave, retorno=processamento())
 
-                processar.assert_called_once_with(PDF, chave, versao_dados=2)
+                processar.assert_called_once_with(PDF, chave, versao_dados=2, categorias=CATEGORIAS_DO_TESTE)
 
-    def test_chave_nao_reaparece_apos_sucesso(self):
+    def test_chave_nao_vai_para_a_analise_nem_para_o_redirecionamento(self):
         resposta, _ = self.enviar(retorno=processamento())
 
-        self.assertContains(resposta, "JSON final")
-        self.assertNotContains(resposta, CHAVE_FORMULARIO)
-        self.assertNotIn("value=", self.campo(resposta))
+        self.assert_levou_a_conferencia(resposta)
+        self.assertNotIn(CHAVE_FORMULARIO, repr(self.criar_analise.call_args))
+        self.assertNotIn(CHAVE_FORMULARIO, str(dict(resposta.headers)))
 
     def test_chave_nao_reaparece_apos_erro_do_pdf(self):
         resposta, processar = self.enviar(pdf(conteudo=b"texto qualquer"))
 
-        self.assertContains(resposta, "O arquivo enviado não é um PDF válido.")
-        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertContains(resposta, "O arquivo enviado não é um PDF válido.", status_code=400)
+        self.assertNotContains(resposta, CHAVE_FORMULARIO, status_code=400)
         self.assertNotIn("value=", self.campo(resposta))
         processar.assert_not_called()
 
@@ -582,19 +560,16 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
         erro = ProcessamentoError("extracao", "servico_indisponivel", "Serviço de extração indisponível no momento.")
         resposta, _ = self.enviar(side_effect=erro)
 
-        self.assertContains(resposta, "não foi concluído")
-        self.assertNotContains(resposta, CHAVE_FORMULARIO)
+        self.assertContains(resposta, "não foi concluído", status_code=400)
+        self.assertNotContains(resposta, CHAVE_FORMULARIO, status_code=400)
         self.assertNotIn("value=", self.campo(resposta))
 
     def test_chave_fora_das_mensagens_e_do_contexto(self):
-        for kwargs in ({"retorno": processamento()},
-                       {"side_effect": ProcessamentoError("x", "servico_indisponivel", "Falhou.")}):
-            with self.subTest(kwargs=list(kwargs)):
-                resposta, _ = self.enviar(**kwargs)
+        resposta, _ = self.enviar(side_effect=ProcessamentoError("x", "servico_indisponivel", "Falhou."))
 
-                self.assertEqual(resposta.context["form"].data, {})  # formulário novo
-                for nome in resposta.context.keys() - {"request"}:
-                    self.assertNotIn(CHAVE_FORMULARIO, repr(resposta.context[nome]), nome)
+        self.assertEqual(resposta.context["form"].data, {})  # formulário novo
+        for nome in resposta.context.keys() - {"request"}:
+            self.assertNotIn(CHAVE_FORMULARIO, repr(resposta.context[nome]), nome)
 
     def test_nova_visita_e_nova_execucao_exigem_nova_chave(self):
         self.enviar(retorno=processamento())
@@ -604,19 +579,20 @@ class GeminiApiKeyFormularioTests(InterfaceTestBase):
         self.assertNotIn("value=", self.campo(visita))
 
         resposta, processar = self.enviar(chave=False)
-        self.assertContains(resposta, "Informe a Gemini API Key.")
+        self.assertContains(resposta, "Informe a Gemini API Key.", status_code=400)
         processar.assert_not_called()
 
     def test_view_oculta_a_chave_nos_relatorios_de_erro(self):
         # sensitive_post_parameters marca a requisição; o relatório de erro do
-        # Django troca o valor do campo por asteriscos.
-        with mock.patch("documentos.views.render", return_value=HttpResponse()) as render, mock.patch(
-            "documentos.views.processar_pdf", return_value=processamento()
+        # Django troca o valor de todos os campos do POST por asteriscos.
+        with mock.patch("documentos.views_analises.render", return_value=HttpResponse()) as render, mock.patch(
+            "documentos.views_analises.processar_pdf",
+            side_effect=ProcessamentoError("x", "erro_interno", "Falhou."),
         ):
-            self.client.post(self.url, self.dados())
+            self.client.post(self.url_envio, self.dados())
 
         requisicao = render.call_args.args[0]
-        self.assertEqual(tuple(requisicao.sensitive_post_parameters), ("gemini_api_key",))
+        self.assertEqual(requisicao.sensitive_post_parameters, "__ALL__")
 
 
 class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
@@ -634,21 +610,24 @@ class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
         with self.assertLogs(raiz, "DEBUG") as logs:
             raiz.debug("marcador")  # assertLogs exige ao menos um registro
             resposta = self.enviar_real()
-        self.assertContains(resposta, "JSON final")
+        self.assert_levou_a_conferencia(resposta)
         return resposta, "\n".join(logs.output)
 
     def test_chave_fora_da_sessao_e_do_cookie(self):
         resposta, _ = self.processar_com_logs()
 
-        self.assertEqual(dict(self.client.session.items()), {SESSAO_DEMO: True})
+        self.assertEqual(
+            dict(self.client.session.items()),
+            {SESSAO_DEMO: True, CHAVE_DA_SESSAO: CODIGO_DA_SESSAO},
+        )
         for cookie in (*resposta.cookies.values(), *self.client.cookies.values()):
             self.assertNotIn(CHAVE_FORMULARIO, cookie.value)
 
-    def test_chave_fora_da_resposta_e_do_json(self):
+    def test_chave_fora_da_resposta_e_da_analise_guardada(self):
         resposta, _ = self.processar_com_logs()
 
-        self.assertNotContains(resposta, CHAVE_FORMULARIO)
-        self.assertNotIn(CHAVE_FORMULARIO, resposta.context["json_resultado"])
+        self.assertNotContains(resposta, CHAVE_FORMULARIO, status_code=302)
+        self.assertNotIn(CHAVE_FORMULARIO, json.dumps(self.criar_analise.call_args.args[1]))
         self.assertNotIn(CHAVE_FORMULARIO, str(dict(resposta.headers)))
 
     def test_chave_fora_dos_logs(self):
@@ -664,7 +643,7 @@ class NaoPersistenciaDaChaveTests(IntegracaoTestBase):
         self.assertEqual(self.arquivos_do_projeto() - antes, set())
 
     def test_chave_fora_de_variaveis_globais_settings_e_ambiente(self):
-        modulos = (views, forms, modulo_processamento, gemini_client)
+        modulos = (views, views_analises, forms, modulo_processamento, gemini_client)
         settings_antes = dict(vars(settings._wrapped))
 
         self.processar_com_logs()
@@ -717,6 +696,14 @@ class JavaScriptTests(InterfaceTestBase):
         self.assertEqual(js.count("preventDefault"), 1)
         ramo = js[js.index('=== "true"'):js.index("preventDefault")]
         self.assertNotIn("travar(", ramo)
+
+    def test_js_trava_o_botao_acionado_sem_desabilitar_o_que_leva_valor(self):
+        js = self.js()
+
+        self.assertIn("evento.submitter", js)
+        # Botão com name (ex.: acao=salvar) desabilitado antes da montagem do envio ficaria de fora dele.
+        self.assertIn("if (botao.name)", js)
+        self.assertIn('botao.setAttribute("aria-disabled", "true")', js)
 
     def test_js_sem_rede_polling_ou_html_dinamico(self):
         js = self.js()

@@ -5,50 +5,17 @@ from django.shortcuts import render
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
+from config.erros_banco import mensagem_de_banco
 from usuarios.demo import demo_login_required
 from cadastros.resolucao import ParteNota, avaliar_partes
-from financeiro.lancamento_nota import lancar_nota
+from financeiro.duplicidade import movimentos_parecidos
 from .analises import AnaliseError, obter_analise
 from .conferencia import conferir_nota
 from .forms_confirmacao import ConfirmacaoLancamentoForm, ROTULOS_DECISAO
-from .forms_fiscais import MENSAGENS_FISCAIS, mensagem_fiscal
+from .lancamento_nota import lancar_nota
+from .mensagens_conferencia import ROTULOS_CAMPO, mensagem_validacao
+from .resumo_nota import ficha_da_nota, resumo_do_lancamento
 from .views_analises import _erro_analise, _falha
-
-MENSAGENS = {
-    'pessoa_inexistente': 'Autorize a criação do cadastro que ainda não existe.',
-    'pessoa_inativa': 'O cadastro está inativo. Autorize a reativação se desejar utilizá-lo.',
-    'papel_ausente': 'Autorize atribuir o papel necessário ao cadastro.',
-    'papel_inativo': 'Autorize a reativação do papel necessário.',
-    'pessoa_incompleta': 'Selecione um cadastro incompleto e autorize sua regularização com documento válido.',
-    'documento_ausente': 'Informe o documento da parte na conferência.',
-    'documento_invalido': 'Corrija o documento da parte na conferência.',
-    'nome_ausente': 'Preencha o nome para o novo cadastro.',
-    'nomes_divergentes': 'O mesmo documento está associado a nomes diferentes. Revise os dados.',
-    'documento_em_uso': 'O documento já pertence a outro cadastro. Revise a seleção.',
-    'selecao_invalida': 'O cadastro incompleto selecionado não está disponível.',
-    'cadastro_concorrente': 'Os cadastros mudaram durante a confirmação. Recarregue e confira novamente.',
-    'classificacao_inativa': 'A classificação está inativa. Selecione uma classificação ativa.',
-    'classificacao_incompativel': 'A classificação não pode ser usada neste lançamento.',
-    'classificacao_inexistente': 'Selecione uma classificação cadastrada.',
-    'escolha_necessaria': 'Escolha explicitamente o documento correto na conferência.',
-    'parcela_soma': 'A soma das parcelas deve ser igual ao total da nota.',
-    'parcela_vencimento': 'Complete os vencimentos das parcelas.',
-    'parcela_numeracao': 'Confira a numeração das parcelas.',
-    'sem_parcela': 'Informe pelo menos uma parcela com valor e vencimento.',
-    'ausente': 'Complete o campo indicado na conferência.',
-    'invalido': 'Corrija o campo indicado na conferência.',
-}
-ROTULOS_CAMPO = {'identidade_fiscal': 'Identificação fiscal', 'chave_acesso': 'Chave de acesso',
-    'modelo': 'Modelo', 'serie': 'Série', 'numero_nota': 'Número da nota',
-    'fornecedor.documento': 'Documento do fornecedor', 'fornecedor.razao_social': 'Nome do fornecedor',
-    'faturado.documento': 'Documento do faturado', 'faturado.nome': 'Nome do faturado',
-    'valor_total': 'Valor total', 'parcelas': 'Parcelas', 'tipo_despesa': 'Classificação'}
-
-
-def mensagem_validacao(codigo):
-    if codigo in MENSAGENS_FISCAIS:
-        return mensagem_fiscal(codigo)
-    return MENSAGENS.get(codigo, 'Os dados não permitem confirmar o lançamento. Revise a conferência.')
 
 
 def pendencias_da_nota(nota):
@@ -61,6 +28,16 @@ def _avaliacoes(nota):
     return [{'rotulo': rotulo, 'acoes': [ROTULOS_DECISAO[d] for d in ROTULOS_DECISAO if d in avaliacao.decisoes_necessarias],
              'bloqueio': mensagem_validacao(avaliacao.bloqueio) if avaliacao.bloqueio else None}
             for rotulo, avaliacao in zip(('Fornecedor', 'Faturado'), resultado)]
+
+
+def _duplicidades(nota):
+    """Contas já registradas parecidas com esta nota (só aviso: a identidade fiscal é a trava de verdade)."""
+    contraparte_id = nota.fornecedor.consulta.id
+    if contraparte_id is None or nota.valor_total is None:
+        return ()
+    return movimentos_parecidos(
+        contraparte_id, nota.valor_total, min((p.data_vencimento for p in nota.parcelas), default=None),
+    )
 
 
 @sensitive_post_parameters()
@@ -87,16 +64,20 @@ def analise_confirmar(request, analise_id):
                 else:
                     # lancar_nota só retorna depois do COMMIT oficial.
                     return render(request, 'documentos/lancamento_sucesso.html', {
-                        'movimento_id': resultado.movimento.pk, 'nota_fiscal_id': resultado.nota_fiscal.pk})
+                        'movimento_id': resultado.movimento.pk, 'nota_fiscal_id': resultado.nota_fiscal.pk,
+                        'ficha': ficha_da_nota(nota), 'resumo': resumo_do_lancamento(nota)})
             else:
                 status = 400
         else:
             form = ConfirmacaoLancamentoForm(initial={'versao_correcoes': analise.versao_correcoes})
         return render(request, 'documentos/confirmacao.html', {
-            'analise_id': analise.id, 'form_confirmacao': form, 'nota': nota,
+            'analise_id': analise.id, 'form_confirmacao': form, 'nota': nota, 'ficha': ficha_da_nota(nota),
             'pendencias': pendencias_da_nota(nota), 'avaliacoes': _avaliacoes(nota),
+            'duplicidades': _duplicidades(nota),
         }, status=status)
     except AnaliseError as erro:
         return _erro_analise(request, erro)
     except DatabaseError:
-        return _falha(request, 'Não foi possível confirmar o lançamento agora. Recarregue a análise e confira seu estado antes de tentar novamente.', 503)
+        return _falha(request, mensagem_de_banco(
+            'confirmar o lançamento',
+            'Recarregue a análise e confira o estado dela antes de tentar novamente.'), 503)

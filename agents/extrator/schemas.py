@@ -27,6 +27,10 @@ from pydantic import (
     model_validator,
 )
 
+from comum.documentos_br import (
+    FORMATO_CNPJ, FORMATO_CPF, cnpj_dv_valido, cpf_dv_valido, limpar_cnpj, limpar_cpf,
+)
+
 VERSAO_SCHEMA = 2
 
 CENTAVO = Decimal("0.01")
@@ -34,72 +38,23 @@ CENTAVO = Decimal("0.01")
 # (menor que 10 bilhões). Acima disso o valor é tratado como leitura inválida.
 LIMITE_VALOR_MONETARIO = Decimal("10000000000")
 
-_SEPARADORES_DOCUMENTO = re.compile(r"[.\-/\s]")
-_FORMATO_CPF = re.compile(r"\d{11}")
-# CNPJ numérico ou alfanumérico (IN RFB 2.229/2024): 12 posições [0-9A-Z]
-# seguidas de 2 dígitos verificadores numéricos.
-_FORMATO_CNPJ = re.compile(r"[0-9A-Z]{12}\d{2}")
 _FORMATO_DATA = re.compile(r"\d{4}-\d{2}-\d{2}")
-
-_PESOS_CNPJ_DV1 = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
-_PESOS_CNPJ_DV2 = (6, *_PESOS_CNPJ_DV1)
-
-
-def _digito_verificador(base, pesos):
-    # ord(c) - 48 vale para dígitos (0-9) e letras (A=17 ... Z=42),
-    # como define a regra do CNPJ alfanumérico; para CPF e CNPJ numérico
-    # é o próprio valor do dígito.
-    soma = sum((ord(caractere) - 48) * peso for caractere, peso in zip(base, pesos))
-    resto = soma % 11
-    return "0" if resto < 2 else str(11 - resto)
-
-
-def _limpar_cpf(valor):
-    return _SEPARADORES_DOCUMENTO.sub("", valor)
-
-
-def _limpar_cnpj(valor):
-    return _SEPARADORES_DOCUMENTO.sub("", valor).upper()
 
 
 def _normalizar_cpf(valor):
     # Só a estrutura é exigida; o DV é checado à parte em cpf_dv_valido.
-    cpf = _limpar_cpf(valor)
-    if not _FORMATO_CPF.fullmatch(cpf):
+    cpf = limpar_cpf(valor)
+    if not FORMATO_CPF.fullmatch(cpf):
         raise ValueError("CPF com estrutura inválida.")
     return cpf
 
 
 def _normalizar_cnpj(valor):
     # Só a estrutura é exigida; o DV é checado à parte em cnpj_dv_valido.
-    cnpj = _limpar_cnpj(valor)
-    if not _FORMATO_CNPJ.fullmatch(cnpj):
+    cnpj = limpar_cnpj(valor)
+    if not FORMATO_CNPJ.fullmatch(cnpj):
         raise ValueError("CNPJ com estrutura inválida.")
     return cnpj
-
-
-def cpf_dv_valido(cpf):
-    """Indica se o CPF tem estrutura e dígitos verificadores válidos.
-
-    Sequências repetidas (ex.: 999.999.999-99) fecham a conta do DV, mas
-    são tratadas como inválidas, como faz a Receita Federal.
-    """
-    cpf = _limpar_cpf(cpf)
-    if not _FORMATO_CPF.fullmatch(cpf) or len(set(cpf)) == 1:
-        return False
-    dv1 = _digito_verificador(cpf[:9], range(10, 1, -1))
-    dv2 = _digito_verificador(cpf[:9] + dv1, range(11, 1, -1))
-    return cpf[9:] == dv1 + dv2
-
-
-def cnpj_dv_valido(cnpj):
-    """Indica se o CNPJ (numérico ou alfanumérico) tem DV válido."""
-    cnpj = _limpar_cnpj(cnpj)
-    if not _FORMATO_CNPJ.fullmatch(cnpj) or len(set(cnpj)) == 1:
-        return False
-    dv1 = _digito_verificador(cnpj[:12], _PESOS_CNPJ_DV1)
-    dv2 = _digito_verificador(cnpj[:12] + dv1, _PESOS_CNPJ_DV2)
-    return cnpj[12:] == dv1 + dv2
 
 
 def _converter_data(valor):

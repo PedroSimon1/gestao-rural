@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 
-from config.erros_banco import erros_de_banco
+from config.erros_banco import erros_de_banco, mensagem_de_banco
 from usuarios.demo import demo_login_required
 
 from .forms import (
@@ -20,10 +20,7 @@ from .pendentes import regularizar_cadastro_pendente
 from .resolucao import Decisao, ParteNota, resolver_partes
 from .validators import normalizar_documento
 
-_erros_de_banco = erros_de_banco(
-    "cadastros/erro.html",
-    "Não foi possível acessar os cadastros agora. Tente novamente em instantes.",
-)
+_erros_de_banco = erros_de_banco("cadastros/erro.html", mensagem_de_banco("acessar os cadastros"))
 
 
 def _entrada_valida(form, request):

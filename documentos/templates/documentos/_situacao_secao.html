@@ -1,0 +1,1 @@
+{% comment %}Situação de uma seção da conferência (texto + cor). Parâmetro: secao (de resumir_pendencias).{% endcomment %}{% if secao.total %}<span class="st st--erro">{{ secao.total }} pendência{{ secao.total|pluralize }}</span>{% else %}<span class="st st--ok">Sem pendências</span>{% endif %}

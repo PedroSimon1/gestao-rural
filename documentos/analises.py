@@ -5,7 +5,8 @@ Decisões aprovadas por Pedro Simon em 27/10/2026:
 - A análise fica em AnalisePendente (PostgreSQL), no app documentos.
 - Guarda o JSON final completo de montar_resultado (ContextoProjeto 17.3),
   apagado ao confirmar, cancelar ou expirar.
-- Validade de 30 minutos.
+- Validade de 30 minutos. D2 (27/11/2026): cada salvamento das correções
+  renova os 30 minutos, até 3 horas depois da criação.
 - O id da análise é o analise_origem_id do movimento: confirmar duas vezes a
   mesma análise nunca cria dois movimentos (idempotência da GR-37).
 
@@ -14,7 +15,7 @@ criado no login (garantir_dono); a análise guarda o hash dele. Outra sessão
 recebe "análise não encontrada", sem saber se a análise existe. Sessão sem
 código (cookie anterior à GR-43) não cria análise: precisa de novo login.
 
-Expirar não é apagar: depois de 30 minutos a análise não pode mais ser usada,
+Expirar não é apagar: depois do prazo a análise não pode mais ser usada,
 mas os dados só são apagados quando ela é acessada, quando qualquer análise é
 criada ou quando o comando expirar_analises roda. As linhas nunca são
 excluídas fisicamente; nos estados finais ficam só o estado e as datas.
@@ -42,20 +43,22 @@ dos campos corrigidos.
 import contextvars
 import hashlib
 import json
-import secrets
 from datetime import timedelta
 from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
 
+from comum.sessao import codigo_do_dono
+
 from .correcoes import validar_correcoes
 from .models import AnalisePendente, StatusAnalise
 
 VALIDADE = timedelta(minutes=30)
+# Teto da validade renovada: a análise nunca dura mais que isto desde a criação.
+LIMITE_TOTAL = timedelta(hours=3)
 # Versão do JSON v1, o formato emitido hoje pelas rotas.
 VERSAO_DADOS = 1
-CHAVE_DA_SESSAO = "analise_dono"
 # Chaves do JSON final, na ordem de montar_resultado (versão 1).
 CHAVES_DOS_DADOS = (
     "fornecedor", "faturado", "numero_nota", "data_emissao", "itens",
@@ -111,10 +114,8 @@ def _hash(codigo):
 
 def _dono(session):
     """Hash do código da sessão; None se a sessão não tem um."""
-    codigo = session.get(CHAVE_DA_SESSAO)
-    if not isinstance(codigo, str) or not codigo:
-        return None
-    return _hash(codigo)
+    codigo = codigo_do_dono(session)
+    return None if codigo is None else _hash(codigo)
 
 
 def _versao_dos_dados(resultado):
@@ -209,18 +210,6 @@ def _executar_se_valida(session, analise_id, acao):
     return resultado
 
 
-def garantir_dono(session):
-    """Dá à sessão um código novo (chamado no login, usuarios/demo.py).
-
-    O código nasce no login, e não numa requisição longa de processamento: com
-    cookie assinado, a resposta regrava a sessão inteira e poderia desfazer um
-    logout feito em outra aba nesse meio tempo. Um código novo a cada login
-    impede que o código de uma sessão não autenticada seja reaproveitado; não
-    protege contra quem planta um cookie já autenticado.
-    """
-    session[CHAVE_DA_SESSAO] = secrets.token_urlsafe(32)
-
-
 def criar_analise(session, resultado):
     """Guarda o JSON final e devolve a AnalisePendente criada.
 
@@ -274,7 +263,8 @@ def registrar_correcoes(session, analise_id, correcoes, versao):
     documentos/correcoes.py ({} apaga as correções). `versao`: a
     versao_correcoes que a tela leu; diferente → correcoes_desatualizadas, sem
     gravar (outra janela já mudou). Mesmas regras de dono, prazo, estado e
-    transação de obter_analise. `dados` nunca muda.
+    transação de obter_analise. `dados` nunca muda. Salvar renova a validade
+    (VALIDADE a partir de agora, no máximo LIMITE_TOTAL depois da criação).
     """
     if not isinstance(correcoes, dict):
         raise AnaliseError("correcao_invalida")
@@ -290,7 +280,9 @@ def registrar_correcoes(session, analise_id, correcoes, versao):
         analise.correcoes = normalizadas or None
         analise.campos_corrigidos = sorted(normalizadas)
         analise.versao_correcoes += 1
-        analise.save(update_fields=["correcoes", "campos_corrigidos", "versao_correcoes"])
+        # D2: salvar é atividade; o prazo se renova, mas nunca passa do teto desde a criação.
+        analise.expira_em = max(analise.expira_em, min(agora + VALIDADE, analise.criado_em + LIMITE_TOTAL))
+        analise.save(update_fields=["correcoes", "campos_corrigidos", "versao_correcoes", "expira_em"])
         return analise
 
     return _executar_se_valida(session, analise_id, registrar)

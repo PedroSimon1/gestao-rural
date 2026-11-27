@@ -21,7 +21,7 @@ from documentos.analises import criar_analise, registrar_correcoes
 from documentos.models import StatusAnalise
 from documentos.test_fiscal_v2 import resultado_v2
 from documentos.testing import CNPJ as CNPJ_DA_NOTA, CPF as CPF_DA_NOTA, nova_sessao
-from financeiro.lancamento_nota import DecisoesDaParte, SolicitacaoLancamento, lancar_nota
+from documentos.lancamento_nota import DecisoesDaParte, SolicitacaoLancamento, lancar_nota
 from financeiro.models import MovimentoConta
 from financeiro.servicos import DadosMovimento, ItemClassificacao, ItemParcela, registrar_movimento
 

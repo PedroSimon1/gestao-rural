@@ -15,7 +15,7 @@
 | Camada | Responsabilidade | Onde |
 | --- | --- | --- |
 | **Views** | HTTP: autenticação, método, CSRF, montar contexto, redirecionar, traduzir erros em mensagens | `*/views*.py` |
-| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/lancamento_nota.py`, `financeiro/identidade_fiscal.py` |
+| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/identidade_fiscal.py`, `documentos/lancamento_nota.py`, `documentos/categorias.py` |
 | **Models** | Persistência e proteções de integridade (constraints, imutabilidade, sem exclusão) | `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py` |
 | **Forms** | Validação de entrada de tela | `*/forms*.py` |
 | **Schemas Pydantic** | Validação da resposta dos Agents | `agents/*/schemas*.py` |
@@ -40,7 +40,7 @@ flowchart LR
 
 | App | Conteúdo principal |
 | --- | --- |
-| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`TipoDespesa`, `AgentClassificador`) |
+| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`AgentClassificador`, `CategoriaDespesa`, `TipoDespesa` como conjunto padrão) |
 | `cadastros` | Models `Pessoa`, `PapelPessoa`, `Classificacao`; validação de CPF/CNPJ; consultas de existência; resolução de pessoas da nota (F-4); cadastro pendente (F-6); telas de Pessoas e Classificações |
 | `documentos` | Upload e validação do PDF; `processar_pdf`; `AnalisePendente`; correções; `conferir_nota` (F-3); telas de envio, conferência, confirmação; comando `expirar_analises`; tag do SHA publicado |
 | `financeiro` | Models `MovimentoConta`, `MovimentoClassificacao`, `ParcelaConta`, `NotaFiscalLancada`; `registrar_movimento`; `lancar_nota` (F-5); identidade fiscal (F-1); contas manuais; consultas e telas de Contas |
@@ -70,7 +70,7 @@ flowchart LR
 │   └── templates/ static/
 ├── documentos/             nota fiscal: da entrada à confirmação
 │   ├── processamento.py  analises.py  conferencia.py  correcoes.py
-│   ├── adaptador_financeiro.py  consultas.py  interface_conferencia.py
+│   ├── interface_conferencia.py  mensagens_conferencia.py  pendencias_conferencia.py
 │   ├── forms*.py  views.py  views_analises.py  views_confirmacao.py  urls.py
 │   ├── uploads.py  validators.py  models.py
 │   ├── management/commands/expirar_analises.py
@@ -78,7 +78,7 @@ flowchart LR
 │   ├── migrations/         0001 e 0002
 │   └── templates/ static/
 ├── financeiro/             movimentos, parcelas, notas lançadas
-│   ├── models.py  servicos.py  lancamento_nota.py  identidade_fiscal.py  manual.py
+│   ├── models.py  servicos.py  identidade_fiscal.py  manual.py
 │   ├── forms_manuais.py  forms_consultas.py  views_manuais.py  views_consultas.py  urls.py
 │   ├── migrations/         0001 a 0004
 │   └── templates/ static/
@@ -121,7 +121,8 @@ Detalhes e comandos em [10](10-configuracao-e-operacao.md).
 
 ## 7. Capacidade e desempenho (limites de projeto)
 
-- `start.sh` usa Gunicorn com `WEB_CONCURRENCY` padrão **1** worker síncrono e `GUNICORN_TIMEOUT` padrão **420 s**.
+- `start.sh` usa Gunicorn `gthread`: `WEB_CONCURRENCY` padrão **1** worker com `WEB_THREADS` padrão **4** threads, e `GUNICORN_TIMEOUT` padrão **420 s** (prazo de vida do worker, que nas threads não limita cada requisição).
 - Cada processamento de PDF faz **duas** chamadas ao Gemini em sequência (timeout padrão 60 s por tentativa, até 3 tentativas). No pior caso, ≈ 7 minutos.
-- Enquanto um PDF processa, o único worker não atende ninguém (nem o login). Aceitável para demonstração; fraco para uso real.
+- Uma chamada longa ao Gemini ocupa **uma** thread; o login e as demais telas seguem atendendo nas outras. Com 4 pessoas processando PDFs ao mesmo tempo, as threads se esgotam e o resto espera.
+- `GET /saude/` (sem login) responde 200 com o banco no ar e 503 sem ele; é o endereço para o health check do Render.
 - Cada requisição abre e fecha a própria conexão (`CONN_MAX_AGE = 0`), porque o Session Pooler limita as conexões simultâneas.

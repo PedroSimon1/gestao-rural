@@ -6,7 +6,6 @@ import uuid
 from unittest import mock
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection
 from django.test import Client, TestCase, override_settings
@@ -15,13 +14,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from cadastros.models import Classificacao, Papel, Pessoa, PapelPessoa, Status
-from documentos.analises import criar_analise, garantir_dono, registrar_correcoes
+from documentos.analises import LIMITE_TOTAL, criar_analise, registrar_correcoes
+from comum.sessao import garantir_dono
 from documentos.models import AnalisePendente, StatusAnalise
 from financeiro.models import MovimentoConta, ParcelaConta, NotaFiscalLancada
 from financeiro.test_identidade_fiscal import chave
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
-from .adaptador_financeiro import adaptar_resultado
-from .consultas import consultar_resultado
+from .conferencia import Problema, conferir_nota
 from .testing import resultado_da_nota
 
 
@@ -102,15 +101,32 @@ class IntegracaoFinalTests(TestCase):
         self.assertEqual(r.status_code, 400)
         self.assertEqual(MovimentoConta.objects.count(), 0)
 
-    def test_v1_pode_ser_completada_e_confirmada_sem_converter_ou_mudar_ttl(self):
+    def test_v1_pode_ser_completada_e_confirmada_sem_converter_e_salvar_renova_o_prazo(self):
         self.a = criar_analise(self.client.session, resultado_da_nota())
         prazo = self.a.expira_em
         self.assertEqual(self.client.post(self.url(), self.dados()).status_code, 302)
         self.a.refresh_from_db()
         self.assertEqual(self.a.versao_dados, 1)
-        self.assertEqual(self.a.expira_em, prazo)
+        self.assertGreater(self.a.expira_em, prazo)  # D2: salvar renova a validade
+        self.assertLessEqual(self.a.expira_em - self.a.criado_em, LIMITE_TOTAL)
         self.assertNotIn('documento_fiscal', self.a.dados)
         self.assertContains(self.confirmar('1'), 'Lançamento realizado com sucesso')
+
+    def test_confirmacao_mostra_a_ficha_e_o_concluido_resume_o_que_foi_lancado(self):
+        self.a = criar_analise(self.client.session, resultado_da_nota())
+        self.assertEqual(self.client.post(self.url(), self.dados()).status_code, 302)
+        tela = self.client.get(self.url('analise_confirmar'))
+        self.assertContains(tela, '<dl class="ficha">')
+        self.assertContains(tela, '<div class="topo-fluxo">')
+        self.assertContains(tela, '<div class="acoes-rodape">')
+        self.assertContains(tela, '<li aria-current="step"><b>3.</b>Confirmar<small>Em andamento</small></li>', html=False)
+        concluido = self.confirmar('1')
+        movimento = MovimentoConta.objects.get()
+        self.assertContains(concluido, 'Resumo do lançamento')
+        self.assertContains(concluido, f'A pagar nº {movimento.pk}')
+        self.assertContains(concluido, 'R$ 150,00')
+        self.assertContains(concluido, '1 (a primeira vence em 01/11/2026)')
+        self.assertContains(concluido, '<dl class="ficha">')
 
     def test_pdf_agents_v2_conferencia_correcao_decisoes_e_lancamento(self):
         bruto = deepcopy(self.original)
@@ -184,7 +200,7 @@ class IntegracaoFinalTests(TestCase):
         self.assertEqual(self.client.post(self.url('analise_confirmar', a), {'confirmar': 'on'}).status_code, 409)
         self.assertEqual(MovimentoConta.objects.count(), 0)
 
-    def test_financeiro_incompleto_corrigivel_e_consultas_v2_sem_escrita(self):
+    def test_financeiro_incompleto_corrigivel_e_conferencia_v2_sem_escrita(self):
         d = deepcopy(self.original)
         d['valor_total'] = None
         d['parcelas'][0]['valor'] = None
@@ -194,12 +210,11 @@ class IntegracaoFinalTests(TestCase):
         d['faturado']['cnpj'] = '12ABC34501DE35'
         antes = deepcopy(d)
         with CaptureQueriesContext(connection) as queries:
-            adaptada = adaptar_resultado(d)
-            consultada = consultar_resultado(d)
-        self.assertIsNone(adaptada.valor_total)
-        self.assertIsNone(adaptada.parcelas[0].valor)
-        self.assertEqual(consultada.fornecedor.documento, '12345678909')
-        self.assertEqual(consultada.faturado.documento, '12ABC34501DE35')
+            nota = conferir_nota(d)
+        self.assertIsNone(nota.valor_total)
+        self.assertEqual(nota.parcelas, ())
+        self.assertEqual(nota.fornecedor.documento, '12345678909')
+        self.assertEqual(nota.faturado.documento, '12ABC34501DE35')
         self.assertEqual(d, antes)
         for q in queries:
             self.assertTrue(q['sql'].lstrip().upper().startswith('SELECT'))
@@ -209,12 +224,12 @@ class IntegracaoFinalTests(TestCase):
 
     def test_ambiguidade_fornecedor_nao_escolhe_documento(self):
         self.original['fornecedor']['cpf'] = '12345678909'
-        with self.assertRaises(ValidationError) as contexto:
-            consultar_resultado(self.original)
-        self.assertEqual(contexto.exception.code, 'fornecedor_documento_ambiguo')
+        nota = conferir_nota(self.original)
+        self.assertIsNone(nota.fornecedor.documento)
+        self.assertIn(Problema('fornecedor.documento', 'escolha_necessaria'), nota.problemas)
 
     def test_rollback_real_depois_de_criar_pessoas_nao_mostra_sucesso(self):
-        with mock.patch('financeiro.lancamento_nota.registrar_movimento', side_effect=DatabaseError('detalhe-interno')):
+        with mock.patch('documentos.lancamento_nota.registrar_movimento', side_effect=DatabaseError('detalhe-interno')):
             r = self.confirmar()
         self.assertEqual(r.status_code, 503)
         self.assertNotContains(r, 'detalhe-interno', status_code=503)

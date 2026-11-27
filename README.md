@@ -66,12 +66,12 @@ Preencha localmente os nomes abaixo. Não publique valores reais.
 
 | Grupo | Variáveis |
 | --- | --- |
-| Django | `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` |
+| Django | `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_PROXIES_CONFIAVEIS` |
 | Login demo | `DEMO_LOGIN`, `DEMO_PASSWORD` |
 | Aplicação / PostgreSQL | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSLMODE`, `DB_SSLROOTCERT`, `DB_CONNECT_TIMEOUT` |
 | TEST local separado | `DB_TEST_HOST`, `DB_TEST_PORT`, `DB_TEST_NAME`, `DB_TEST_USER`, `DB_TEST_PASSWORD`, `DB_TEST_CONNECT_TIMEOUT` |
 | Gemini | `GEMINI_MODEL`, `GEMINI_TIMEOUT_SEGUNDOS`, `GEMINI_MAX_TENTATIVAS`; a API Key vem do formulário |
-| Limites e publicação | `MAX_PDF_UPLOAD_SIZE_MB`, `GUNICORN_TIMEOUT`, `WEB_CONCURRENCY`, `PORT`, `RENDER_EXTERNAL_HOSTNAME`, `RENDER_GIT_COMMIT` |
+| Limites e publicação | `MAX_PDF_UPLOAD_SIZE_MB`, `GUNICORN_TIMEOUT`, `WEB_CONCURRENCY`, `WEB_THREADS`, `PORT`, `RENDER_EXTERNAL_HOSTNAME`, `RENDER_GIT_COMMIT` |
 
 `DB_HOST`, `DB_NAME`, `DB_USER` e `DB_PASSWORD` são obrigatórias para iniciar.
 A conexão normal exige TLS: `require`, `verify-ca` ou `verify-full`.

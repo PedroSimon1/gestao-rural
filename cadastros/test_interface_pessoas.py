@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -217,6 +218,74 @@ class InterfacePessoasTests(TestCase):
         form.save()
         pessoa.refresh_from_db()
         self.assertEqual((pessoa.razao_social, pessoa.documento, pessoa.situacao_documental), ("Corrigido", CNPJ, SituacaoDocumental.COMPLETO))
+
+    def lancar_para(self, pessoa, faturado=None):
+        classificacao = Classificacao.objects.create(codigo="RECEITA_DOC", descricao="Receita doc", tipo=TipoClassificacao.RECEITA)
+        registrar_movimento(DadosMovimento(
+            tipo=TipoMovimento.ARECEBER, origem=OrigemMovimento.MANUAL,
+            contraparte=pessoa, faturado=faturado, valor_total=Decimal("10.00"),
+            classificacoes=(ItemClassificacao(classificacao, principal=True),),
+            parcelas=(ItemParcela(numero=1, data_vencimento=date(2026, 12, 1), valor=Decimal("10.00")),),
+        ))
+
+    def test_documento_nao_muda_quando_a_pessoa_consta_em_movimento(self):
+        self.lancar_para(self.pessoa)
+
+        resp = self.editar(documento=CNPJ)
+
+        self.assertEqual(resp.status_code, 302)
+        self.pessoa.refresh_from_db()
+        self.assertEqual((self.pessoa.documento, self.pessoa.tipo_documento, self.pessoa.razao_social), (CPF, "CPF", "Pessoa Editada"))
+        pagina = self.client.get(self.url("pessoa_editar", self.pessoa.pk))
+        self.assertTrue(pagina.context["form"].fields["documento"].disabled)
+        self.assertContains(pagina, "já consta em lançamentos financeiros")
+
+    def test_documento_tambem_trava_para_quem_so_foi_faturado(self):
+        faturado = Pessoa.objects.create(documento=CNPJ, razao_social="Faturado")
+        faturado.atribuir_papel(Papel.FATURADO)
+        self.lancar_para(self.pessoa, faturado=faturado)
+
+        form = PessoaForm({"razao_social": "Faturado 2", "documento": CPF}, instance=faturado)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        faturado.refresh_from_db()
+        self.assertEqual((faturado.documento, faturado.razao_social), (CNPJ, "Faturado 2"))
+
+    def test_sem_movimento_o_documento_continua_editavel(self):
+        resp = self.editar(documento=CNPJ)
+
+        self.assertEqual(resp.status_code, 302)
+        self.pessoa.refresh_from_db()
+        self.assertEqual((self.pessoa.documento, self.pessoa.tipo_documento), (CNPJ, "CNPJ"))
+
+    def test_modelo_recusa_trocar_o_documento_de_quem_consta_em_movimento(self):
+        self.lancar_para(self.pessoa)
+        outra_leitura = Pessoa.objects.get(pk=self.pessoa.pk)
+        outra_leitura.documento = CNPJ
+
+        with self.assertRaises(ValidationError) as contexto:
+            outra_leitura.save()
+        self.assertEqual(contexto.exception.error_dict["documento"][0].code, "documento_imutavel")
+        with self.assertRaises(ValidationError):
+            outra_leitura.full_clean()
+        self.pessoa.refresh_from_db()
+        self.assertEqual((self.pessoa.documento, self.pessoa.tipo_documento), (CPF, "CPF"))
+
+    def test_modelo_ainda_salva_nome_e_status_e_o_mesmo_documento(self):
+        self.lancar_para(self.pessoa)
+        pessoa = Pessoa.objects.get(pk=self.pessoa.pk)
+        pessoa.razao_social = "Outro Nome"
+        pessoa.save()
+        pessoa.documento = "123.456.789-09"  # o mesmo CPF, só formatado
+        pessoa.save()
+        pessoa.inativar()
+        # Cópia desatualizada gravando só o nome não reescreve o documento.
+        pessoa.documento = CNPJ
+        pessoa.save(update_fields=["razao_social", "atualizado_em"])
+
+        self.pessoa.refresh_from_db()
+        self.assertEqual((self.pessoa.razao_social, self.pessoa.documento, self.pessoa.status), ("Outro Nome", CPF, Status.INATIVO))
 
     def test_edicao_e_inativacao_preservam_movimento_e_parcelas(self):
         classificacao = Classificacao.objects.create(codigo="RECEITA_TESTE", descricao="Receita teste", tipo=TipoClassificacao.RECEITA)

@@ -9,7 +9,7 @@ import re
 
 from django.core.exceptions import ValidationError
 
-from agents.extrator.schemas import cnpj_dv_valido, cpf_dv_valido
+from comum.documentos_br import cnpj_dv_valido, cpf_dv_valido
 
 TIPO_CPF = "CPF"
 TIPO_CNPJ = "CNPJ"

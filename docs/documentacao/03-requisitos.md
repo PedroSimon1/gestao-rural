@@ -24,7 +24,7 @@ Legenda de situação: **Atendido** (implementado e testado localmente), **Parci
 | RF-07 | Consultar no banco se a **classificação de despesa** existe | FLU-03 | Atendido | `cadastros/consultas.consultar_classificacao` |
 | RF-08 | Exibir o resultado das consultas ("EXISTE – ID n" / "NÃO EXISTE") | FLU-04 | Atendido | `documentos/views.py::_linhas_consultas`, tela de conferência e de confirmação |
 | RF-09 | Criar fornecedor, faturado e classificação inexistentes | FLU-05, 06, 07 | **Parcial**: pessoas completas e classificação são criadas com decisão explícita; **cadastro incompleto pelo botão da tela (F-6) não** | `cadastros/resolucao.py`, `documentos/views_analises.py` (criar classificação) |
-| RF-10 | Criar o movimento (APAGAR) e suas parcelas | FLU-08, 09 | Atendido | `financeiro/lancamento_nota.py`, `financeiro/servicos.py` |
+| RF-10 | Criar o movimento (APAGAR) e suas parcelas | FLU-08, 09 | Atendido | `documentos/lancamento_nota.py`, `financeiro/servicos.py` |
 | RF-11 | Informar ao usuário que o lançamento foi concluído | FLU-10 | Atendido (só depois do COMMIT) | `documentos/views_confirmacao.py`, `lancamento_sucesso.html` |
 | RF-12 | Manter Fornecedor / Cliente / Faturado (`PESSOAS`) | FUN-01, 02, 03 | Atendido (incluir, consultar, editar, inativar, reativar; vários papéis) | `cadastros/views.py` |
 | RF-13 | Manter Tipo de Receita / Tipo de Despesa (`CLASSIFICACAO`) | FUN-04, 05 | Atendido (tipo e código imutáveis; descrição e status editáveis) | `cadastros/views_classificacoes.py` |
@@ -35,7 +35,7 @@ Legenda de situação: **Atendido** (implementado e testado localmente), **Parci
 | RF-18 | Conferir e **corrigir** os dados extraídos antes de confirmar, com revalidação no servidor | DQ-11 | Atendido (campos fechados em `CAMPOS_CORRIGIVEIS`) | `documentos/correcoes.py`, `conferencia.py`, `interface_conferencia.py` |
 | RF-19 | **Cancelar** uma análise (apaga os dados da nota) | DQ-09 | Atendido | `views_analises.analise_cancelar`, `analises.cancelar_analise` |
 | RF-20 | **Impedir lançar a mesma nota duas vezes** (identidade fiscal e idempotência da análise) | DQ-10, 15 a 18 | Atendido | `financeiro/identidade_fiscal.py`, `NotaFiscalLancada`, `analise_origem_id` único |
-| RF-21 | **Consultar contas** (lista com filtros e detalhe com classificações e parcelas) | GR-49 | **Parcial**: só consulta; sem editar, cancelar, baixar ou histórico | `financeiro/views_consultas.py` |
+| RF-21 | **Consultar contas** (lista com filtros e detalhe com classificações, parcelas, valor em aberto e nota fiscal) e **dar baixa** em parcela (paga/recebida, com desfazer) | GR-49, D1 | **Parcial**: consulta e baixa simples; sem editar, cancelar movimento/parcela, pagamento parcial ou histórico | `financeiro/views_consultas.py`, `financeiro/views_pagamentos.py`, `financeiro/pagamentos.py` |
 | RF-22 | Criar uma **classificação de despesa** durante a conferência, sem perder o rascunho | FLU-07 | Atendido | `views_analises.analise_conferencia` (ação `criar_classificacao`) |
 
 ### 1.1 Pendente de confirmação (dúvidas de escopo)
