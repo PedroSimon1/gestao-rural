@@ -20,6 +20,17 @@
 <dt>Data de emissão</dt><dd>{{ detalhe.nota_fiscal.data_emissao|date:'d/m/Y'|default:'Não registrada' }}</dd>
 {% if detalhe.nota_fiscal.chave_acesso %}<dt>Chave de acesso</dt><dd class="texto-quebra">{{ detalhe.nota_fiscal.chave_acesso }}</dd>{% endif %}</dl>
 </section>
+{% if detalhe.nota_fiscal.itens %}
+<h2>Itens da nota fiscal</h2>
+<div class="tabela-responsiva"><table class="tabela-cadastros">
+<thead><tr><th scope="col">Descrição</th><th scope="col" class="num">Quantidade</th><th scope="col" class="num">Valor unitário</th><th scope="col" class="num">Valor total</th></tr></thead>
+<tbody>{% for item in detalhe.nota_fiscal.itens %}
+<tr><td class="principal">{{ item.descricao }}</td>
+<td class="num" data-rotulo="Quantidade">{% if item.quantidade is not None %}{{ item.quantidade|floatformat:'-6' }}{% else %}Não informada{% endif %}</td>
+<td class="num" data-rotulo="Valor unitário">{% if item.valor_unitario is not None %}{{ item.valor_unitario|moeda }}{% else %}Não informado{% endif %}</td>
+<td class="num" data-rotulo="Valor total">{% if item.valor_total is not None %}{{ item.valor_total|moeda }}{% else %}Não informado{% endif %}</td></tr>
+{% endfor %}</tbody></table></div>
+{% endif %}
 {% endif %}
 <h2>Classificações</h2>
 <ul>{% for c in detalhe.classificacoes %}<li>{{ c.descricao }} ({{ c.codigo }}){% if c.principal %} — Principal{% endif %}</li>{% endfor %}</ul>

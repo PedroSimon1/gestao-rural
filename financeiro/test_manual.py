@@ -19,6 +19,8 @@ from django.test.utils import CaptureQueriesContext
 
 from cadastros.models import Classificacao, Papel, Pessoa, SituacaoDocumental
 
+from .identidade_fiscal import identificar_nota, registrar_identidade_fiscal
+from .itens_nota import registrar_itens_nota
 from .manual import (
     ClassificacaoManual, ContaManual, DetalheMovimento, ParcelaManual, consultar_movimento,
     listar_movimentos, registrar_conta_manual,
@@ -352,6 +354,22 @@ class ConsultaTests(ContaManualBase, TestCase):
             for c in consultas.captured_queries
         ))
         self.assertEqual(contagens(), antes)
+
+    def test_detalhe_materializa_itens_da_nota_em_consulta_unica(self):
+        movimento, _ = registrar_movimento(self.apagar())
+        nota, _ = registrar_identidade_fiscal(movimento, identificar_nota(
+            emitente_cnpj=self.fornecedor.documento, modelo="55", serie=1, numero=123,
+        ))
+        registrar_itens_nota(nota, [{"descricao": f"Item {n}"} for n in range(20)])
+        with CaptureQueriesContext(connection) as consultas:
+            detalhe = consultar_movimento(movimento.pk)
+        self.assertEqual(len(detalhe.nota_fiscal.itens), 20)
+        self.assertEqual(
+            len([c for c in consultas if 'FROM "itens_notas_fiscais"' in c["sql"]]), 1,
+        )
+        with self.assertNumQueries(0):
+            self.assertEqual(detalhe.nota_fiscal.itens[0].descricao, "Item 0")
+            self.assertIsNone(detalhe.nota_fiscal.itens[0].quantidade)
 
 
 class RepeticaoTests(ContaManualBase, TestCase):

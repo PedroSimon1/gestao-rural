@@ -30,6 +30,7 @@ from django.core.exceptions import ValidationError
 from cadastros.models import Classificacao
 from cadastros.resolucao import Decisao, ParteNota, PessoaResolvida, resolver_partes
 from financeiro.identidade_fiscal import registrar_identidade_fiscal
+from financeiro.itens_nota import registrar_itens_nota
 from financeiro.models import MovimentoConta, NotaFiscalLancada, OrigemMovimento, TipoMovimento
 from financeiro.servicos import DadosMovimento, ItemClassificacao, registrar_movimento
 
@@ -134,6 +135,7 @@ def _gravador(solicitacao):
         nota_fiscal, _ = registrar_identidade_fiscal(
             movimento, nota.identidade_fiscal, data_emissao=nota.data_emissao,
         )
+        registrar_itens_nota(nota_fiscal, dados.get("itens") or [])
         return LancamentoNota(movimento, nota_fiscal, fornecedor, faturado)
 
     return gravar

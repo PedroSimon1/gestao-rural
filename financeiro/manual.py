@@ -103,6 +103,14 @@ class ResumoMovimento:
 
 
 @dataclass(frozen=True)
+class ItemDaNota:
+    descricao: str
+    quantidade: Decimal | None
+    valor_unitario: Decimal | None
+    valor_total: Decimal | None
+
+
+@dataclass(frozen=True)
 class NotaDoMovimento:
     """Identificação fiscal da nota que originou o movimento (só movimentos NOTA_FISCAL)."""
     modelo: str
@@ -110,6 +118,7 @@ class NotaDoMovimento:
     numero: int
     data_emissao: date | None
     chave_acesso: str | None
+    itens: tuple[ItemDaNota, ...]
 
 
 @dataclass(frozen=True)
@@ -307,7 +316,7 @@ def consultar_movimento(movimento_id):
         ParcelaDoMovimento(p.numero, p.data_vencimento, p.valor, p.status, p.pk, p.pago_em)
         for p in movimento.parcelas.order_by("numero")
     )
-    nota = NotaFiscalLancada.objects.filter(movimento_id=movimento.pk).first()
+    nota = NotaFiscalLancada.objects.prefetch_related("itens").filter(movimento_id=movimento.pk).first()
     return DetalheMovimento(
         **_comum(movimento),
         classificacoes=tuple(
@@ -324,5 +333,9 @@ def consultar_movimento(movimento_id):
         ),
         nota_fiscal=None if nota is None else NotaDoMovimento(
             ModeloNota(nota.modelo).label, nota.serie, nota.numero, nota.data_emissao, nota.chave_acesso,
+            tuple(
+                ItemDaNota(item.descricao, item.quantidade, item.valor_unitario, item.valor_total)
+                for item in nota.itens.all()
+            ),
         ),
     )
