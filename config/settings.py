@@ -250,3 +250,10 @@ GEMINI_MAX_TENTATIVAS = os.getenv("GEMINI_MAX_TENTATIVAS") or "3"
 
 DEMO_LOGIN = os.getenv("DEMO_LOGIN")
 DEMO_PASSWORD = os.getenv("DEMO_PASSWORD")
+
+# Quantos proxies confiáveis da plataforma acrescentam o endereço do cliente a
+# X-Forwarded-For (usuarios/limite.py). 1 = só o proxy do Render; 0 = sem proxy.
+_proxies_confiaveis = os.getenv("DJANGO_PROXIES_CONFIAVEIS", "").strip() or "1"
+if not (_proxies_confiaveis.isascii() and _proxies_confiaveis.isdecimal()):
+    raise ImproperlyConfigured("DJANGO_PROXIES_CONFIAVEIS deve ser um inteiro maior ou igual a zero.")
+PROXIES_CONFIAVEIS = int(_proxies_confiaveis)
