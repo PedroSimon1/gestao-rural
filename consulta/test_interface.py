@@ -66,6 +66,17 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         for explicacao in ("Total de contas lançadas.", "Prontas para a busca semântica.", "Ainda fora da busca semântica.", "Mudaram depois de indexadas"):
             self.assertIn(explicacao, html)
 
+    def test_botao_consultar_fica_no_card_da_chave_e_o_indice_diz_o_que_faz(self):
+        html = self.client.get(self.url).content.decode()
+        inicio = html.index('aria-labelledby="titulo-passo-chave"')
+        card = html[inicio:html.index("</section>", inicio)]
+        # O envio da pergunta fica junto da chave do passo 3, no mesmo card e no mesmo formulário.
+        self.assertIn(">Consultar</button>", card)
+        self.assertIn('name="gemini_api_key"', card)
+        self.assertEqual(html.count(">Consultar</button>"), 1)
+        # O card do índice deixa claro que "Atualizar índice" não responde perguntas.
+        self.assertIn("só prepara a busca semântica; ele não responde perguntas", html)
+
     def test_post_valido_mostra_resposta_escapada_com_quebras_e_fontes_com_link(self):
         racao = self.criar_nota(descricao="Sal mineral")
         cliente = ClienteFalso("Total <b>R$ 1.250,40</b>\nsegunda linha (#%d)" % racao.pk)
