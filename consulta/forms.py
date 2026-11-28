@@ -16,6 +16,21 @@ def _campo_da_chave(ajuda):
     return campo
 
 
+class RadioComDescricao(forms.RadioSelect):
+    """Rádio em que cada opção leva um texto curto de explicação (`radio.data.descricao` no template)."""
+
+    def __init__(self, *args, descricoes=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.descricoes = descricoes or {}
+
+    def create_option(self, name, value, *args, **kwargs):
+        opcao = super().create_option(name, value, *args, **kwargs)
+        opcao["descricao"] = self.descricoes.get(value, "")
+        if opcao["descricao"]:
+            opcao["attrs"]["aria-describedby"] = f'{opcao["attrs"]["id"]}_descricao'
+        return opcao
+
+
 class ConsultaForm(forms.Form):
     pergunta = forms.CharField(
         label="Pergunta",
@@ -32,7 +47,7 @@ class ConsultaForm(forms.Form):
         label="Forma de busca",
         choices=[(codigo, modo.rotulo) for codigo, modo in MODOS.items()],
         initial=MODO_SIMPLES,
-        widget=forms.RadioSelect,
+        widget=RadioComDescricao(descricoes={codigo: modo.descricao for codigo, modo in MODOS.items()}),
         error_messages={
             "required": "Escolha uma forma de busca.",
             "invalid_choice": "Escolha uma forma de busca válida.",

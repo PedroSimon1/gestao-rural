@@ -307,7 +307,7 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertIn("Busca semântica", html)
         self.assertIn("Índice semântico", html)
         for rotulo, valor in (("Contas no sistema", 3), ("Indexadas", 2), ("Pendentes", 1), ("Desatualizadas", 0)):
-            self.assertRegex(html, rf"<dt>{rotulo}[^<]*</dt><dd>{valor}</dd>")
+            self.assertRegex(html, rf"<dt>{rotulo}[^<]*</dt><dd>{valor}<small>")
         self.assertIn("Atualizar índice", html)
         formulario = re.search(r'<form\b[^>]*action="/consulta/indice/"[^>]*>.*?</form>', html, re.S).group(0)
         self.assertRegex(formulario, r'<form\b[^>]*method="post"[^>]*data-submit-lock')
@@ -363,8 +363,8 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, "Indexados neste lote: 2. Total no índice: 2 de 3; faltam 1.")
         self.assertContains(resposta, "Clique em &quot;Atualizar índice&quot; novamente para continuar.")
-        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>2</dd>")
-        self.assertRegex(resposta.content.decode(), r"<dt>Pendentes[^<]*</dt><dd>1</dd>")
+        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>2<small>")
+        self.assertRegex(resposta.content.decode(), r"<dt>Pendentes[^<]*</dt><dd>1<small>")
         self.fabrica.assert_called_once_with(api_key=CHAVE)
         self.assertEqual(EmbeddingMovimento.objects.count(), 2)
 
@@ -372,7 +372,7 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertContains(resposta, "Indexados neste lote: 1. Total no índice: 3 de 3; faltam 0.")
         self.assertContains(resposta, "O índice está completo.")
         self.assertNotContains(resposta, "novamente para continuar")
-        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>3</dd>")
+        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>3<small>")
         self.assertEqual(EmbeddingMovimento.objects.count(), 3)
 
     def test_atualizar_indice_aparece_na_regiao_de_mensagens(self):

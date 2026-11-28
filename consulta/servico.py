@@ -84,6 +84,8 @@ class Modo:
     recuperar: Callable[[str, int, GeminiClient], list[Fonte]]
     # (fontes) -> aviso a exibir junto da resposta, ou None. Pode consultar o banco.
     aviso: Callable[[list[Fonte]], str | None]
+    # Texto curto e simples que a tela mostra ao lado da opção.
+    descricao: str = ""
 
 
 def _recuperar_simples(pergunta, limite, cliente):
@@ -119,9 +121,15 @@ def _aviso_semantico(fontes):
 
 
 MODOS = {
-    MODO_SIMPLES: Modo("Busca simples (palavras da pergunta)", _recuperar_simples, _aviso_simples),
+    MODO_SIMPLES: Modo(
+        "Busca simples (palavras da pergunta)", _recuperar_simples, _aviso_simples,
+        "Procura as palavras da sua pergunta nos fornecedores, itens, categorias e número da nota. "
+        "Boa quando você sabe o termo exato (ex.: vacina).",
+    ),
     MODO_SEMANTICO: Modo(
         "Busca semântica (por significado, com embeddings)", _recuperar_semantico, _aviso_semantico,
+        "Procura pelo sentido da pergunta, não só pelas palavras (ex.: “alimentação do gado” "
+        "encontra ração e sal mineral). Só vê as contas que já estão no índice, mais abaixo.",
     ),
 }
 

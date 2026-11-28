@@ -4206,3 +4206,36 @@ Usa `ItemNotaFiscal`, `GeminiClient.gerar_embeddings` e as variáveis `RAG_*` da
 ## 49.10 - Git
 
 Commits sem co-autor nas duas branches (`feature/n3-rag-etapa2-simples`, `feature/n3-rag-etapa2-semantico`), mescladas localmente em `docs/n3-RAG-planejamento`, com merge `--no-ff`. Nenhum push; o push é manual.
+
+# 50 - N3 Etapa 3: reorganização da tela de consulta (27/11/2026)
+
+## 50.1 - Identificação
+
+Ajuste de interface pedido antes do teste com a chave real. Data: 27/11/2026. Branch `feature/n3-rag-tela-organizada` (worktree próprio), mesclada localmente em `docs/n3-RAG-planejamento`. Depende da seção 49.
+
+## 50.2 - Objetivo
+
+Deixar `/consulta/` organizada e explicar, em texto simples e curto, o que significa cada parte da tela.
+
+## 50.3 - Implementação
+
+- **Ordem da página:** "Como funciona" (3 passos) → aviso de privacidade → "1. Sua pergunta" → "2. Como buscar as contas" → "3. Chave do Gemini" → botão Consultar → resposta e fontes → "Índice semântico".
+- **Explicações:** cada passo tem uma linha de apoio; as duas formas de busca têm descrição própria ao lado do rádio (`servico.Modo.descricao`, ligada ao rádio por `aria-describedby`); a legenda das fontes explica a pontuação (busca simples) ou o cosseno de 0 a 1 (busca semântica); o índice explica o que é, quando atualizar e cada contagem (contas no sistema, indexadas, pendentes, desatualizadas).
+- **Formulário:** `RadioComDescricao` (widget) em `consulta/forms.py`; o markup do rádio e os nomes dos campos não mudaram. As barras de ação dos dois formulários passaram a ser fixas na página (`acoes-rodape--solta`), em vez de coladas no rodapé da janela, para não cobrirem as opções.
+- **CSS:** classes `explicacao-passos`, `opcoes-busca`, `opcao-busca*`, `acoes-rodape--solta` e legenda em `.resumo__item small` em `documentos/static/documentos/documentos.css`. A classe `passos` já existia (indicador de etapas) e não foi reutilizada.
+
+## 50.4 - Arquivos
+
+Alterados: `consulta/templates/consulta/consulta.html`, `consulta/forms.py`, `consulta/servico.py` (`Modo.descricao`), `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`, `consulta/test_semantico.py`, `docs/documentacao/08-interface-e-rotas.md`. Sem mudança de regra de negócio, de banco ou de migrations.
+
+## 50.5 - Testes e conferência
+
+`check`, `ruff check .`, `makemigrations --check --dry-run` e a suíte completa: resultado no relatório da tarefa. Conferência visual no navegador contra um PostgreSQL local temporário (removido) e o Gemini simulado: tela inicial, índice em lotes e consulta semântica. Nenhuma chamada real ao Gemini.
+
+## 50.6 - Pendências
+
+Os textos explicativos foram escritos sem validação com usuários; ajuste o vocabulário se necessário.
+
+## 50.7 - Git
+
+Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
