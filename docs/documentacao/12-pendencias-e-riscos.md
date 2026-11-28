@@ -29,7 +29,7 @@ e nas auditorias (GR-16, de 27/10/2026, e de 24/11/2026 — [`docs/auditoria/Aud
 | Q-10 | Contas a receber entram no fluxo automático? | Equipe | Não, hoje |
 | PT-05 | DEV/QA compartilhado ou DEV local obrigatório? | Equipe | O ADR admite compartilhado coordenado; não alterar silenciosamente |
 | — | Uso de pessoa **incompleta** em movimentos financeiros (DQ-05) | Equipe | Hoje: **bloqueado** até regularizar |
-| — | Retenção/LGPD: CPF/CNPJ em texto simples, envio do PDF e do contexto RAG ao Gemini | Equipe | ADR-002 segue como proposta; há aviso específico na tela Consultar, sem resolver as decisões de privacidade |
+| — | Retenção/LGPD: CPF/CNPJ em texto simples, envio do PDF e do contexto RAG ao Gemini | Equipe | ADR-002 segue como proposta; a tela Consultar **não tem aviso de privacidade** (retirado a pedido, por não ser exigido pela atividade) |
 | — | Cancelamento de movimento e estorno com histórico | Equipe | Sem contrato aprovado (a baixa simples de parcela foi aprovada e feita: D1) |
 | ADR-003 | Decisões de RAG simples/semântico, índice e itens | Equipe (Gustavo Lopes) | Implementação existe; [ADR-003](../arquitetura/ADR-003-rag-consulta.md) ainda **sem aprovação formal** |
 

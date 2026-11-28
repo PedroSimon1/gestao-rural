@@ -177,18 +177,12 @@ h3 + dl.resumo { margin-top: 8px; }
 .acoes-rodape.acoes-rodape--solta { position: static; padding-left: 0; padding-right: 0; background: none; }
 .resumo__item small { display: block; margin-top: 2px; font-weight: 400; font-size: .82rem; color: var(--cor-texto-suave); }
 /* Consulta: cartão da pergunta em destaque (é onde o usuário escreve) */
-.cartao--destaque { margin-top: 20px; margin-bottom: 20px; border: 2px solid var(--cor-marca); box-shadow: 0 0 0 4px rgba(37, 87, 58, .12); } /* 20px (e não 16): o halo de 4px come parte do vão, que fica visível igual ao dos outros cartões */
+.cartao--destaque { margin-top: 4px; margin-bottom: 20px; border: 2px solid var(--cor-marca); box-shadow: 0 0 0 4px rgba(37, 87, 58, .12); } /* O formulário é uma coluna flex com gap de 8px e as margens não colapsam: 4px em cima (abaixo do cabeçalho) e 20px embaixo (menos o halo de 4px) dão um vão visível de 24px, igual ao dos outros cartões */
 .selo-inicio { margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--cor-marca); color: #ffffff; font-size: .78rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
 .cartao--destaque textarea.campo-pergunta { max-width: none; min-height: 150px; padding: 14px 16px; border: 2px solid var(--cor-marca); background: #fbfdfb; font-size: 1.1rem; line-height: 1.5; resize: vertical; }
 .cartao--destaque textarea.campo-pergunta::placeholder { color: var(--cor-texto-suave); opacity: .75; }
 .cartao--destaque textarea.campo-pergunta:focus { outline: 3px solid var(--cor-foco); outline-offset: 1px; background: #ffffff; }
 .cartao--destaque textarea.campo-pergunta[aria-invalid="true"] { border-color: var(--cor-erro); }
-/* Consulta: aviso de privacidade em evidência. O formulário é uma coluna flex com gap de 8px (as margens não colapsam),
-   então os vãos visíveis entre blocos são de 24px: aqui 24px acima (entre o cabeçalho e o aviso) e 8px + 20px do cartão em destaque (menos o halo de 4px) abaixo. */
-.bloco-privacidade { margin: 24px 0 8px; }
-.bloco-privacidade .aviso { margin: 0; padding: 14px 18px; background: #fff3d1; border: 2px solid var(--cor-aviso); border-left-width: 8px; }
-.bloco-privacidade .aviso > strong { font-size: 1.1rem; }
-.bloco-privacidade .aviso p { font-size: 1rem; }
 /* dl sem agrupamento (rótulo e valor soltos): duas colunas alinhadas */
 main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
   display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0 0 16px;

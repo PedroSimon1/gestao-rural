@@ -38,13 +38,10 @@ class TelaConsultaTests(DadosConsulta, TestCase):
     def test_rota(self):
         self.assertEqual(self.url, "/consulta/")
 
-    def test_get_mostra_formulario_aviso_de_privacidade_e_trava_de_envio(self):
+    def test_get_mostra_formulario_e_trava_de_envio(self):
         resposta = self.client.get(self.url)
         html = resposta.content.decode()
         self.assertEqual(resposta.status_code, 200)
-        self.assertIn("Google Gemini", html)
-        self.assertIn("sem CPF/CNPJ", html)
-        self.assertNotIn("Fora de produção", html)
         self.assertRegex(html, r'<form\b[^>]*method="post"[^>]*data-submit-lock')
         self.assertContains(resposta, "<textarea", status_code=200)
         self.assertRegex(html, r'<input type="password"[^>]*name="gemini_api_key"|name="gemini_api_key"[^>]*type="password"')
@@ -77,11 +74,6 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         self.assertEqual(html.count(">Consultar</button>"), 1)
         # O card do índice deixa claro que "Atualizar índice" não responde perguntas.
         self.assertIn("só prepara a busca semântica; ele não responde perguntas", html)
-
-    def test_aviso_de_privacidade_fica_num_bloco_proprio_antes_do_formulario(self):
-        html = self.client.get(self.url).content.decode()
-        bloco = html.index('class="bloco-privacidade"')
-        self.assertIn("Privacidade", html[bloco:html.index("<form", bloco)])
 
     def test_campo_da_pergunta_aparece_em_destaque_com_dica_de_onde_escrever(self):
         html = self.client.get(self.url).content.decode()

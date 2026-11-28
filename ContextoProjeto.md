@@ -4268,3 +4268,12 @@ Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `doc
 - **Mudança:** `consulta/templates/consulta/consulta.html` perdeu o cartão "Como funciona"; o CSS `explicacao-passos` (que só ele usava) foi removido de `documentos/static/documentos/documentos.css`; o aviso termina em "...também são enviados." Os testes de `consulta/test_interface.py` passam a conferir a ausência de "Como funciona" e da frase retirada; `docs/documentacao/08` e `09` foram ajustados. As seções 50.3 e 50.10 acima descrevem o estado anterior (histórico).
 - **Atenção:** a recomendação de usar só dados fictícios fora de produção (ADR-001 T-06; ADR-002 PRIV-05) deixou de aparecer na tela e passa a valer só por procedimento. O aviso na tela continua informando o que é enviado ao Gemini.
 - **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.12 - Ajuste: bloco "Privacidade" removido (27/11/2026, branch `feature/n3-rag-sem-aviso`)
+
+- **Pedido:** retirar o bloco "Privacidade" da tela de consulta. Motivo: a atividade da N3 só exige uma tela para digitar perguntas e um retorno elaborado por LLM; o aviso foi iniciativa do desenvolvimento (ADR-003 D-8, apoiada no ADR-002 PRIV-03, ainda em rascunho).
+- **Mudança:** `consulta/templates/consulta/consulta.html` perdeu o bloco; o CSS `bloco-privacidade` foi removido de `documentos/static/documentos/documentos.css`; testes (`consulta/test_interface.py`, `consulta/test_semantico.py`) deixam de conferir o aviso; `docs/documentacao/08`, `09` e `12` e o ADR-003 (D-8) foram ajustados. As seções 49.3 e 50.3, 50.10 e 50.11 descrevem o estado anterior (histórico).
+- **O que continua valendo no código:** o contexto enviado ao Gemini não inclui CPF/CNPJ; os dados do banco e dos itens são tratados como não confiáveis no prompt; a chave Gemini não é guardada. Mudou só o aviso na tela.
+- **Pendência de privacidade:** o usuário não é mais informado, na tela, de que a pergunta e os dados das contas (e, ao atualizar o índice, os textos das contas) vão ao Google Gemini; a orientação de usar só dados fictícios fora de produção (ADR-001 T-06; ADR-002 PRIV-05) vale por procedimento. O ADR-002 segue em aberto.
+- **Espaçamento:** sem o aviso, a margem superior do cartão em destaque passou de 20 px para 4 px (`documentos.css`), e o vão entre o cabeçalho e o cartão 1 voltou a ser igual ao dos demais blocos (28 px caixa a caixa, 24 px visíveis descontado o halo; medido no navegador).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.

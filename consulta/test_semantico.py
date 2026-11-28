@@ -318,7 +318,6 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertRegex(html, r'<form\b[^>]*action="/consulta/"[^>]*data-submit-lock')
         ids = re.findall(r'\bid="([^"]+)"', html)
         self.assertEqual(sorted({i for i in ids if ids.count(i) > 1}), [])
-        self.assertIn("textos de todas as contas indexadas", html)
         self.assertIn("atualizar o índice", html)
 
     def test_estado_do_indice_indisponivel_nao_quebra_a_pagina(self):

@@ -27,7 +27,7 @@ A N3 pede uma tela para perguntas sobre o banco de dados, com resposta elaborada
 | D-5 | Uma tela `/consulta/` com seletor de modo (Simples ou Semântica) | duas telas; comparação lado a lado |
 | D-6 | App `consulta/` e `agents/rag/`; `financeiro`, `cadastros` e `documentos` não importam `consulta` | colocar o RAG em `financeiro/` (violaria `config/test_arquitetura.py`) |
 | D-7 | Embedding `gemini-embedding-001`, 768 dimensões, `RETRIEVAL_DOCUMENT` na indexação e `RETRIEVAL_QUERY` na pergunta, vetor normalizado L2 pelo cliente | `gemini-embedding-2`: agrega as entradas de uma chamada em **um** vetor, o que inviabiliza o lote; o cliente recusa esse modelo |
-| D-8 | Contexto enviado ao Gemini: o mínimo, **sem CPF/CNPJ**, com aviso curto na tela; dados do banco e dos itens tratados como não confiáveis no prompt (vêm de PDF e de LLM) | enviar documentos completos |
+| D-8 | Contexto enviado ao Gemini: o mínimo, **sem CPF/CNPJ**; dados do banco e dos itens tratados como não confiáveis no prompt (vêm de PDF e de LLM). O aviso curto na tela, previsto na primeira versão, foi **retirado em 27/11/2026**: não é exigido pela atividade e o ADR-002 (PRIV-03) segue em aberto | enviar documentos completos |
 
 ## 4. Consequências
 
