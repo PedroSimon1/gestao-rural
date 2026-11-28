@@ -61,7 +61,7 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         self.assertIn("Procura as palavras da sua pergunta", html)
         self.assertIn("Procura pelo sentido da pergunta", html)
         # Cada contagem do índice é explicada.
-        for explicacao in ("Total de contas lançadas.", "Prontas para a busca semântica.", "Ainda fora da busca semântica.", "Mudaram depois de indexadas"):
+        for explicacao in ("Total de contas lançadas.", "Prontas para a busca semântica.", "Contas novas, ainda fora da busca semântica.", "Alteradas depois de indexadas; serão refeitas ao atualizar."):
             self.assertIn(explicacao, html)
 
     def test_botao_consultar_fica_no_card_da_chave_e_o_indice_diz_o_que_faz(self):

@@ -176,6 +176,10 @@ h3 + dl.resumo { margin-top: 8px; }
 .opcao-busca__texto { grid-column: 2; font-size: .9rem; color: var(--cor-texto-suave); }
 .acoes-rodape.acoes-rodape--solta { position: static; padding-left: 0; padding-right: 0; background: none; }
 .resumo__item small { display: block; margin-top: 2px; font-weight: 400; font-size: .82rem; color: var(--cor-texto-suave); }
+.resumo__item--alerta { border-color: var(--cor-aviso); background: #fff3d1; }
+.indice-atualizar { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--cor-borda); }
+.indice-atualizar h3 { margin: 0 0 4px; }
+.cartao > .aviso + .resumo { margin-top: 16px; }
 /* Consulta: cartão da pergunta em destaque (é onde o usuário escreve) */
 .cartao--destaque { margin-top: 4px; margin-bottom: 20px; border: 2px solid var(--cor-marca); box-shadow: 0 0 0 4px rgba(37, 87, 58, .12); } /* O formulário é uma coluna flex com gap de 8px e as margens não colapsam: 4px em cima (abaixo do cabeçalho) e 20px embaixo (menos o halo de 4px) dão um vão visível de 24px, igual ao dos outros cartões */
 .selo-inicio { margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--cor-marca); color: #ffffff; font-size: .78rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }

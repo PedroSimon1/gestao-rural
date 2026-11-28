@@ -92,15 +92,24 @@
 
   <section class="cartao" aria-labelledby="titulo-indice">
     <h2 id="titulo-indice">Índice semântico</h2>
-    <p class="texto-apoio">É um catálogo de significados das contas, criado pelo Gemini. A busca semântica só enxerga as contas que estão nele.</p>
-    <p class="texto-apoio texto-apoio--campo"><strong>Quando atualizar:</strong> depois de lançar contas novas ou quando houver contas pendentes. Cada clique processa um lote; repita até não restar pendentes.</p>
-    <p class="texto-apoio texto-apoio--campo"><strong>O que o botão “Atualizar índice” faz:</strong> só prepara a busca semântica; ele não responde perguntas. Para perguntar, use o formulário acima.</p>
+    <p class="texto-apoio">A busca semântica só encontra as contas que estão neste índice. Pense nele como um catálogo em que o Gemini guarda o significado de cada conta.</p>
+
     {% if indice %}
+      {% if not indice_mensagem %}
+        {% if indice.total == 0 %}
+          <div class="aviso aviso--info" role="status"><strong>Nada para indexar ainda</strong><p>Ainda não há contas lançadas.</p></div>
+        {% elif indice.pendentes or indice.desatualizados %}
+          <div class="aviso aviso--atencao" role="status"><strong>Índice incompleto</strong><p>A busca semântica pode deixar contas de fora: {% if indice.pendentes %}{{ indice.pendentes }} ainda não {{ indice.pendentes|pluralize:"entrou,entraram" }} no índice{% endif %}{% if indice.pendentes and indice.desatualizados %} e {% endif %}{% if indice.desatualizados %}{{ indice.desatualizados }} {{ indice.desatualizados|pluralize:"mudou,mudaram" }} depois de indexada{{ indice.desatualizados|pluralize }}{% endif %}. Use “Atualizar índice”, logo abaixo.</p></div>
+        {% else %}
+          <div class="aviso aviso--ok" role="status"><strong>Índice em dia</strong><p>{{ indice.indexados }} de {{ indice.total }} contas estão no índice: a busca semântica enxerga todas elas.</p></div>
+        {% endif %}
+      {% endif %}
+
       <dl class="resumo">
         <div class="resumo__item"><dt>Contas no sistema</dt><dd>{{ indice.total }}<small>Total de contas lançadas.</small></dd></div>
-        <div class="resumo__item"><dt>Indexadas</dt><dd>{{ indice.indexados }}<small>Prontas para a busca semântica.</small></dd></div>
-        <div class="resumo__item"><dt>Pendentes (sem índice)</dt><dd>{{ indice.pendentes }}<small>Ainda fora da busca semântica.</small></dd></div>
-        <div class="resumo__item"><dt>Desatualizadas</dt><dd>{{ indice.desatualizados }}<small>Mudaram depois de indexadas; serão refeitas.</small></dd></div>
+        <div class="resumo__item"><dt>No índice</dt><dd>{{ indice.indexados }}<small>Prontas para a busca semântica.</small></dd></div>
+        <div class="resumo__item{% if indice.pendentes %} resumo__item--alerta{% endif %}"><dt>Faltam entrar</dt><dd>{{ indice.pendentes }}<small>Contas novas, ainda fora da busca semântica.</small></dd></div>
+        <div class="resumo__item{% if indice.desatualizados %} resumo__item--alerta{% endif %}"><dt>Mudaram</dt><dd>{{ indice.desatualizados }}<small>Alteradas depois de indexadas; serão refeitas ao atualizar.</small></dd></div>
       </dl>
     {% else %}
       {% include "documentos/_aviso.html" with tipo="atencao" titulo="Estado do índice indisponível" texto="A configuração do índice semântico está inválida. Avise a equipe." %}
@@ -115,19 +124,23 @@
       {% endif %}
     </div>
 
-    <form method="post" action="{% url 'consulta_indice' %}" class="formulario" data-submit-lock data-submit-texto="Atualizando...">
-      {% csrf_token %}
-      {% if indice_form.non_field_errors %}{{ indice_form.non_field_errors }}{% endif %}
-      {% include "documentos/_campo.html" with campo=indice_form.gemini_api_key %}
+    <div class="indice-atualizar">
+      <h3>Atualizar o índice</h3>
+      <p class="texto-apoio texto-apoio--campo">Use depois de lançar contas novas, ou quando houver contas faltando ou mudadas. Cada clique processa um lote; repita até zerar. O botão “Atualizar índice” só prepara a busca semântica; ele não responde perguntas (para perguntar, use o formulário acima).</p>
+      <form method="post" action="{% url 'consulta_indice' %}" class="formulario" data-submit-lock data-submit-texto="Atualizando...">
+        {% csrf_token %}
+        {% if indice_form.non_field_errors %}{{ indice_form.non_field_errors }}{% endif %}
+        {% include "documentos/_campo.html" with campo=indice_form.gemini_api_key %}
 
-      <div class="aviso aviso--info" role="status" data-estado hidden>
-        <strong>Atualizando o índice</strong>
-        <p>Isso pode levar alguns segundos. Não feche esta página.</p>
-      </div>
-      <div class="acoes-rodape acoes-rodape--solta">
-        <span class="status">Indexa um lote por vez.</span>
-        <button type="submit" class="botao botao--secundario">Atualizar índice</button>
-      </div>
-    </form>
+        <div class="aviso aviso--info" role="status" data-estado hidden>
+          <strong>Atualizando o índice</strong>
+          <p>Isso pode levar alguns segundos. Não feche esta página.</p>
+        </div>
+        <div class="acoes-rodape acoes-rodape--solta">
+          <span class="status">Indexa um lote por vez.</span>
+          <button type="submit" class="botao botao--secundario">Atualizar índice</button>
+        </div>
+      </form>
+    </div>
   </section>
 {% endblock %}

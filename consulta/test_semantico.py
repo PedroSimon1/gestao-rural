@@ -306,7 +306,7 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertRegex(html, r'<input type="radio" name="modo" value="semantico"')
         self.assertIn("Busca semântica", html)
         self.assertIn("Índice semântico", html)
-        for rotulo, valor in (("Contas no sistema", 3), ("Indexadas", 2), ("Pendentes", 1), ("Desatualizadas", 0)):
+        for rotulo, valor in (("Contas no sistema", 3), ("No índice", 2), ("Faltam entrar", 1), ("Mudaram", 0)):
             self.assertRegex(html, rf"<dt>{rotulo}[^<]*</dt><dd>{valor}<small>")
         self.assertIn("Atualizar índice", html)
         formulario = re.search(r'<form\b[^>]*action="/consulta/indice/"[^>]*>.*?</form>', html, re.S).group(0)
@@ -354,6 +354,22 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertNotContains(resposta, "Fontes consultadas")
         self.assertEqual(cliente.conteudos, [])
 
+    def test_estado_do_indice_resume_se_esta_incompleto_ou_em_dia(self):
+        self.criar_tres_notas()
+        self.indexar(2)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("Índice incompleto", html)
+        self.assertIn("1 ainda não entrou no índice", html)
+        self.assertNotIn("Índice em dia", html)
+        self.assertIn("resumo__item resumo__item--alerta", html)
+
+        self.indexar(10)
+        html = self.client.get(self.url).content.decode()
+        self.assertIn("Índice em dia", html)
+        self.assertIn("3 de 3 contas estão no índice", html)
+        self.assertNotIn("Índice incompleto", html)
+        self.assertNotIn("resumo__item--alerta", html)
+
     def test_atualizar_indice_em_lotes_mostra_mensagem_e_estado(self):
         self.criar_tres_notas()
         cliente = ClienteSemanticoFalso()
@@ -362,8 +378,8 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, "Indexados neste lote: 2. Total no índice: 2 de 3; faltam 1.")
         self.assertContains(resposta, "Clique em &quot;Atualizar índice&quot; novamente para continuar.")
-        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>2<small>")
-        self.assertRegex(resposta.content.decode(), r"<dt>Pendentes[^<]*</dt><dd>1<small>")
+        self.assertRegex(resposta.content.decode(), r"<dt>No índice</dt><dd>2<small>")
+        self.assertRegex(resposta.content.decode(), r"<dt>Faltam entrar</dt><dd>1<small>")
         self.fabrica.assert_called_once_with(api_key=CHAVE)
         self.assertEqual(EmbeddingMovimento.objects.count(), 2)
 
@@ -371,7 +387,7 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertContains(resposta, "Indexados neste lote: 1. Total no índice: 3 de 3; faltam 0.")
         self.assertContains(resposta, "O índice está completo.")
         self.assertNotContains(resposta, "novamente para continuar")
-        self.assertRegex(resposta.content.decode(), r"<dt>Indexadas</dt><dd>3<small>")
+        self.assertRegex(resposta.content.decode(), r"<dt>No índice</dt><dd>3<small>")
         self.assertEqual(EmbeddingMovimento.objects.count(), 3)
 
     def test_atualizar_indice_aparece_na_regiao_de_mensagens(self):
