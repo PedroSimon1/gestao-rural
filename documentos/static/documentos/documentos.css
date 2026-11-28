@@ -164,9 +164,24 @@ h3 + dl.resumo { margin-top: 8px; }
 .resumo__item { padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); }
 .resumo dt, main dl dt { color: var(--cor-texto-suave); font-size: .86rem; }
 .resumo dd, main dl dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
-/* Resposta do assistente (consulta): texto corrido, sem estourar a largura */
-.resposta-texto { margin: 12px 0; overflow-wrap: anywhere; }
+/* Consulta: blocos Resposta e Fontes consultadas */
+.resposta-pergunta { margin: 0 0 12px; padding: 10px 14px; border-left: 4px solid var(--cor-borda-forte); border-radius: 0 var(--raio) var(--raio) 0; background: var(--cor-fundo); overflow-wrap: anywhere; }
+.resposta-rotulo { display: block; margin-bottom: 4px; font-size: .78rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--cor-texto-suave); }
+.resposta-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.etiqueta { display: inline-block; padding: 2px 10px; border: 1px solid var(--cor-borda-forte); border-radius: 999px; background: var(--cor-superficie); font-size: .85rem; }
+.resposta-conteudo { margin: 0 0 12px; padding: 14px 18px; border: 2px solid var(--cor-marca); border-radius: var(--raio); background: #fbfdfb; }
+.resposta-texto { margin: 0; font-size: 1.05rem; line-height: 1.6; overflow-wrap: anywhere; }
 .resposta-texto p { margin: 0 0 10px; }
+.resposta-texto p:last-child { margin-bottom: 0; }
+.fontes { margin: 0; padding: 0; list-style: none; counter-reset: fonte; }
+.fontes > li { counter-increment: fonte; display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--cor-borda); }
+.fontes > li:first-child { border-top: 0; padding-top: 0; }
+.fontes > li::before { content: counter(fonte); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--cor-marca); color: #ffffff; font-size: .85rem; font-weight: 600; }
+.fonte__corpo p { margin: 0 0 2px; font-weight: 600; overflow-wrap: anywhere; }
+.fonte__corpo small { display: block; color: var(--cor-texto-suave); }
+.fonte__nota { display: flex; align-items: center; gap: 8px; }
+.fonte__nota meter { width: 90px; height: 12px; }
+@media (max-width: 640px) { .fontes > li { grid-template-columns: 28px 1fr; } .fonte__nota { grid-column: 2; } }
 /* Consulta: opções de busca com descrição e legenda das contagens do índice */
 .opcoes-busca { display: grid; gap: 8px; }
 .campo--grupo .opcao-busca { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); cursor: pointer; }
