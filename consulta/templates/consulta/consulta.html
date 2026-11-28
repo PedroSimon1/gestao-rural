@@ -45,20 +45,20 @@
     </section>
 
     <section class="cartao" aria-labelledby="titulo-passo-chave">
-      <h2 id="titulo-passo-chave">3. Chave do Gemini</h2>
-      <p class="texto-apoio texto-apoio--campo">É a senha que dá acesso ao Gemini, o serviço de IA do Google. Você a informa a cada consulta.</p>
+      <h2 id="titulo-passo-chave">3. Chave do Gemini e envio</h2>
+      <p class="texto-apoio texto-apoio--campo">É a senha que dá acesso ao Gemini, o serviço de IA do Google. Você a informa a cada consulta. O botão abaixo envia a pergunta, a forma de busca e esta chave.</p>
       {% include "documentos/_campo.html" with campo=form.gemini_api_key %}
+
+      <div class="aviso aviso--info" role="status" data-estado hidden>
+        <strong>Consultando</strong>
+        <p>Isso pode levar alguns segundos. Não feche esta página.</p>
+      </div>
+
+      <div class="acoes-rodape acoes-rodape--solta">
+        <span class="status">A consulta pode levar alguns segundos.</span>
+        <button type="submit" class="botao">Consultar</button>
+      </div>
     </section>
-
-    <div class="aviso aviso--info" role="status" data-estado hidden>
-      <strong>Consultando</strong>
-      <p>Isso pode levar alguns segundos. Não feche esta página.</p>
-    </div>
-
-    <div class="acoes-rodape acoes-rodape--solta">
-      <span class="status">A consulta pode levar alguns segundos.</span>
-      <button type="submit" class="botao">Consultar</button>
-    </div>
   </form>
 
   {% if erro %}
@@ -105,6 +105,7 @@
     <h2 id="titulo-indice">Índice semântico</h2>
     <p class="texto-apoio">É um catálogo de significados das contas, criado pelo Gemini. A busca semântica só enxerga as contas que estão nele.</p>
     <p class="texto-apoio texto-apoio--campo"><strong>Quando atualizar:</strong> depois de lançar contas novas ou quando houver contas pendentes. Cada clique processa um lote; repita até não restar pendentes.</p>
+    <p class="texto-apoio texto-apoio--campo"><strong>O que o botão “Atualizar índice” faz:</strong> só prepara a busca semântica; ele não responde perguntas. Para perguntar, use o formulário acima.</p>
     {% if indice %}
       <dl class="resumo">
         <div class="resumo__item"><dt>Contas no sistema</dt><dd>{{ indice.total }}<small>Total de contas lançadas.</small></dd></div>

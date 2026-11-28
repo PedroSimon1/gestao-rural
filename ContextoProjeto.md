@@ -4239,3 +4239,10 @@ Os textos explicativos foram escritos sem validação com usuários; ajuste o vo
 ## 50.7 - Git
 
 Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
+
+## 50.8 - Ajuste: botão "Consultar" no card da chave (27/11/2026, branch `feature/n3-rag-botao-consultar`)
+
+- **Problema:** a barra do botão "Consultar" ficava solta logo acima do card "Índice semântico" e parecia valer para a página inteira; na verdade ele envia só o formulário das etapas 1 a 3, e "Atualizar índice" é outro formulário, com chave própria.
+- **Mudança (`consulta/templates/consulta/consulta.html`):** o botão e o aviso "Consultando" passaram para dentro do card "3. Chave do Gemini e envio" (mesmo formulário), com a frase "O botão abaixo envia a pergunta, a forma de busca e esta chave". O card do índice ganhou a legenda "O que o botão 'Atualizar índice' faz: só prepara a busca semântica; ele não responde perguntas".
+- **Testes:** `consulta/test_interface.py` (botão no card da chave, único na página; legenda do índice); testes de `consulta` e de classes CSS passam. A tela não foi reaberta no navegador depois deste ajuste (o mesmo padrão de barra dentro de card já havia sido conferido no card do índice).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
