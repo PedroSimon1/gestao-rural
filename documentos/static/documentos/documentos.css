@@ -167,9 +167,7 @@ h3 + dl.resumo { margin-top: 8px; }
 /* Resposta do assistente (consulta): texto corrido, sem estourar a largura */
 .resposta-texto { margin: 12px 0; overflow-wrap: anywhere; }
 .resposta-texto p { margin: 0 0 10px; }
-/* Consulta: explicação em passos, opções de busca com descrição e legenda das contagens do índice */
-.explicacao-passos { margin: 0; padding-left: 22px; }
-.explicacao-passos li { margin: 4px 0; }
+/* Consulta: opções de busca com descrição e legenda das contagens do índice */
 .opcoes-busca { display: grid; gap: 8px; }
 .campo--grupo .opcao-busca { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); cursor: pointer; }
 .campo--grupo .opcao-busca:has(input:checked) { border-color: var(--cor-marca); background: var(--cor-fundo); }
@@ -186,7 +184,7 @@ h3 + dl.resumo { margin-top: 8px; }
 .cartao--destaque textarea.campo-pergunta:focus { outline: 3px solid var(--cor-foco); outline-offset: 1px; background: #ffffff; }
 .cartao--destaque textarea.campo-pergunta[aria-invalid="true"] { border-color: var(--cor-erro); }
 /* Consulta: aviso de privacidade em evidência. O formulário é uma coluna flex com gap de 8px (as margens não colapsam),
-   então os vãos visíveis entre blocos são de 24px: aqui 24px acima (colapsa com o cartão anterior) e 8px + 20px do cartão em destaque (menos o halo de 4px) abaixo. */
+   então os vãos visíveis entre blocos são de 24px: aqui 24px acima (entre o cabeçalho e o aviso) e 8px + 20px do cartão em destaque (menos o halo de 4px) abaixo. */
 .bloco-privacidade { margin: 24px 0 8px; }
 .bloco-privacidade .aviso { margin: 0; padding: 14px 18px; background: #fff3d1; border: 2px solid var(--cor-aviso); border-left-width: 8px; }
 .bloco-privacidade .aviso > strong { font-size: 1.1rem; }
