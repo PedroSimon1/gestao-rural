@@ -101,6 +101,18 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         self.assertContains(resposta, "Forma de busca usada: Busca simples")
         self.fabrica.assert_called_once_with(api_key=CHAVE)
 
+    def test_resposta_e_fontes_aparecem_organizadas(self):
+        racao = self.criar_nota(descricao="Sal mineral")
+        resposta = self.post(ClienteFalso("Gastou R$ 1.250,40 (#%d)." % racao.pk))
+        html = resposta.content.decode()
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn(">Sua pergunta</span>" + PERGUNTA, html)
+        self.assertIn("Resposta do Gemini", html)
+        self.assertIn("1 conta consultada", html)
+        self.assertIn('<ol class="fontes">', html)
+        self.assertNotIn("<meter", html)
+        self.assertIn("Pontuação é quantos termos da pergunta", html)
+
     def test_pergunta_permanece_no_campo_e_chave_nao(self):
         self.criar_nota()
         resposta = self.post()

@@ -340,6 +340,7 @@ class TelaSemanticaTests(NotasIndexaveis, TestCase):
         self.assertContains(resposta, "Foi a compra &lt;b&gt;#1&lt;/b&gt;.")
         self.assertContains(resposta, "Fontes consultadas")
         self.assertRegex(resposta.content.decode(), r"cosseno 1[,.]00")
+        self.assertContains(resposta, "<meter")
         self.assertContains(resposta, "Forma de busca usada: Busca semântica")
         self.assertContains(resposta, "Movimentos ainda fora do índice")
         self.fabrica.assert_called_once_with(api_key=CHAVE)
