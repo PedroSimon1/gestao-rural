@@ -37,7 +37,11 @@ class ConsultaForm(forms.Form):
         max_length=TAMANHO_MAXIMO_PERGUNTA,
         strip=True,
         help_text=f"Até {TAMANHO_MAXIMO_PERGUNTA} caracteres. Ex.: quanto gastei com ração neste ano?",
-        widget=forms.Textarea(attrs={"class": "formulario__campo", "rows": 4}),
+        widget=forms.Textarea(attrs={
+            "class": "formulario__campo campo-pergunta",
+            "rows": 5,
+            "placeholder": "Escreva aqui a sua pergunta…",
+        }),
         error_messages={
             "required": "Digite a pergunta.",
             "max_length": f"A pergunta deve ter no máximo {TAMANHO_MAXIMO_PERGUNTA} caracteres.",

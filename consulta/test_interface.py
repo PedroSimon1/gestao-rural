@@ -77,6 +77,15 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         # O card do índice deixa claro que "Atualizar índice" não responde perguntas.
         self.assertIn("só prepara a busca semântica; ele não responde perguntas", html)
 
+    def test_campo_da_pergunta_aparece_em_destaque_com_dica_de_onde_escrever(self):
+        html = self.client.get(self.url).content.decode()
+        inicio = html.index('aria-labelledby="titulo-passo-pergunta"')
+        card = html[inicio - 40:html.index("</section>", inicio)]
+        self.assertIn("cartao--destaque", card)
+        self.assertIn("Comece por aqui", card)
+        self.assertRegex(card, r'<textarea[^>]*class="formulario__campo campo-pergunta"')
+        self.assertRegex(card, r'<textarea[^>]*placeholder="Escreva aqui a sua pergunta…"')
+
     def test_post_valido_mostra_resposta_escapada_com_quebras_e_fontes_com_link(self):
         racao = self.criar_nota(descricao="Sal mineral")
         cliente = ClienteFalso("Total <b>R$ 1.250,40</b>\nsegunda linha (#%d)" % racao.pk)

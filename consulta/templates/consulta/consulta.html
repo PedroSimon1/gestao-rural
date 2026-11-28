@@ -20,8 +20,8 @@
     {% csrf_token %}
     {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
 
-    <section class="cartao" aria-labelledby="titulo-passo-pergunta">
-      <h2 id="titulo-passo-pergunta">1. Sua pergunta</h2>
+    <section class="cartao cartao--destaque" aria-labelledby="titulo-passo-pergunta">
+      <h2 id="titulo-passo-pergunta">1. Sua pergunta <span class="selo-inicio">Comece por aqui</span></h2>
       <p class="texto-apoio texto-apoio--campo">O que você quer saber sobre as contas? Quanto mais claro, melhor a resposta.</p>
       {% include "documentos/_campo.html" with campo=form.pergunta %}
     </section>
