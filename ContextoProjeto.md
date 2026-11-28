@@ -4246,3 +4246,10 @@ Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `doc
 - **Mudança (`consulta/templates/consulta/consulta.html`):** o botão e o aviso "Consultando" passaram para dentro do card "3. Chave do Gemini e envio" (mesmo formulário), com a frase "O botão abaixo envia a pergunta, a forma de busca e esta chave". O card do índice ganhou a legenda "O que o botão 'Atualizar índice' faz: só prepara a busca semântica; ele não responde perguntas".
 - **Testes:** `consulta/test_interface.py` (botão no card da chave, único na página; legenda do índice); testes de `consulta` e de classes CSS passam. A tela não foi reaberta no navegador depois deste ajuste (o mesmo padrão de barra dentro de card já havia sido conferido no card do índice).
 - **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.9 - Ajuste: campo da pergunta em destaque (27/11/2026, branch `feature/n3-rag-campo-pergunta`)
+
+- **Pedido:** deixar o cartão "1. Sua pergunta" mais chamativo, para mostrar que é ali que se escreve.
+- **Mudança:** cartão com borda e halo na cor da marca (`cartao--destaque`); selo "Comece por aqui" no título; caixa de texto maior (largura total, altura mínima de 150 px, fonte 1,1 rem, borda de 2 px na cor da marca), com texto-guia ("Escreva aqui a sua pergunta…") e anel de foco; o estado de erro continua vermelho. Arquivos: `consulta/forms.py` (atributos do campo), `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
+- **Testes:** o teste novo confere o destaque, o selo, a classe e o texto-guia; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário e Gemini simulado).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.

@@ -178,6 +178,13 @@ h3 + dl.resumo { margin-top: 8px; }
 .opcao-busca__texto { grid-column: 2; font-size: .9rem; color: var(--cor-texto-suave); }
 .acoes-rodape.acoes-rodape--solta { position: static; padding-left: 0; padding-right: 0; background: none; }
 .resumo__item small { display: block; margin-top: 2px; font-weight: 400; font-size: .82rem; color: var(--cor-texto-suave); }
+/* Consulta: cartão da pergunta em destaque (é onde o usuário escreve) */
+.cartao--destaque { border: 2px solid var(--cor-marca); box-shadow: 0 0 0 4px rgba(37, 87, 58, .12); }
+.selo-inicio { margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--cor-marca); color: #ffffff; font-size: .78rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+.cartao--destaque textarea.campo-pergunta { max-width: none; min-height: 150px; padding: 14px 16px; border: 2px solid var(--cor-marca); background: #fbfdfb; font-size: 1.1rem; line-height: 1.5; resize: vertical; }
+.cartao--destaque textarea.campo-pergunta::placeholder { color: var(--cor-texto-suave); opacity: .75; }
+.cartao--destaque textarea.campo-pergunta:focus { outline: 3px solid var(--cor-foco); outline-offset: 1px; background: #ffffff; }
+.cartao--destaque textarea.campo-pergunta[aria-invalid="true"] { border-color: var(--cor-erro); }
 /* dl sem agrupamento (rótulo e valor soltos): duas colunas alinhadas */
 main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
   display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0 0 16px;
