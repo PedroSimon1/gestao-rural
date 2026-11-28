@@ -5,10 +5,6 @@
 {% block conteudo %}
   {% include "documentos/_cabecalho_pagina.html" with titulo="Consultar" apoio="Pergunte em linguagem natural sobre as contas cadastradas e receba a resposta escrita pelo Gemini." %}
 
-  <div class="bloco-privacidade">
-    {% include "documentos/_aviso.html" with tipo="atencao" titulo="Privacidade" texto="A pergunta e os dados das contas encontradas (nomes, valores, datas e itens, sem CPF/CNPJ) são enviados ao Google Gemini com a chave informada. Ao atualizar o índice semântico, os textos de todas as contas indexadas (fornecedor, categorias, itens e valores, sem CPF/CNPJ) também são enviados." %}
-  </div>
-
   <form method="post" action="{% url 'consulta' %}" class="formulario" data-submit-lock data-submit-texto="Consultando...">
     {% csrf_token %}
     {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}

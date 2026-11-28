@@ -53,7 +53,6 @@ Esta seção descreve os controles que existem no código, os limites conhecidos
 | Chave na consulta e no índice | Informada a cada ação, nunca persistida; removida de `form.data` antes do template e retirada de `cleaned_data` quando o formulário é válido; `PasswordInput` sem reexibição | `consulta/forms.py`, `consulta/views.py` |
 | Contexto RAG mínimo | Textos de consulta/indexação não incluem campos de CPF/CNPJ; incluem nomes, valores, datas e itens. A pergunta também é enviada ao Gemini: não inserir documentos pessoais no texto livre | `consulta/texto.py`, `consulta/servico.py` |
 | Dados não confiáveis no RAG | Informações originadas em PDF/LLM e cadastros ficam delimitadas em `<dados>`; delimitadores internos são neutralizados e o prompt manda ignorar instruções nos dados | `agents/rag/agent.py` |
-| Aviso na tela Consultar | Informa envio da pergunta/contexto e dos textos indexados ao Google Gemini, sem CPF/CNPJ. A orientação de usar só dados fictícios fora de produção (ADR-001 T-06) não aparece na tela: vale por procedimento | `consulta/templates/consulta/consulta.html` |
 
 ### 2.4 Upload
 
@@ -92,7 +91,7 @@ Reenvio, duplo clique ou duas abas **não duplicam** lançamentos (idempotência
 | PDF da nota | **Enviado ao Gemini** com a chave do usuário | Terceiro; **não há aviso de privacidade** nem registro de base legal/retenção no repositório |
 | Chave Gemini | Em memória, só na requisição | Nunca persistida |
 
-O [ADR-002](../arquitetura/ADR-002-privacidade-dados-pessoais.md) existe como **proposta e segue em aberto** (B-03): o aviso específico da consulta não resolve base legal, retenção e demais decisões de privacidade. O [ADR-003](../arquitetura/ADR-003-rag-consulta.md) não substitui essa decisão.
+O [ADR-002](../arquitetura/ADR-002-privacidade-dados-pessoais.md) existe como **proposta e segue em aberto** (B-03): a tela Consultar **não tem aviso de privacidade** (retirado em 27/11/2026, por não ser exigido pela atividade); o envio da pergunta e do contexto ao Gemini (sem CPF/CNPJ) continua, e base legal, retenção e demais decisões seguem pendentes. O [ADR-003](../arquitetura/ADR-003-rag-consulta.md) não substitui essa decisão.
 
 ## 4. Limites e riscos conhecidos
 
