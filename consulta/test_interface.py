@@ -77,6 +77,11 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         # O card do índice deixa claro que "Atualizar índice" não responde perguntas.
         self.assertIn("só prepara a busca semântica; ele não responde perguntas", html)
 
+    def test_aviso_de_privacidade_fica_num_bloco_proprio_antes_do_formulario(self):
+        html = self.client.get(self.url).content.decode()
+        bloco = html.index('class="bloco-privacidade"')
+        self.assertIn("Privacidade", html[bloco:html.index("<form", bloco)])
+
     def test_campo_da_pergunta_aparece_em_destaque_com_dica_de_onde_escrever(self):
         html = self.client.get(self.url).content.decode()
         inicio = html.index('aria-labelledby="titulo-passo-pergunta"')

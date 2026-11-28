@@ -4253,3 +4253,11 @@ Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `doc
 - **Mudança:** cartão com borda e halo na cor da marca (`cartao--destaque`); selo "Comece por aqui" no título; caixa de texto maior (largura total, altura mínima de 150 px, fonte 1,1 rem, borda de 2 px na cor da marca), com texto-guia ("Escreva aqui a sua pergunta…") e anel de foco; o estado de erro continua vermelho. Arquivos: `consulta/forms.py` (atributos do campo), `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
 - **Testes:** o teste novo confere o destaque, o selo, a classe e o texto-guia; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário e Gemini simulado).
 - **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.10 - Ajuste: aviso de privacidade em evidência (27/11/2026, branch `feature/n3-rag-aviso-privacidade`)
+
+- **Pedido:** melhorar a visibilidade do bloco "Privacidade" e dar a ele o mesmo espaço dos outros cartões em relação ao bloco 1.
+- **Causa do vão:** o aviso padrão só tem margem no topo (`margin: 16px 0 0`), então colava no cartão seguinte. Além disso, o formulário é uma coluna flex com `gap` de 8 px (as margens dos cartões não colapsam): o vão visível entre cartões é de 24 px.
+- **Mudança:** o aviso ganhou um invólucro `bloco-privacidade` (só nesta tela; o componente `_aviso.html` não mudou): fundo amarelo claro, borda de 2 px e faixa lateral de 8 px na cor de aviso, título e texto maiores. Margens: 24 px acima e 8 px abaixo; o cartão em destaque (`cartao--destaque`) tem 20 px em cima e embaixo, de modo que, descontado o halo de 4 px, o vão visível entre todos os blocos (como funciona, privacidade, 1, 2 e 3) é de 24 px (medido no navegador: 24, 28, 28, 24 caixa a caixa). Arquivos: `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
+- **Testes:** teste novo confere o bloco antes do formulário; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
