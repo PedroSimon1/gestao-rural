@@ -83,7 +83,7 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `cadastros/pessoas.html`, `pessoa_form.html`, `pessoa_detalhe.html` | Telas de pessoas |
 | `cadastros/classificacoes.html`, `classificacao_form.html` | Telas de classificações |
 | `financeiro/contas.html`, `conta_manual.html`, `conta_detalhe.html` | Telas de contas (a de detalhe também exibe mensagens de erro de consulta) |
-| `consulta/consulta.html` | Organizada em passos, cada um com texto curto de explicação: "Como funciona", aviso de privacidade, "1. Sua pergunta", "2. Como buscar as contas" (cada forma de busca com a sua descrição), "3. Chave do Gemini", resposta e fontes (com legenda da pontuação ou do cosseno) e "Índice semântico" (o que é, quando atualizar, e as quatro contagens explicadas) com o formulário separado "Atualizar índice". Estende `documentos/base.html` |
+| `consulta/consulta.html` | Organizada em passos, cada um com texto curto de explicação: aviso de privacidade, "1. Sua pergunta", "2. Como buscar as contas" (cada forma de busca com a sua descrição), "3. Chave do Gemini e envio", resposta e fontes (com legenda da pontuação ou do cosseno) e "Índice semântico" (o que é, quando atualizar, e as quatro contagens explicadas) com o formulário separado "Atualizar índice". Estende `documentos/base.html` |
 | `usuarios/login.html`, `logout.html` | Entrada e saída |
 
 | Estático | Função |

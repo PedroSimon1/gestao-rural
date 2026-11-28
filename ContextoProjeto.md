@@ -4261,3 +4261,10 @@ Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `doc
 - **Mudança:** o aviso ganhou um invólucro `bloco-privacidade` (só nesta tela; o componente `_aviso.html` não mudou): fundo amarelo claro, borda de 2 px e faixa lateral de 8 px na cor de aviso, título e texto maiores. Margens: 24 px acima e 8 px abaixo; o cartão em destaque (`cartao--destaque`) tem 20 px em cima e embaixo, de modo que, descontado o halo de 4 px, o vão visível entre todos os blocos (como funciona, privacidade, 1, 2 e 3) é de 24 px (medido no navegador: 24, 28, 28, 24 caixa a caixa). Arquivos: `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
 - **Testes:** teste novo confere o bloco antes do formulário; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário).
 - **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.11 - Ajuste: bloco "Como funciona" removido e privacidade mais curta (27/11/2026, branch `feature/n3-rag-tela-enxuta`)
+
+- **Pedido:** retirar o bloco "Como funciona" e a última frase do aviso de Privacidade ("Fora de produção, use apenas dados fictícios.").
+- **Mudança:** `consulta/templates/consulta/consulta.html` perdeu o cartão "Como funciona"; o CSS `explicacao-passos` (que só ele usava) foi removido de `documentos/static/documentos/documentos.css`; o aviso termina em "...também são enviados." Os testes de `consulta/test_interface.py` passam a conferir a ausência de "Como funciona" e da frase retirada; `docs/documentacao/08` e `09` foram ajustados. As seções 50.3 e 50.10 acima descrevem o estado anterior (histórico).
+- **Atenção:** a recomendação de usar só dados fictícios fora de produção (ADR-001 T-06; ADR-002 PRIV-05) deixou de aparecer na tela e passa a valer só por procedimento. O aviso na tela continua informando o que é enviado ao Gemini.
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.

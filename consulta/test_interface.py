@@ -44,7 +44,7 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertIn("Google Gemini", html)
         self.assertIn("sem CPF/CNPJ", html)
-        self.assertIn("dados fictícios", html)
+        self.assertNotIn("Fora de produção", html)
         self.assertRegex(html, r'<form\b[^>]*method="post"[^>]*data-submit-lock')
         self.assertContains(resposta, "<textarea", status_code=200)
         self.assertRegex(html, r'<input type="password"[^>]*name="gemini_api_key"|name="gemini_api_key"[^>]*type="password"')
@@ -55,8 +55,9 @@ class TelaConsultaTests(DadosConsulta, TestCase):
 
     def test_get_organiza_a_tela_em_passos_e_explica_cada_parte(self):
         html = self.client.get(self.url).content.decode()
-        for titulo in ("Como funciona", "1. Sua pergunta", "2. Como buscar as contas", "3. Chave do Gemini", "Índice semântico"):
+        for titulo in ("1. Sua pergunta", "2. Como buscar as contas", "3. Chave do Gemini", "Índice semântico"):
             self.assertIn(titulo, html)
+        self.assertNotIn("Como funciona", html)
         # Cada forma de busca traz o seu texto, ligado ao rádio por aria-describedby.
         for codigo in ("simples", "semantico"):
             self.assertRegex(html, rf'<input type="radio" name="modo" value="{codigo}"[^>]*aria-describedby="id_modo_\d_descricao"')
