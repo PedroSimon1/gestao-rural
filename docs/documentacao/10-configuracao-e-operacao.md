@@ -68,13 +68,39 @@ python manage.py runserver 127.0.0.1:8000
 | Checagem de produção | `DJANGO_DEBUG=False python manage.py check --deploy` | Hoje aponta W004 (HSTS) e W008 (redirecionamento HTTPS), delegados ao Render |
 | Espaços em branco | `git diff --check` | |
 | Expirar análises vencidas | `python manage.py expirar_analises` | Idempotente; no ambiente explicitamente autorizado |
-| Carregar demonstração fictícia | `python manage.py carregar_demonstracao --confirmar` | Exibe host/nome do banco-alvo; carga transacional de 24 notas com itens, sem duplicar lançamentos na repetição. Exige as duas classificações iniciais de DESPESA |
+| Carregar demonstração fictícia | `python manage.py carregar_demonstracao --simular` | Catálogo padrão de 200 notas; confira o destino antes de confirmar (procedimento abaixo) |
 | Coletar estáticos (produção) | `python manage.py collectstatic --noinput` | Já está no `build.sh` |
 
 `makemigrations --check` pode consultar o histórico do banco padrão; por isso o host fictício acima.
 Não use `--keepdb` ou `--noinput` para reutilizar ou excluir um banco de teste sem conferir o destino.
 
 `carregar_demonstracao` recusa a carga sem `--confirmar`; em host remoto exige **também** `--permitir-remoto`. Essa opção não substitui autorização humana: confira o destino e use só o ambiente de demonstração autorizado, nunca produção por engano. O comando não usa Gemini nem preenche o índice; depois, "Atualizar índice" requer chave e consome a cota da API.
+
+### Carga de demonstração (200 notas)
+
+Carga **fictícia, determinística e idempotente**, com produtos e fornecedores rurais.
+Reaproveita as primeiras 24 notas da carga antiga; repetir não duplica nem altera notas
+existentes. `--quantidade N` seleciona de 1 a 500 notas; o padrão é 200.
+Cada nota é transacional: se uma falhar, as anteriores permanecem e repetir completa as faltantes.
+Parcelas novas vencidas até 15/11/2026 recebem baixas determinísticas (cerca de 70%),
+somente na criação e nunca com data futura; as 24 antigas não recebem baixa.
+
+**Pré-requisito:** todas as migrations já aplicadas pelo responsável no banco correto.
+Na homologação autorizada, confira o banco e simule antes de gravar:
+
+```bash
+python manage.py carregar_demonstracao --simular
+python manage.py carregar_demonstracao --confirmar --permitir-remoto
+```
+
+Na **produção**, após as migrations e durante o deploy, execute manualmente
+`./carregar_demonstracao_producao.sh` na raiz, com o ambiente Python ativo.
+Ele pede as credenciais sem gravá-las em disco, recusa o destino da homologação,
+aborta se houver qualquer migration pendente, simula e exige digitar `PRODUCAO`.
+Não aplica migrations e **não entra em `build.sh`/`start.sh`**.
+
+**A carga é permanente no banco: movimentos financeiros não podem ser excluídos.**
+O script não configura embeddings; a indexação continua sendo uma ação separada.
 
 ## 4. Migrations
 
