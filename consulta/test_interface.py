@@ -53,6 +53,19 @@ class TelaConsultaTests(DadosConsulta, TestCase):
         self.assertContains(resposta, 'name="modo"')
         self.assertNotContains(resposta, "Fontes consultadas")
 
+    def test_get_organiza_a_tela_em_passos_e_explica_cada_parte(self):
+        html = self.client.get(self.url).content.decode()
+        for titulo in ("Como funciona", "1. Sua pergunta", "2. Como buscar as contas", "3. Chave do Gemini", "Índice semântico"):
+            self.assertIn(titulo, html)
+        # Cada forma de busca traz o seu texto, ligado ao rádio por aria-describedby.
+        for codigo in ("simples", "semantico"):
+            self.assertRegex(html, rf'<input type="radio" name="modo" value="{codigo}"[^>]*aria-describedby="id_modo_\d_descricao"')
+        self.assertIn("Procura as palavras da sua pergunta", html)
+        self.assertIn("Procura pelo sentido da pergunta", html)
+        # Cada contagem do índice é explicada.
+        for explicacao in ("Total de contas lançadas.", "Prontas para a busca semântica.", "Ainda fora da busca semântica.", "Mudaram depois de indexadas"):
+            self.assertIn(explicacao, html)
+
     def test_post_valido_mostra_resposta_escapada_com_quebras_e_fontes_com_link(self):
         racao = self.criar_nota(descricao="Sal mineral")
         cliente = ClienteFalso("Total <b>R$ 1.250,40</b>\nsegunda linha (#%d)" % racao.pk)

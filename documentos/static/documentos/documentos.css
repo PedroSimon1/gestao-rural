@@ -167,6 +167,17 @@ h3 + dl.resumo { margin-top: 8px; }
 /* Resposta do assistente (consulta): texto corrido, sem estourar a largura */
 .resposta-texto { margin: 12px 0; overflow-wrap: anywhere; }
 .resposta-texto p { margin: 0 0 10px; }
+/* Consulta: explicação em passos, opções de busca com descrição e legenda das contagens do índice */
+.explicacao-passos { margin: 0; padding-left: 22px; }
+.explicacao-passos li { margin: 4px 0; }
+.opcoes-busca { display: grid; gap: 8px; }
+.campo--grupo .opcao-busca { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); cursor: pointer; }
+.campo--grupo .opcao-busca:has(input:checked) { border-color: var(--cor-marca); background: var(--cor-fundo); }
+.opcao-busca input { margin-top: 3px; }
+.opcao-busca__titulo { font-weight: 600; }
+.opcao-busca__texto { grid-column: 2; font-size: .9rem; color: var(--cor-texto-suave); }
+.acoes-rodape.acoes-rodape--solta { position: static; padding-left: 0; padding-right: 0; background: none; }
+.resumo__item small { display: block; margin-top: 2px; font-weight: 400; font-size: .82rem; color: var(--cor-texto-suave); }
 /* dl sem agrupamento (rótulo e valor soltos): duas colunas alinhadas */
 main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
   display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0 0 16px;

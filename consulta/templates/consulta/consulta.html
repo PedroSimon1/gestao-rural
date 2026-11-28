@@ -3,25 +3,59 @@
 {% block titulo %}Consultar — Gestão Rural{% endblock %}
 
 {% block conteudo %}
-  {% include "documentos/_cabecalho_pagina.html" with titulo="Consultar" apoio="Pergunte em linguagem natural sobre as contas cadastradas. A resposta é elaborada pelo Gemini a partir das contas encontradas." %}
+  {% include "documentos/_cabecalho_pagina.html" with titulo="Consultar" apoio="Pergunte em linguagem natural sobre as contas cadastradas e receba a resposta escrita pelo Gemini." %}
 
-  {% include "documentos/_aviso.html" with tipo="atencao" titulo="Privacidade" texto="A pergunta e os dados das contas encontradas (nomes, valores, datas e itens, sem CPF/CNPJ) são enviados ao Google Gemini com a chave informada. Ao atualizar o índice semântico, os textos de todas as contas indexadas (contraparte, classificações, itens e valores, sem CPF/CNPJ) também são enviados ao Gemini. Fora de produção, use apenas dados fictícios." %}
+  <section class="cartao" aria-labelledby="titulo-como-funciona">
+    <h2 id="titulo-como-funciona">Como funciona</h2>
+    <ol class="explicacao-passos">
+      <li><strong>Você pergunta.</strong> Escreva como falaria normalmente.</li>
+      <li><strong>O sistema busca as contas relacionadas.</strong> Você escolhe a forma de busca.</li>
+      <li><strong>O Gemini responde.</strong> Ele usa só as contas encontradas, listadas junto da resposta.</li>
+    </ol>
+  </section>
+
+  {% include "documentos/_aviso.html" with tipo="atencao" titulo="Privacidade" texto="A pergunta e os dados das contas encontradas (nomes, valores, datas e itens, sem CPF/CNPJ) são enviados ao Google Gemini com a chave informada. Ao atualizar o índice semântico, os textos de todas as contas indexadas (fornecedor, categorias, itens e valores, sem CPF/CNPJ) também são enviados. Fora de produção, use apenas dados fictícios." %}
 
   <form method="post" action="{% url 'consulta' %}" class="formulario" data-submit-lock data-submit-texto="Consultando...">
     {% csrf_token %}
-    <section class="cartao cartao--campos">
-      {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
-      {% include "documentos/_campo.html" with campo=form.pergunta %}
-      {% include "documentos/_campo.html" with campo=form.modo %}
-      {% include "documentos/_campo.html" with campo=form.gemini_api_key %}
+    {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
 
-      <div class="aviso aviso--info" role="status" data-estado hidden>
-        <strong>Consultando</strong>
-        <p>Isso pode levar alguns segundos. Não feche esta página.</p>
-      </div>
+    <section class="cartao" aria-labelledby="titulo-passo-pergunta">
+      <h2 id="titulo-passo-pergunta">1. Sua pergunta</h2>
+      <p class="texto-apoio texto-apoio--campo">O que você quer saber sobre as contas? Quanto mais claro, melhor a resposta.</p>
+      {% include "documentos/_campo.html" with campo=form.pergunta %}
     </section>
 
-    <div class="acoes-rodape">
+    <section class="cartao" aria-labelledby="titulo-passo-busca">
+      <h2 id="titulo-passo-busca">2. Como buscar as contas</h2>
+      <p class="texto-apoio texto-apoio--campo">Define como o sistema escolhe as contas que serão entregues ao Gemini.</p>
+      <fieldset class="campo campo--grupo">
+        <legend class="rotulo">Forma de busca<span class="req" aria-hidden="true"> *</span></legend>
+        <div class="opcoes-busca">
+          {% for radio in form.modo %}
+            <label class="opcao-busca" for="{{ radio.id_for_label }}">
+              {{ radio.tag }}
+              <span class="opcao-busca__titulo">{{ radio.choice_label }}</span>
+              <span class="opcao-busca__texto" id="{{ radio.id_for_label }}_descricao">{{ radio.data.descricao }}{% if radio.data.value == "semantico" %} <a href="#titulo-indice">Ver o índice</a>.{% endif %}</span>
+            </label>
+          {% endfor %}
+        </div>
+        {{ form.modo.errors }}
+      </fieldset>
+    </section>
+
+    <section class="cartao" aria-labelledby="titulo-passo-chave">
+      <h2 id="titulo-passo-chave">3. Chave do Gemini</h2>
+      <p class="texto-apoio texto-apoio--campo">É a senha que dá acesso ao Gemini, o serviço de IA do Google. Você a informa a cada consulta.</p>
+      {% include "documentos/_campo.html" with campo=form.gemini_api_key %}
+    </section>
+
+    <div class="aviso aviso--info" role="status" data-estado hidden>
+      <strong>Consultando</strong>
+      <p>Isso pode levar alguns segundos. Não feche esta página.</p>
+    </div>
+
+    <div class="acoes-rodape acoes-rodape--solta">
       <span class="status">A consulta pode levar alguns segundos.</span>
       <button type="submit" class="botao">Consultar</button>
     </div>
@@ -39,11 +73,12 @@
         {% include "documentos/_aviso.html" with tipo="atencao" texto=resposta.aviso %}
       {% endif %}
       <div class="resposta-texto">{{ resposta.resposta|linebreaks }}</div>
-      <p class="texto-apoio texto-apoio--pequeno">Forma de busca usada: {{ modo_rotulo }}.</p>
+      <p class="texto-apoio texto-apoio--pequeno">Forma de busca usada: {{ modo_rotulo }}. A resposta foi escrita pelo Gemini com base apenas nas contas abaixo.</p>
     </section>
 
     <section class="cartao" aria-labelledby="titulo-fontes">
       <h2 id="titulo-fontes">Fontes consultadas</h2>
+      <p class="texto-apoio texto-apoio--campo">Contas que o sistema encontrou e entregou ao Gemini. Clique para conferir os dados.</p>
       {% if resposta.fontes %}
         <ul class="lista-linhas">
           {% for fonte in resposta.fontes %}
@@ -53,6 +88,13 @@
             </li>
           {% endfor %}
         </ul>
+        <p class="texto-apoio texto-apoio--pequeno">
+          {% if resposta.modo == "semantico" %}
+            Similaridade vai de 0 a 1: quanto mais perto de 1, mais parecida a conta é com a pergunta.
+          {% else %}
+            Pontuação é quantos termos da pergunta a conta contém; fornecedor e itens valem mais.
+          {% endif %}
+        </p>
       {% else %}
         <p class="texto-apoio">Nenhuma conta foi usada na resposta.</p>
       {% endif %}
@@ -61,13 +103,14 @@
 
   <section class="cartao" aria-labelledby="titulo-indice">
     <h2 id="titulo-indice">Índice semântico</h2>
-    <p class="texto-apoio">A busca semântica só encontra as contas que já estão no índice. Novas contas e contas alteradas entram nele ao atualizar; cada clique indexa um lote limitado.</p>
+    <p class="texto-apoio">É um catálogo de significados das contas, criado pelo Gemini. A busca semântica só enxerga as contas que estão nele.</p>
+    <p class="texto-apoio texto-apoio--campo"><strong>Quando atualizar:</strong> depois de lançar contas novas ou quando houver contas pendentes. Cada clique processa um lote; repita até não restar pendentes.</p>
     {% if indice %}
       <dl class="resumo">
-        <div class="resumo__item"><dt>Contas no sistema</dt><dd>{{ indice.total }}</dd></div>
-        <div class="resumo__item"><dt>Indexadas</dt><dd>{{ indice.indexados }}</dd></div>
-        <div class="resumo__item"><dt>Pendentes (sem índice)</dt><dd>{{ indice.pendentes }}</dd></div>
-        <div class="resumo__item"><dt>Desatualizadas</dt><dd>{{ indice.desatualizados }}</dd></div>
+        <div class="resumo__item"><dt>Contas no sistema</dt><dd>{{ indice.total }}<small>Total de contas lançadas.</small></dd></div>
+        <div class="resumo__item"><dt>Indexadas</dt><dd>{{ indice.indexados }}<small>Prontas para a busca semântica.</small></dd></div>
+        <div class="resumo__item"><dt>Pendentes (sem índice)</dt><dd>{{ indice.pendentes }}<small>Ainda fora da busca semântica.</small></dd></div>
+        <div class="resumo__item"><dt>Desatualizadas</dt><dd>{{ indice.desatualizados }}<small>Mudaram depois de indexadas; serão refeitas.</small></dd></div>
       </dl>
     {% else %}
       {% include "documentos/_aviso.html" with tipo="atencao" titulo="Estado do índice indisponível" texto="A configuração do índice semântico está inválida. Avise a equipe." %}
@@ -91,7 +134,7 @@
         <strong>Atualizando o índice</strong>
         <p>Isso pode levar alguns segundos. Não feche esta página.</p>
       </div>
-      <div class="acoes-rodape">
+      <div class="acoes-rodape acoes-rodape--solta">
         <span class="status">Indexa um lote por vez.</span>
         <button type="submit" class="botao botao--secundario">Atualizar índice</button>
       </div>

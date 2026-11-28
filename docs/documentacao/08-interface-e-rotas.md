@@ -83,7 +83,7 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `cadastros/pessoas.html`, `pessoa_form.html`, `pessoa_detalhe.html` | Telas de pessoas |
 | `cadastros/classificacoes.html`, `classificacao_form.html` | Telas de classificações |
 | `financeiro/contas.html`, `conta_manual.html`, `conta_detalhe.html` | Telas de contas (a de detalhe também exibe mensagens de erro de consulta) |
-| `consulta/consulta.html` | Pergunta, seletor de modo, aviso de privacidade, resposta e fontes; situação do índice (indexados, desatualizados e pendentes) e formulário separado "Atualizar índice". Estende `documentos/base.html` |
+| `consulta/consulta.html` | Organizada em passos, cada um com texto curto de explicação: "Como funciona", aviso de privacidade, "1. Sua pergunta", "2. Como buscar as contas" (cada forma de busca com a sua descrição), "3. Chave do Gemini", resposta e fontes (com legenda da pontuação ou do cosseno) e "Índice semântico" (o que é, quando atualizar, e as quatro contagens explicadas) com o formulário separado "Atualizar índice". Estende `documentos/base.html` |
 | `usuarios/login.html`, `logout.html` | Entrada e saída |
 
 | Estático | Função |
@@ -114,7 +114,7 @@ dá erros "Missing staticfiles manifest entry".
 | `ContaManualForm` + `ParcelasManuaisFormSet` | `financeiro/forms_manuais.py` | tipo, UUID, token, contraparte, faturado, valor total, classificações, principal, parcelas, `confirmar`, `ciente_duplicidade` | Formset: mínimo 1, máximo 120, com remoção. `ciente_duplicidade` só aparece quando há conta parecida (409 até ser marcado) |
 | `FiltroContasForm` | `financeiro/forms_consultas.py` | tipo, origem, situação, contraparte, classificação, pagamento (em aberto / quitado), por página, página | Inclui cadastros inativos |
 | `PagamentoParcelaForm` | `financeiro/forms_pagamentos.py` | `acao` (registrar/desfazer), `data_pagamento` | Recusa data futura no serviço |
-| `ConsultaForm` | `consulta/forms.py` | `pergunta` (≤ 500), `modo` (`simples`/`semantico`), `gemini_api_key` | Simples é o padrão; chave em `PasswordInput`, retirada dos dados do formulário antes do template |
+| `ConsultaForm` | `consulta/forms.py` | `pergunta` (≤ 500), `modo` (`simples`/`semantico`, widget `RadioComDescricao`: cada opção leva a descrição de `servico.Modo.descricao`), `gemini_api_key` | Simples é o padrão; chave em `PasswordInput`, retirada dos dados do formulário antes do template |
 | `IndiceForm` | `consulta/forms.py` | `gemini_api_key` | Chave só para o lote; IDs próprios para não duplicar os campos da consulta |
 
 Padrões comuns nas views de escrita: **recusar campos fora do formulário e campos escalares repetidos** ("Pedido inválido…"),
