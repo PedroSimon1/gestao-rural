@@ -4292,3 +4292,42 @@ Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `doc
 - **Fontes consultadas:** lista numerada (círculo com o número); cada conta continua sendo um link para a tela da conta, com o rótulo (tipo, número, fornecedor, valor); na busca simples, abaixo do link ficam os termos que casaram e à direita uma etiqueta "pontuação N"; na busca semântica, à direita ficam uma barra de similaridade (`<meter>`, de 0 a 1) e a etiqueta "similaridade por cosseno X"; a legenda explicando a pontuação ou o cosseno fica no fim. Em telas estreitas a etiqueta passa para baixo do link.
 - **Testes:** teste novo em `consulta/test_interface.py` (pergunta, etiquetas, lista numerada, ausência de barra na busca simples, legenda) e asserção da barra em `consulta/test_semantico.py`; as asserções antigas (link, rótulo, termos, "pontuação 4", "cosseno 1,00", "Forma de busca usada: ...") seguem válidas. Suíte completa no relatório da tarefa. Conferência visual no navegador (24 notas de demonstração, Gemini simulado), nos dois modos.
 - **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+# 51 - N3: carga de 200 notas fictícias (27/11/2026)
+
+## 51.1 - Identificação
+
+Pedido do usuário: o professor exige 200 notas no banco; carregar na homologação e deixar o procedimento pronto para a produção, no deploy. Data: 27/11/2026. Branches `feature/n3-demonstracao-200` (código) e `docs/n3-registro-200-notas` (este registro), mescladas localmente em `docs/n3-RAG-planejamento`. Depende da seção 48 (comando `carregar_demonstracao`).
+
+## 51.2 - Implementação
+
+- **`documentos/demonstracao.py`:** `carregar_demonstracao(total=200)` e `contar_faltantes(total)`. Catálogo de 84 produtos e 36 fornecedores fictícios (nomes terminados em "Fictícia", CNPJ com DV válido), por ramo (nutrição e sanidade animal, fertilizantes, defensivos, combustíveis, peças, sementes, cercas, energia, irrigação, silagem, construção etc.), para a busca semântica ter agrupamentos. As **24 primeiras notas são idênticas às da carga anterior** (mesmos IDs, identidades, itens, valores e datas), então cargas já feitas não duplicam. As notas 25 a 200 são geradas de forma determinística, com 1 a 4 itens do ramo do fornecedor, de 1 a 6 parcelas e emissões entre 05/01/2026 e 25/11/2026. Nas notas novas, cerca de 70% das parcelas vencidas até 15/11/2026 recebem baixa pela API oficial (`registrar_pagamento`), para haver contas pagas e em aberto. A carga é idempotente e **uma transação por nota**: uma falha de rede no banco remoto não perde o que já foi gravado, e uma nova execução continua de onde parou.
+- **Comando `carregar_demonstracao`:** `--quantidade N` (1 a 500; padrão 200) e `--simular` (mostra o banco-alvo, quantas notas existem e quantas seriam criadas, sem gravar e sem exigir `--confirmar`). Mantém as salvaguardas (host e nome do banco, nunca credenciais; `--confirmar`; `--permitir-remoto` para host remoto).
+- **`carregar_demonstracao_producao.sh` (raiz, versionado):** pede as credenciais de produção (senha oculta, nada vai a disco), aborta se host, porta, banco e usuário forem todos iguais aos do `.env` (homologação), mostra host, banco e papel, **aborta se houver qualquer migration pendente** (o script não aplica migrations), roda a simulação, exige digitar `PRODUCAO` e só então grava. Só a sintaxe foi verificada (`bash -n`); o script **não foi executado**.
+
+## 51.3 - Execução na homologação (27/11/2026)
+
+- **Conferência prévia (só leitura):** banco-alvo = o configurado no `.env` (Supabase, banco `postgres`, SSL `require`); todas as migrations já aplicadas (`financeiro` até 0008 e `consulta` até 0002; `migrate --plan` sem operações); 26 notas existentes (24 da demonstração anterior e 2 que não são da demonstração; essas 2 não têm itens, por terem sido lançadas antes da mudança).
+- **Confirmação:** o usuário confirmou, em formulário, que o banco é a homologação e escolheu o catálogo completo de 200 (o banco fica com 202 notas).
+- **Carga:** `carregar_demonstracao --confirmar --permitir-remoto` criou **176 notas** em 3 min 28 s.
+- **Resultado (consulta de leitura):** 202 movimentos e 202 notas fiscais (200 da demonstração e as 2 existentes), 464 itens, 664 parcelas (307 pagas), 38 fornecedores, emissões de 05/01/2026 a 24/11/2026, 2 notas sem item (as 2 anteriores). A nova simulação indica "existentes: 200; seriam criadas: 0" (idempotente).
+- **Não feito:** o índice semântico não foi atualizado (exige a chave Gemini do usuário); o RAG não foi testado com chave real.
+
+## 51.4 - Testes
+
+`ruff check .` e `check` sem problemas; `makemigrations --check` sem mudanças (sem migration nova); `bash -n` limpo; `manage.py test --noinput`: **1464 testes, OK** (era 1457). No banco local de teste, a carga de 200 levou cerca de 2 s e aplicou 307 baixas em 448 parcelas elegíveis.
+
+## 51.5 - Produção (a fazer no deploy)
+
+1. Aplicar as migrations pendentes na produção (`financeiro` 0007 e 0008, `consulta` 0001 e 0002, além de qualquer outra), de forma manual (PT-06).
+2. Rodar `bash carregar_demonstracao_producao.sh` na raiz do projeto, conferir o destino e a simulação e digitar `PRODUCAO`. Não entra em `build.sh` nem em `start.sh`.
+3. Depois, no site, clicar em "Atualizar índice" (com a chave Gemini) até zerar os pendentes. Com 200 notas e o lote padrão de 20, são 10 a 11 cliques; definir `RAG_LOTE_INDEXACAO=100` (máximo do código) reduz para 3 cliques (cota do Gemini a verificar).
+- **Atenção:** movimentos financeiros não podem ser excluídos; a carga é permanente no banco onde for executada. São dados fictícios, mas aparecerão em produção junto dos dados reais, se houver.
+
+## 51.6 - Pendências
+
+Decisão pendente do usuário: manter as 2 notas existentes na contagem (202) ou não; em produção, decidir se o total desejado é 200 exatos (usar `--quantidade`). Atualizar o índice semântico e testar com chave real. O ADR-002 e o ADR-003 seguem sem aprovação formal.
+
+## 51.7 - Git
+
+Commits sem co-autor, mesclados em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
