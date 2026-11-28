@@ -164,6 +164,44 @@ h3 + dl.resumo { margin-top: 8px; }
 .resumo__item { padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); }
 .resumo dt, main dl dt { color: var(--cor-texto-suave); font-size: .86rem; }
 .resumo dd, main dl dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+/* Consulta: blocos Resposta e Fontes consultadas */
+.resposta-pergunta { margin: 0 0 12px; padding: 10px 14px; border-left: 4px solid var(--cor-borda-forte); border-radius: 0 var(--raio) var(--raio) 0; background: var(--cor-fundo); overflow-wrap: anywhere; }
+.resposta-rotulo { display: block; margin-bottom: 4px; font-size: .78rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--cor-texto-suave); }
+.resposta-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.etiqueta { display: inline-block; padding: 2px 10px; border: 1px solid var(--cor-borda-forte); border-radius: 999px; background: var(--cor-superficie); font-size: .85rem; }
+.resposta-conteudo { margin: 0 0 12px; padding: 14px 18px; border: 2px solid var(--cor-marca); border-radius: var(--raio); background: #fbfdfb; }
+.resposta-texto { margin: 0; font-size: 1.05rem; line-height: 1.6; overflow-wrap: anywhere; }
+.resposta-texto p { margin: 0 0 10px; }
+.resposta-texto p:last-child { margin-bottom: 0; }
+.fontes { margin: 0; padding: 0; list-style: none; counter-reset: fonte; }
+.fontes > li { counter-increment: fonte; display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--cor-borda); }
+.fontes > li:first-child { border-top: 0; padding-top: 0; }
+.fontes > li::before { content: counter(fonte); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--cor-marca); color: #ffffff; font-size: .85rem; font-weight: 600; }
+.fonte__corpo p { margin: 0 0 2px; font-weight: 600; overflow-wrap: anywhere; }
+.fonte__corpo small { display: block; color: var(--cor-texto-suave); }
+.fonte__nota { display: flex; align-items: center; gap: 8px; }
+.fonte__nota meter { width: 90px; height: 12px; }
+@media (max-width: 640px) { .fontes > li { grid-template-columns: 28px 1fr; } .fonte__nota { grid-column: 2; } }
+/* Consulta: opções de busca com descrição e legenda das contagens do índice */
+.opcoes-busca { display: grid; gap: 8px; }
+.campo--grupo .opcao-busca { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--cor-borda); border-radius: var(--raio); cursor: pointer; }
+.campo--grupo .opcao-busca:has(input:checked) { border-color: var(--cor-marca); background: var(--cor-fundo); }
+.opcao-busca input { margin-top: 3px; }
+.opcao-busca__titulo { font-weight: 600; }
+.opcao-busca__texto { grid-column: 2; font-size: .9rem; color: var(--cor-texto-suave); }
+.acoes-rodape.acoes-rodape--solta { position: static; padding-left: 0; padding-right: 0; background: none; }
+.resumo__item small { display: block; margin-top: 2px; font-weight: 400; font-size: .82rem; color: var(--cor-texto-suave); }
+.resumo__item--alerta { border-color: var(--cor-aviso); background: #fff3d1; }
+.indice-atualizar { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--cor-borda); }
+.indice-atualizar h3 { margin: 0 0 4px; }
+.cartao > .aviso + .resumo { margin-top: 16px; }
+/* Consulta: cartão da pergunta em destaque (é onde o usuário escreve) */
+.cartao--destaque { margin-top: 4px; margin-bottom: 20px; border: 2px solid var(--cor-marca); box-shadow: 0 0 0 4px rgba(37, 87, 58, .12); } /* O formulário é uma coluna flex com gap de 8px e as margens não colapsam: 4px em cima (abaixo do cabeçalho) e 20px embaixo (menos o halo de 4px) dão um vão visível de 24px, igual ao dos outros cartões */
+.selo-inicio { margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--cor-marca); color: #ffffff; font-size: .78rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+.cartao--destaque textarea.campo-pergunta { max-width: none; min-height: 150px; padding: 14px 16px; border: 2px solid var(--cor-marca); background: #fbfdfb; font-size: 1.1rem; line-height: 1.5; resize: vertical; }
+.cartao--destaque textarea.campo-pergunta::placeholder { color: var(--cor-texto-suave); opacity: .75; }
+.cartao--destaque textarea.campo-pergunta:focus { outline: 3px solid var(--cor-foco); outline-offset: 1px; background: #ffffff; }
+.cartao--destaque textarea.campo-pergunta[aria-invalid="true"] { border-color: var(--cor-erro); }
 /* dl sem agrupamento (rótulo e valor soltos): duas colunas alinhadas */
 main dl:not(.resumo), .resumo:not(:has(.resumo__item)) {
   display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0 0 16px;

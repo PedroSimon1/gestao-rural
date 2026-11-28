@@ -8,6 +8,9 @@ from django.urls import reverse
 
 from usuarios.testing import CREDENCIAIS_TESTE, autenticar_demo
 from . import manual
+from .identidade_fiscal import identificar_nota, registrar_identidade_fiscal
+from .itens_nota import registrar_itens_nota
+from .servicos import registrar_movimento
 from .test_manual import ContaManualBase, contagens, parcelas
 
 
@@ -75,6 +78,46 @@ class InterfaceConsultasTests(ContaManualBase, TestCase):
         self.assertContains(resp, "o pagamento aparece na coluna Pagamento")
         self.assertNotContains(resp, "Editar")
         self.assertNotContains(resp, "Reativar")
+
+    def nota_fiscal(self):
+        movimento, _ = registrar_movimento(self.apagar())
+        nota, _ = registrar_identidade_fiscal(movimento, identificar_nota(
+            emitente_cnpj=self.fornecedor.documento, modelo="55", serie=1, numero=321,
+        ))
+        return movimento, nota
+
+    def test_itens_em_secao_propria_com_valores_ausentes_e_escape(self):
+        movimento, nota = self.nota_fiscal()
+        registrar_itens_nota(nota, [
+            {"descricao": "Ração <script>alert(1)</script>", "quantidade": "2.5",
+             "valor_unitario": "80.10", "valor_total": "200.25"},
+            {"descricao": "Sal mineral", "quantidade": "0", "valor_total": "0"},
+            {"descricao": "Vacina"},
+        ])
+        resposta = self.client.get(self.url("conta_detalhe", movimento.pk))
+        self.assertContains(resposta, "Itens da nota fiscal")
+        self.assertContains(resposta, "Ração &lt;script&gt;alert(1)&lt;/script&gt;")
+        self.assertNotContains(resposta, "<script>alert(1)</script>")
+        for texto in ("Sal mineral", "2,5", "80,10", "200,25", "Não informada", "Não informado", "0,00"):
+            self.assertContains(resposta, texto)
+        self.assertEqual(len(resposta.context["detalhe"].nota_fiscal.itens), 3)
+
+    def test_secao_nao_aparece_em_nota_antiga_sem_itens_nem_movimento_manual(self):
+        movimento, _ = self.nota_fiscal()
+        for movimento_id in (movimento.pk, self.pagar1.id):
+            with self.subTest(movimento=movimento_id):
+                self.assertNotContains(
+                    self.client.get(self.url("conta_detalhe", movimento_id)), "Itens da nota fiscal",
+                )
+
+    def test_quantidade_de_consultas_nao_cresce_com_itens(self):
+        movimento, nota = self.nota_fiscal()
+        registrar_itens_nota(nota, [{"descricao": f"Item {n}"} for n in range(20)])
+        with CaptureQueriesContext(connection) as consultas:
+            resposta = self.client.get(self.url("conta_detalhe", movimento.pk))
+        consultas_itens = [c for c in consultas if 'FROM "itens_notas_fiscais"' in c["sql"]]
+        self.assertEqual(len(consultas_itens), 1)
+        self.assertEqual(len(resposta.context["detalhe"].nota_fiscal.itens), 20)
 
     def test_inexistente_404_e_respostas_sem_cache(self):
         for url, esperado in ((self.url("conta_detalhe", 99999999), 404), (self.url("conta_detalhe", self.receber1.id), 200), (self.url(), 200)):

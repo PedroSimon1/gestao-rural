@@ -20,6 +20,7 @@ achados da auditoria estão registradas na seção 39 do `ContextoProjeto.md`.
 | FLU-07 | Cadastro explícito de classificação na conferência, preservando rascunho; salvar correções e confirmar continuam separados |
 | Contas manuais | Pagar/receber, classificações com uma principal e parcelas; confirmação explícita e UUID idempotente |
 | Consultas financeiras | Filtros e detalhes de classificações/parcelas; estados não significam quitação |
+| Consulta em linguagem natural | `/consulta/`: busca simples ou semântica sobre as contas, resposta pelo Gemini e fontes consultadas; índice atualizado por ação explícita |
 | Privacidade | Upload limitado em memória, respostas dinâmicas no-store, logs fixos no erro de processamento e logout por POST/CSRF |
 
 **Pendências reais:** botão de cadastro pendente F-6 aguarda contrato oficial

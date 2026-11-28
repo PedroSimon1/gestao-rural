@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 
 import httpx
 from django.conf import settings
@@ -11,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT_PADRAO_SEGUNDOS = 60
 MAX_TENTATIVAS_PADRAO = 3
+
+TAREFA_DOCUMENTO = "RETRIEVAL_DOCUMENT"
+TAREFA_CONSULTA = "RETRIEVAL_QUERY"
+TAREFAS_EMBEDDING = (TAREFA_DOCUMENTO, TAREFA_CONSULTA)
+# O gemini-embedding-2 agrega várias entradas em UM vetor; o lote perderia a
+# correspondência entre texto e vetor.
+PREFIXO_MODELO_EMBEDDING_AGREGADOR = "gemini-embedding-2"
 
 
 class GeminiError(Exception):
@@ -56,6 +64,22 @@ def _inteiro_positivo(valor, padrao, nome):
     return numero
 
 
+def _normalizar(valores, dimensao):
+    if not valores or len(valores) != dimensao:
+        raise GeminiRespostaInvalidaError(
+            "Resposta do Gemini com embedding vazio ou de tamanho inesperado."
+        )
+    try:
+        norma = math.hypot(*valores)
+    except TypeError as exc:
+        raise GeminiRespostaInvalidaError(
+            "Resposta do Gemini com embedding não numérico."
+        ) from exc
+    if not math.isfinite(norma) or norma == 0:
+        raise GeminiRespostaInvalidaError("Resposta do Gemini com embedding inválido.")
+    return [valor / norma for valor in valores]
+
+
 class GeminiClient:
     """Cliente compartilhado do Gemini usado pelos agents.
 
@@ -74,6 +98,8 @@ class GeminiClient:
         modelo=None,
         timeout_segundos=None,
         max_tentativas=None,
+        modelo_embedding=None,
+        dimensao_embedding=None,
     ):
         chave = _texto_ou_none(api_key)
         if chave is None:
@@ -97,6 +123,17 @@ class GeminiClient:
             else getattr(settings, "GEMINI_MAX_TENTATIVAS", None),
             MAX_TENTATIVAS_PADRAO,
             "GEMINI_MAX_TENTATIVAS",
+        )
+
+        self._modelo_embedding = _texto_ou_none(
+            modelo_embedding if modelo_embedding is not None
+            else getattr(settings, "GEMINI_MODELO_EMBEDDING", None)
+        )
+        # Validados só em gerar_embeddings: quem apenas gera texto não depende
+        # da configuração de embeddings.
+        self._dimensao_embedding = (
+            dimensao_embedding if dimensao_embedding is not None
+            else getattr(settings, "GEMINI_DIMENSAO_EMBEDDING", None)
         )
 
         # api_key e vertexai explícitos impedem que o SDK use GOOGLE_API_KEY
@@ -141,32 +178,14 @@ class GeminiClient:
             temperature=temperatura,
         )
 
-        try:
-            resposta = self._client.models.generate_content(
+        resposta = self._chamar_sdk(
+            self.modelo,
+            lambda: self._client.models.generate_content(
                 model=self.modelo,
                 contents=conteudo,
                 config=config,
-            )
-        except httpx.TimeoutException as exc:
-            logger.warning("Timeout na chamada ao Gemini (modelo=%s).", self.modelo)
-            raise GeminiTimeoutError(
-                "Tempo limite excedido na chamada ao Gemini."
-            ) from exc
-        except errors.APIError as exc:
-            logger.warning(
-                "Erro da API do Gemini (modelo=%s, status=%s).",
-                self.modelo,
-                exc.code,
-            )
-            raise GeminiAPIError(
-                f"Erro da API do Gemini (status {exc.code}).",
-                status_code=exc.code,
-            ) from exc
-        except httpx.HTTPError as exc:
-            logger.warning("Falha de rede na chamada ao Gemini (modelo=%s).", self.modelo)
-            raise GeminiAPIError(
-                "Falha de comunicação com o Gemini."
-            ) from exc
+            ),
+        )
 
         try:
             texto = resposta.text
@@ -179,6 +198,83 @@ class GeminiClient:
             raise GeminiRespostaInvalidaError("Resposta do Gemini vazia.")
 
         return texto
+
+    @staticmethod
+    def _chamar_sdk(modelo, chamada):
+        """Executa a chamada ao SDK traduzindo as falhas para GeminiError."""
+        try:
+            return chamada()
+        except httpx.TimeoutException as exc:
+            logger.warning("Timeout na chamada ao Gemini (modelo=%s).", modelo)
+            raise GeminiTimeoutError(
+                "Tempo limite excedido na chamada ao Gemini."
+            ) from exc
+        except errors.APIError as exc:
+            logger.warning(
+                "Erro da API do Gemini (modelo=%s, status=%s).",
+                modelo,
+                exc.code,
+            )
+            raise GeminiAPIError(
+                f"Erro da API do Gemini (status {exc.code}).",
+                status_code=exc.code,
+            ) from exc
+        except httpx.HTTPError as exc:
+            logger.warning("Falha de rede na chamada ao Gemini (modelo=%s).", modelo)
+            raise GeminiAPIError(
+                "Falha de comunicação com o Gemini."
+            ) from exc
+
+    def gerar_embeddings(self, textos, *, tarefa):
+        """Gera um vetor normalizado (L2) por texto, na mesma ordem.
+
+        `tarefa` é TAREFA_DOCUMENTO (indexação) ou TAREFA_CONSULTA (pergunta).
+        A normalização é feita aqui porque a API só normaliza a saída de 3072
+        dimensões.
+        """
+        if tarefa not in TAREFAS_EMBEDDING:
+            raise GeminiConfiguracaoError("Tarefa de embedding inválida.")
+        if self._modelo_embedding is None:
+            raise GeminiConfiguracaoError("GEMINI_MODELO_EMBEDDING não configurado.")
+        if self._modelo_embedding.startswith(PREFIXO_MODELO_EMBEDDING_AGREGADOR):
+            raise GeminiConfiguracaoError(
+                "O modelo de embedding informado agrega o lote em um único vetor "
+                "e não é suportado; use o gemini-embedding-001."
+            )
+        dimensao = _inteiro_positivo(
+            self._dimensao_embedding, None, "GEMINI_DIMENSAO_EMBEDDING"
+        )
+        if dimensao is None:
+            raise GeminiConfiguracaoError("GEMINI_DIMENSAO_EMBEDDING não configurado.")
+
+        textos = list(textos)
+        if not textos:
+            raise GeminiConfiguracaoError("Nenhum texto informado para gerar embeddings.")
+        if any(not isinstance(texto, str) or not texto.strip() for texto in textos):
+            raise GeminiConfiguracaoError("Texto vazio informado para gerar embeddings.")
+
+        config = types.EmbedContentConfig(
+            task_type=tarefa,
+            output_dimensionality=dimensao,
+        )
+        resposta = self._chamar_sdk(
+            self._modelo_embedding,
+            lambda: self._client.models.embed_content(
+                model=self._modelo_embedding,
+                contents=textos,
+                config=config,
+            ),
+        )
+
+        embeddings = getattr(resposta, "embeddings", None)
+        if not isinstance(embeddings, (list, tuple)) or len(embeddings) != len(textos):
+            raise GeminiRespostaInvalidaError(
+                "Resposta do Gemini com quantidade de embeddings diferente da enviada."
+            )
+        return [
+            _normalizar(getattr(embedding, "values", None), dimensao)
+            for embedding in embeddings
+        ]
 
     def gerar_json(
         self,

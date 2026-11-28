@@ -4,8 +4,9 @@ Framework: `unittest` do Django (`SimpleTestCase`, `TestCase`, `TransactionTestC
 
 ## 1. Números de referência
 
-Auditoria de 24/11/2026: **1.153 testes, todos aprovados** (≈ 24 s) no PostgreSQL local de `DB_TEST_*`. Isso é **referência histórica**, não garantia atual:
-rode a suíte antes de afirmar qualquer coisa.
+Em 27/11/2026, ao fim da N3 (RAG): **1.452 testes, todos aprovados** com `manage.py test --noinput` no PostgreSQL local de `DB_TEST_*` (≈ 28 s). O total não comprova deploy, migrations remotas nem a qualidade das respostas do Gemini real (o Gemini é sempre simulado nos testes). Rode a suíte antes de afirmar qualquer coisa.
+
+Auditoria de 24/11/2026: **1.153 testes, todos aprovados** (≈ 24 s). Isso é **referência histórica**:
 
 | App | Funções `def test…` (contagem por leitura do código) |
 | --- | ---: |
@@ -57,6 +58,7 @@ Os testes ficam **ao lado do código**, em `test_*.py` (e `usuarios/tests.py`).
 | Área | Arquivos principais | O que cobrem |
 | --- | --- | --- |
 | Agents | `agents/test_gemini_client.py`, `extrator/test_*.py`, `classificador/test_*.py` | Cliente (chave, timeout, erros), schemas v1/v2, CPF/CNPJ/DV, prompts, erros seguros. **SDK simulado** |
+| Consulta RAG | `consulta/test_*.py`, `agents/rag/test_agent.py` | Texto/contexto, recuperação simples e vetorial, modelos, indexação, serviço, interface e prompt do RAG; cliente Gemini simulado |
 | Processamento e contratos | `documentos/test_processamento.py`, `test_contrato_agents.py`, `test_fiscal_v2.py`, `test_integracao_final.py` | `processar_pdf`, `montar_resultado`, composição Extrator + Classificador, inconclusiva |
 | Análises | `documentos/test_analises.py`, `test_correcoes.py`, `test_privacidade.py` | Ciclo de vida, dono por sessão, expiração, correções, versão otimista, apagamento de dados |
 | Conferência/confirmação | `test_conferencia.py`, `test_interface_conferencia.py`, `test_fluxo_conferencia.py`, `test_classificacao_na_conferencia.py`, `test_classificacao_pendente.py`, `test_campos_fiscais.py`, `test_interface_consultas.py` | F-3, telas, FLU-07, campos fiscais |

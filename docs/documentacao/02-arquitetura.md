@@ -7,7 +7,7 @@
 - **Duas chamadas síncronas ao Gemini** por PDF (Extrator, depois Classificador), na mesma requisição.
 - **Sem usuários**: autenticação de demonstração em cookie assinado (sem tabela, sem `django.contrib.auth`).
 - **Sessão em cookie assinado** (`signed_cookies`): não há tabela de sessões.
-- **Apps instalados**: `django.contrib.staticfiles`, `cadastros`, `documentos`, `financeiro`, `usuarios`. Não há admin, auth, contenttypes nem messages.
+- **Apps instalados**: `django.contrib.staticfiles`, `cadastros`, `documentos`, `financeiro`, `usuarios`, `consulta`. Não há admin, auth, contenttypes nem messages.
 - **PDF e chave Gemini nunca são gravados**; só existem durante a requisição.
 
 ## 2. Camadas e responsabilidades
@@ -15,11 +15,11 @@
 | Camada | Responsabilidade | Onde |
 | --- | --- | --- |
 | **Views** | HTTP: autenticação, método, CSRF, montar contexto, redirecionar, traduzir erros em mensagens | `*/views*.py` |
-| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/identidade_fiscal.py`, `documentos/lancamento_nota.py`, `documentos/categorias.py` |
-| **Models** | Persistência e proteções de integridade (constraints, imutabilidade, sem exclusão) | `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py` |
+| **Serviços** | Regras de aplicação e de negócio; transações | `documentos/processamento.py`, `documentos/analises.py`, `documentos/conferencia.py`, `cadastros/consultas.py`, `cadastros/resolucao.py`, `cadastros/pendentes.py`, `financeiro/servicos.py`, `financeiro/manual.py`, `financeiro/identidade_fiscal.py`, `documentos/lancamento_nota.py`, `documentos/categorias.py`, `consulta/servico.py`, `consulta/indexacao.py` |
+| **Models** | Persistência e proteções de integridade (constraints, imutabilidade, sem exclusão nos registros financeiros; índice RAG regravável) | `cadastros/models.py`, `financeiro/models.py`, `documentos/models.py`, `consulta/models.py` |
 | **Forms** | Validação de entrada de tela | `*/forms*.py` |
 | **Schemas Pydantic** | Validação da resposta dos Agents | `agents/*/schemas*.py` |
-| **Agents** | Extração e classificação via Gemini | `agents/` |
+| **Agents** | Extração, classificação e resposta a consultas via Gemini | `agents/` |
 | **Templates** | Apresentação | `*/templates/` |
 
 Regra de ouro: **a tela nunca decide regra financeira**. Formulários só validam entrada; quem decide
@@ -35,15 +35,19 @@ flowchart LR
     documentos --> financeiro
     financeiro["financeiro<br/>movimentos, parcelas,<br/>identidade fiscal, contas"] --> cadastros
     cadastros["cadastros<br/>pessoas, papéis,<br/>classificações"] --> agents
+    consulta["consulta<br/>recuperação simples e semântica,<br/>índice explícito"] --> financeiro
+    consulta --> documentos
+    consulta --> agents
     agents["agents<br/>Gemini, Extrator,<br/>Classificador"]
 ```
 
 | App | Conteúdo principal |
 | --- | --- |
-| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`AgentClassificador`, `CategoriaDespesa`, `TipoDespesa` como conjunto padrão) |
+| `agents` | `GeminiClient`; `extrator/` (schemas v1 e v2, prompt, `AgentExtrator`); `classificador/` (`AgentClassificador`, `CategoriaDespesa`, `TipoDespesa` como conjunto padrão); `rag/` (`AgenteRag`, resposta textual com contexto recuperado) |
 | `cadastros` | Models `Pessoa`, `PapelPessoa`, `Classificacao`; validação de CPF/CNPJ; consultas de existência; resolução de pessoas da nota (F-4); cadastro pendente (F-6); telas de Pessoas e Classificações |
 | `documentos` | Upload e validação do PDF; `processar_pdf`; `AnalisePendente`; correções; `conferir_nota` (F-3); telas de envio, conferência, confirmação; comando `expirar_analises`; tag do SHA publicado |
 | `financeiro` | Models `MovimentoConta`, `MovimentoClassificacao`, `ParcelaConta`, `NotaFiscalLancada`; `registrar_movimento`; `lancar_nota` (F-5); identidade fiscal (F-1); contas manuais; consultas e telas de Contas |
+| `consulta` | Perguntas em linguagem natural; recuperação literal e por cosseno; textos sem campos de CPF/CNPJ; `EmbeddingMovimento`; indexação incremental em lotes e tela Consultar |
 | `usuarios` | Login/logout de demonstração e `demo_login_required` |
 | `config` | `settings.py`, `urls.py`, executor de testes com banco local, middleware de privacidade |
 
@@ -54,20 +58,26 @@ flowchart LR
 - `financeiro` importa `cadastros`. `cadastros` **não** importa `financeiro` nem `documentos`.
 - `cadastros.validators` reutiliza `agents.extrator.schemas` (`cpf_dv_valido`, `cnpj_dv_valido`): a regra do dígito verificador é uma só.
 - `agents.extrator.schemas_v2` importa `financeiro.identidade_fiscal` **dentro de função** (validação da chave de acesso), para evitar ciclo.
+- `consulta` importa `financeiro` (modelos), `documentos` (campo de chave do formulário), `agents` e `usuarios`; `financeiro`, `cadastros` e `documentos` **não importam `consulta`** (ADR-003).
 
 ## 4. Estrutura de diretórios
 
 ```text
 .
-├── agents/                 Gemini + Extrator + Classificador
+├── agents/                 Gemini + Extrator + Classificador + RAG
 │   ├── gemini_client.py
 │   ├── extrator/           agent.py, schemas.py (v1), schemas_v2.py
-│   └── classificador/      agent.py, schemas.py
+│   ├── classificador/      agent.py, schemas.py
+│   └── rag/                agent.py
 ├── cadastros/              pessoas, papéis, classificações
 │   ├── models.py  validators.py  consultas.py  resolucao.py  pendentes.py
 │   ├── forms.py  forms_classificacoes.py  views.py  views_classificacoes.py  urls.py
 │   ├── migrations/         0001 a 0003
 │   └── templates/ static/
+├── consulta/               serviço, recuperação simples/vetorial, texto e indexação
+│   ├── models.py  forms.py  views.py  urls.py
+│   ├── migrations/         0001 e 0002
+│   └── templates/consulta/
 ├── documentos/             nota fiscal: da entrada à confirmação
 │   ├── processamento.py  analises.py  conferencia.py  correcoes.py
 │   ├── interface_conferencia.py  mensagens_conferencia.py  pendencias_conferencia.py
@@ -80,7 +90,7 @@ flowchart LR
 ├── financeiro/             movimentos, parcelas, notas lançadas
 │   ├── models.py  servicos.py  identidade_fiscal.py  manual.py
 │   ├── forms_manuais.py  forms_consultas.py  views_manuais.py  views_consultas.py  urls.py
-│   ├── migrations/         0001 a 0004
+│   ├── migrations/         0001 a 0008
 │   └── templates/ static/
 ├── usuarios/               login demo
 ├── config/                 settings, urls, privacidade, banco_de_teste
@@ -107,6 +117,7 @@ Cada app tem seus testes ao lado do código (`test_*.py`).
 | **Integridade no banco, não só na aplicação** | Constraints, índices únicos e gatilho diferido valem para qualquer caminho de escrita | `financeiro/migrations/0002_parcelas_contas.py` |
 | **Chave Gemini sem fallback de ambiente** | Evita usar chave do servidor por engano e evita guardá-la | `agents/gemini_client.py` |
 | **Dois contratos JSON coexistindo** (v1 e v2) | Uma análise v1 continua v1 até o fim; nada é convertido silenciosamente | `documentos/analises.py` |
+| **RAG com índice no PostgreSQL (`JSONField`) e cosseno em Python** | Sem extensão vetorial; indexação explícita em lotes, separada da consulta | `consulta/`, [ADR-003](../arquitetura/ADR-003-rag-consulta.md) (**proposta, sem aprovação formal**) |
 
 ## 6. Ambientes
 

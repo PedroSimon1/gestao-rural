@@ -14,8 +14,8 @@ flowchart LR
     MON --> JSON["JSON final<br/>v1: 10 chaves · v2: 11 chaves"]
 ```
 
-Dois Agents síncronos, **sequenciais**, com **um único `GeminiClient`** por requisição. Cada Agent valida a resposta
-com Pydantic; erros são traduzidos para exceções com **mensagem fixa e segura** (nunca resposta bruta).
+No fluxo de PDF, dois Agents síncronos, **sequenciais**, usam **um único `GeminiClient`** por requisição. Cada um valida a resposta
+com Pydantic; erros são traduzidos para exceções com **mensagem fixa e segura** (nunca resposta bruta). O RAG é um fluxo separado, com resposta textual (seção 8).
 
 ## 2. `GeminiClient` (`agents/gemini_client.py`)
 
@@ -25,12 +25,17 @@ com Pydantic; erros são traduzidos para exceções com **mensagem fixa e segura
 | Modelo | `GEMINI_MODEL` (obrigatório: sem ele `GeminiConfiguracaoError`) |
 | Timeout | `GEMINI_TIMEOUT_SEGUNDOS` (padrão 60) por tentativa |
 | Tentativas | `GEMINI_MAX_TENTATIVAS` (padrão 3), pelo `HttpRetryOptions` do SDK |
-| Temperatura | `0` nos dois Agents |
-| Saída | `gerar_json` pede `application/json` com `response_schema` Pydantic e faz `json.loads` |
-| Criação | O SDK só é instanciado quando `GeminiClient` é criado; as validações de configuração acontecem nesse momento |
+| Temperatura | `0` no Extrator/Classificador; `0.1` no RAG |
+| Saída | `gerar_json` pede `application/json` com `response_schema` Pydantic e faz `json.loads`; o RAG usa `gerar_conteudo` |
+| Criação | O SDK só é instanciado quando `GeminiClient` é criado; configuração de embeddings é validada apenas em `gerar_embeddings` |
 
 Hierarquia de erros: `GeminiError` → `GeminiConfiguracaoError`, `GeminiTimeoutError`, `GeminiAPIError` (com `status_code`), `GeminiRespostaInvalidaError`.
-Os Agents capturam **somente** `GeminiError`. Logs: texto fixo + modelo/status; nunca chave, texto do PDF ou JSON.
+Extrator e Classificador capturam **somente** `GeminiError`; o `AgenteRag` propaga esses erros ao serviço de consulta. Logs: texto fixo + modelo/status; nunca chave, texto do PDF ou JSON.
+
+### 2.1 `gerar_embeddings(textos, *, tarefa)`
+
+Retorna **um vetor por texto, na mesma ordem**, normalizado em L2 pelo cliente. Usa `GEMINI_MODELO_EMBEDDING` (padrão `gemini-embedding-001`) e `GEMINI_DIMENSAO_EMBEDDING` (768). `tarefa` aceita `RETRIEVAL_DOCUMENT` na indexação ou `RETRIEVAL_QUERY` na pergunta.
+Recusa lote vazio, textos vazios, tarefa/configuração inválida e modelos com prefixo `gemini-embedding-2` (agregam o lote em um vetor). Confere quantidade, dimensão e validade dos vetores retornados; falhas usam a hierarquia `GeminiError`.
 
 ## 3. Agent Extrator (`agents/extrator/agent.py`)
 
@@ -165,3 +170,10 @@ Cada gravação **substitui o conjunto inteiro** e incrementa `versao_correcoes`
 | Cadastros incompletos | `cadastros.pendentes.listar_incompletos`, `regularizar_cadastro_pendente`, `salvar_cadastro_pendente` (**não idempotente**) |
 
 Erros de serviço são `ValidationError` com **`code` estável** (ler sempre `erro.error_list`); uso indevido (erro de programação) é `TypeError`/`ValueError`.
+
+## 8. `AgenteRag` (`agents/rag/agent.py`)
+
+`AgenteRag(cliente).responder(pergunta, contexto) → str`: exige pergunta e contexto não vazios e chama `gerar_conteudo`, sem contrato JSON/Pydantic.
+O serviço `consulta/servico.py` recupera até `RAG_TOP_K` movimentos por busca simples ou semântica, monta o contexto e traduz falhas do Gemini em mensagens fixas; devolve resposta, fontes e aviso.
+
+O prompt exige português brasileiro, uso **somente dos dados recuperados**, citações `#id`, valores em reais e declaração de insuficiência em vez de invenções. O contexto fica em `<dados>`, com delimitadores internos neutralizados; conteúdo de documentos/cadastros é **não confiável**, nunca uma instrução. Essas regras orientam o modelo, mas não garantem precisão de agregações sobre o banco inteiro.

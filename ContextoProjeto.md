@@ -4108,3 +4108,226 @@ Testar com uma nota real e uma categoria nova cadastrada (o prompt não foi exer
 ## 47.10 - Git
 
 Branch `feature/etapa-4`, dois commits de código (ciclo; classificador) e um de documentação, sem co-autor. Nenhum push nem merge. Próximo passo do usuário: `git push -u origin feature/etapa-4` e PR para `develop`.
+
+# 48 - N3 Etapa 3, Etapa 1 do plano: base para o RAG (27/11/2026)
+
+## 48.1 - Identificação
+
+Tarefa: N3 Etapa 3 ("Consulta com RAG", entrega 02/12/2026), parte 1 de 2: adaptar o sistema atual antes de implementar o RAG. Data: 27/11/2026. Branch `feature/n3-rag-etapa1`, criada a partir de `docs/n3-RAG-planejamento` (mesmo commit da `develop`, `1cc8dab`) num worktree próprio. Decisões em [ADR-003](docs/arquitetura/ADR-003-rag-consulta.md) (proposta).
+
+## 48.2 - Objetivo
+
+Persistir os itens da nota (antes descartados na confirmação), prepará-los para exibição, dar ao `GeminiClient` a operação de embeddings, configurar o RAG e ter dados fictícios para demonstrar a busca.
+
+## 48.3 - Implementação
+
+- **Itens da nota (1.1):** `ItemNotaFiscal` (tabela `itens_notas_fiscais`, FK `NotaFiscalLancada`, `related_name="itens"`, sem exclusão nem alteração) e `financeiro/itens_nota.py::registrar_itens_nota`, chamado em `documentos/lancamento_nota.py::_gravador` dentro da mesma transação da confirmação. Idempotente (bloqueia a nota e não regrava) e tolerante: item sem descrição é ignorado, número ilegível ou fora do limite vira `NULL`, descrição é truncada a 500. O conteúdo dos itens vem do Agent Extrator e não é corrigível na conferência.
+- **Itens em `conta_detalhe` (1.2):** `financeiro/manual.py` passou a levar os itens no DTO da conta (consulta única) e o template exibe a tabela quando há itens.
+- **Embeddings (1.3):** `GeminiClient.gerar_embeddings(textos, *, tarefa)`; constantes `TAREFA_DOCUMENTO` e `TAREFA_CONSULTA`; vetores normalizados L2, na ordem de entrada; recusa o modelo `gemini-embedding-2` (agrega o lote em um vetor); valida contagem, dimensão e valores; o mapeamento de erros de `gerar_conteudo` virou o helper `_chamar_sdk`, compartilhado.
+- **Configuração (1.4):** `GEMINI_MODELO_EMBEDDING` (`gemini-embedding-001`), `GEMINI_DIMENSAO_EMBEDDING` (`768`), `RAG_TOP_K` (`5`) e `RAG_LOTE_INDEXACAO` (`20`) em `config/settings.py` e `.env.example`, lidas como texto e validadas no ponto de uso.
+- **Dados de demonstração (1.6):** `documentos/demonstracao.py` e `python manage.py carregar_demonstracao --confirmar`: 24 notas fictícias com itens, lançadas pelo caminho oficial, sem duplicar ao repetir. Mostra host e nome do banco (nunca credenciais), exige `--confirmar` e recusa host remoto sem `--permitir-remoto`. **Não foi executado contra nenhum banco** (só testes no banco local de teste).
+- **Fora desta etapa:** o app `consulta/`, o menu e a rota `/consulta/` ficam para a Etapa 2, para não criar uma página vazia.
+
+## 48.4 - Arquivos
+
+Criados: `financeiro/itens_nota.py`, `financeiro/migrations/0007_itens_notas_fiscais.py`, `financeiro/migrations/0008_habilitar_rls_itens.py`, `financeiro/test_itens_nota.py`, `documentos/demonstracao.py`, `documentos/management/commands/carregar_demonstracao.py`, `documentos/test_demonstracao.py`, `docs/arquitetura/ADR-003-rag-consulta.md`. Alterados: `financeiro/models.py`, `financeiro/manual.py`, `financeiro/templates/financeiro/conta_detalhe.html`, `documentos/lancamento_nota.py`, `agents/gemini_client.py`, `config/settings.py`, `.env.example`, testes correspondentes, `docs/INDICE.md`.
+
+## 48.5 - Decisões técnicas
+
+Ver as decisões D-1 a D-8 do ADR-003. Em particular: itens tolerantes (conteúdo de IA nunca impede o lançamento da nota); `gemini-embedding-001` com 768 dimensões porque a API só normaliza o vetor de 3072 (a normalização é do cliente); erros de entrada do cliente de embeddings usam `GeminiConfiguracaoError`, para os Agents capturarem só `GeminiError`.
+
+## 48.6 - Banco de dados
+
+Duas migrations novas em `financeiro`: `0007_itens_notas_fiscais` (tabela, constraints de ordem única por nota, descrição obrigatória, valores não negativos) e `0008_habilitar_rls_itens` (RLS, sem políticas). **Não aplicadas em banco remoto**: o usuário as aplica manualmente em cada ambiente (PT-06). Notas já lançadas ficam sem itens.
+
+## 48.7 - Testes
+
+`manage.py check` sem problemas; `ruff check .` sem erros; `makemigrations --check --dry-run` (com `DB_HOST` inalcançável) sem mudanças; `git diff --check` limpo; `manage.py test --noinput`: **1342 testes, OK** (era 1302).
+
+## 48.8 - Integração
+
+Depende da seção 47 (ciclo desfeito, `documentos.lancamento_nota`). A Etapa 2 usa `ItemNotaFiscal` no texto do contexto, `GeminiClient.gerar_embeddings` na indexação e as variáveis `RAG_*`.
+
+## 48.9 - Pendências
+
+Ainda não existe RAG (seção 49). A carga de demonstração e as migrations 0007/0008 precisam ser aplicadas por você nos ambientes. Itens ainda não são corrigíveis na conferência. O ADR-003 aguarda aprovação da equipe.
+
+## 48.10 - Git
+
+Branch `feature/n3-rag-etapa1`, commits sem co-autor, mesclada localmente em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
+
+# 49 - N3 Etapa 3, Etapa 2 do plano: consulta com RAG (27/11/2026)
+
+## 49.1 - Identificação
+
+Tarefa: N3 Etapa 3 ("Consulta com RAG", entrega 02/12/2026), parte 2 de 2: RAG simples (25%) e RAG com embeddings (35%). Data: 27/11/2026. Branches `feature/n3-rag-etapa2-simples` e `feature/n3-rag-etapa2-semantico`, cada uma num worktree próprio, mescladas localmente em `docs/n3-RAG-planejamento`. Decisões em [ADR-003](docs/arquitetura/ADR-003-rag-consulta.md) (proposta). Depende da seção 48.
+
+## 49.2 - Objetivo
+
+Uma tela para perguntar sobre as contas do banco e receber uma resposta elaborada pelo Gemini, com duas formas de recuperação: busca literal (simples) e busca por significado (embeddings).
+
+## 49.3 - Implementação
+
+Fluxo (RAG em três passos): recuperar os movimentos → injetar o contexto no prompt → gerar a resposta.
+
+- **Agent (`agents/rag/agent.py`):** `AgenteRag(cliente).responder(pergunta, contexto)`. Instrução do sistema em português: responder só com os dados, dizer que não encontrou quando faltarem, citar `#id`; os dados vêm de PDF/IA e são tratados como **não confiáveis** (delimitados em `<dados>`, delimitadores dentro do contexto são neutralizados, a pergunta fica fora do bloco); temperatura 0,1; `GeminiError` propaga.
+- **Texto (`consulta/texto.py`):** `carregar_movimentos` (4 consultas, sem N+1), `texto_contexto` (completo, com status e parcelas), `texto_indexacao` (só campos estáveis: contraparte, valor, classificações, nota, itens), `montar_contexto`. **Sem CPF/CNPJ**; faturado e contraparte só por nome.
+- **RAG simples (`consulta/recuperacao_simples.py`):** termos sem acento (`TRANSLATE` do PostgreSQL), sem stopwords; casa só no **início de palavra** (`ração` não casa `operação`); plural simples; peso 2 em fornecedor e itens, 1 em classificação e nota; considera no máximo os 200 candidatos mais recentes; sem acerto, devolve os mais recentes (a tela avisa).
+- **Índice semântico (`consulta/models.py`, `indexacao.py`):** `EmbeddingMovimento` (tabela `embeddings_movimentos`; vetor em `JSONField`; hash SHA-256 do `texto_indexacao`; único por movimento e modelo). Estados disjuntos: *pendente* (sem vetor do modelo e dimensão atuais), *desatualizado* (hash mudou), *indexado*. `atualizar_indice(cliente, limite)` indexa até `min(limite, 100)` movimentos numa única chamada de embeddings (`RETRIEVAL_DOCUMENT`) e grava de forma atômica e idempotente.
+- **RAG semântico (`consulta/recuperacao_vetorial.py`):** embedding da pergunta (`RETRIEVAL_QUERY`), cosseno por produto escalar (vetores normalizados) em Python, top-k com `heapq.nlargest`. Índice vazio devolve lista vazia.
+- **Serviço e tela (`consulta/servico.py`, `views.py`, `forms.py`, `templates/consulta/consulta.html`):** rota `/consulta/` (nome `consulta`) com pergunta, Gemini API Key (campo de senha, nunca guardada) e escolha do modo; rota `/consulta/indice/` (POST) para "Atualizar índice" com a chave informada na hora; resposta, avisos (contas fora do índice; nenhuma conta citou os termos) e **fontes consultadas** com link para a conta e a pontuação (termos casados ou cosseno); seção "Índice semântico" com o estado do índice; aviso de privacidade; menu "Consultar". Erros do Gemini viram mensagens em português (`chave_invalida`, `limite_excedido`, `tempo_esgotado`, `servico_indisponivel`, `resposta_invalida`) sem detalhe interno; registros de log só com o código.
+
+## 49.4 - Arquivos
+
+Criados: `agents/rag/{__init__,agent,test_agent}.py`; `consulta/` (`apps.py`, `fontes.py`, `texto.py`, `recuperacao_simples.py`, `recuperacao_vetorial.py`, `indexacao.py`, `models.py`, `servico.py`, `forms.py`, `views.py`, `urls.py`, `templates/consulta/consulta.html`, `migrations/0001_embeddings_movimentos.py`, `migrations/0002_habilitar_rls.py` e os `test_*.py`). Alterados: `config/settings.py` (app `consulta`), `config/urls.py`, `config/test_arquitetura.py` (financeiro, cadastros e documentos não importam `consulta`), `documentos/templates/documentos/base.html` e `documentos/templatetags/navegacao.py` (menu), `documentos/static/documentos/documentos.css` (`.resposta-texto`), `documentos/test_navegacao.py`, documentação em `docs/documentacao/`.
+
+## 49.5 - Decisões técnicas
+
+Ver D-1 a D-8 do ADR-003. Em particular: a indexação é uma ação explícita em lote (não ocorre dentro da consulta), por causa do worker síncrono único (M-04), do timeout e da cota do Gemini; o contexto enviado ao Gemini é relido do banco (status e baixas atuais), e o vetor só serve para escolher os movimentos; o texto indexado não inclui status nem pagamento, então a baixa de uma parcela não desatualiza o índice.
+
+## 49.6 - Banco de dados
+
+`consulta/migrations/0001_embeddings_movimentos` (tabela, unicidade por movimento e modelo, constraints de sanidade) e `0002_habilitar_rls` (RLS, sem políticas). Depende de `financeiro 0008`. **Não aplicadas em banco remoto**: o usuário as aplica em cada ambiente (PT-06), junto das migrations `financeiro 0007` e `0008`.
+
+## 49.7 - Testes
+
+`manage.py check` sem problemas; `ruff check .` sem erros; `makemigrations --check --dry-run` (com `DB_HOST` inalcançável) sem mudanças; `git diff --check` limpo; `manage.py test --noinput`: **1452 testes, OK** (era 1342 ao fim da seção 48). O Gemini é sempre simulado nos testes. **Conferência visual**: a tela foi exercitada num navegador, contra um PostgreSQL local temporário (já removido) com as 24 notas de demonstração e o Gemini **simulado** por um script fora do repositório: lote do índice (20 + 4), consulta semântica, consulta simples e itens em `conta_detalhe`. **Nenhuma chamada real ao Gemini foi feita**, então a qualidade das respostas e dos embeddings reais não foi verificada.
+
+## 49.8 - Integração
+
+Usa `ItemNotaFiscal`, `GeminiClient.gerar_embeddings` e as variáveis `RAG_*` da seção 48. A restrição de arquitetura é verificada por `config/test_arquitetura.py`.
+
+## 49.9 - Pendências
+
+- Aplicar as migrations e carregar a demonstração (`carregar_demonstracao --confirmar`) no ambiente da apresentação; indexar (clicar em "Atualizar índice" até completar) antes de consultar no modo semântico.
+- Testar com uma Gemini API Key real: respostas, nomes de modelo (`GEMINI_MODEL`, `gemini-embedding-001`) e cota da chave.
+- Perguntas de agregação ("total do mês") ficam imprecisas (o top-k não vê todos os registros); itens só existem para notas lançadas depois da seção 48; o cosseno em Python serve a alguns milhares de vetores (reavaliar pgvector acima disso); o ADR-003 e o ADR-002 aguardam aprovação da equipe.
+
+## 49.10 - Git
+
+Commits sem co-autor nas duas branches (`feature/n3-rag-etapa2-simples`, `feature/n3-rag-etapa2-semantico`), mescladas localmente em `docs/n3-RAG-planejamento`, com merge `--no-ff`. Nenhum push; o push é manual.
+
+# 50 - N3 Etapa 3: reorganização da tela de consulta (27/11/2026)
+
+## 50.1 - Identificação
+
+Ajuste de interface pedido antes do teste com a chave real. Data: 27/11/2026. Branch `feature/n3-rag-tela-organizada` (worktree próprio), mesclada localmente em `docs/n3-RAG-planejamento`. Depende da seção 49.
+
+## 50.2 - Objetivo
+
+Deixar `/consulta/` organizada e explicar, em texto simples e curto, o que significa cada parte da tela.
+
+## 50.3 - Implementação
+
+- **Ordem da página:** "Como funciona" (3 passos) → aviso de privacidade → "1. Sua pergunta" → "2. Como buscar as contas" → "3. Chave do Gemini" → botão Consultar → resposta e fontes → "Índice semântico".
+- **Explicações:** cada passo tem uma linha de apoio; as duas formas de busca têm descrição própria ao lado do rádio (`servico.Modo.descricao`, ligada ao rádio por `aria-describedby`); a legenda das fontes explica a pontuação (busca simples) ou o cosseno de 0 a 1 (busca semântica); o índice explica o que é, quando atualizar e cada contagem (contas no sistema, indexadas, pendentes, desatualizadas).
+- **Formulário:** `RadioComDescricao` (widget) em `consulta/forms.py`; o markup do rádio e os nomes dos campos não mudaram. As barras de ação dos dois formulários passaram a ser fixas na página (`acoes-rodape--solta`), em vez de coladas no rodapé da janela, para não cobrirem as opções.
+- **CSS:** classes `explicacao-passos`, `opcoes-busca`, `opcao-busca*`, `acoes-rodape--solta` e legenda em `.resumo__item small` em `documentos/static/documentos/documentos.css`. A classe `passos` já existia (indicador de etapas) e não foi reutilizada.
+
+## 50.4 - Arquivos
+
+Alterados: `consulta/templates/consulta/consulta.html`, `consulta/forms.py`, `consulta/servico.py` (`Modo.descricao`), `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`, `consulta/test_semantico.py`, `docs/documentacao/08-interface-e-rotas.md`. Sem mudança de regra de negócio, de banco ou de migrations.
+
+## 50.5 - Testes e conferência
+
+`check`, `ruff check .`, `makemigrations --check --dry-run` e a suíte completa: resultado no relatório da tarefa. Conferência visual no navegador contra um PostgreSQL local temporário (removido) e o Gemini simulado: tela inicial, índice em lotes e consulta semântica. Nenhuma chamada real ao Gemini.
+
+## 50.6 - Pendências
+
+Os textos explicativos foram escritos sem validação com usuários; ajuste o vocabulário se necessário.
+
+## 50.7 - Git
+
+Commit sem co-autor na branch `feature/n3-rag-tela-organizada`, mesclada em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.
+
+## 50.8 - Ajuste: botão "Consultar" no card da chave (27/11/2026, branch `feature/n3-rag-botao-consultar`)
+
+- **Problema:** a barra do botão "Consultar" ficava solta logo acima do card "Índice semântico" e parecia valer para a página inteira; na verdade ele envia só o formulário das etapas 1 a 3, e "Atualizar índice" é outro formulário, com chave própria.
+- **Mudança (`consulta/templates/consulta/consulta.html`):** o botão e o aviso "Consultando" passaram para dentro do card "3. Chave do Gemini e envio" (mesmo formulário), com a frase "O botão abaixo envia a pergunta, a forma de busca e esta chave". O card do índice ganhou a legenda "O que o botão 'Atualizar índice' faz: só prepara a busca semântica; ele não responde perguntas".
+- **Testes:** `consulta/test_interface.py` (botão no card da chave, único na página; legenda do índice); testes de `consulta` e de classes CSS passam. A tela não foi reaberta no navegador depois deste ajuste (o mesmo padrão de barra dentro de card já havia sido conferido no card do índice).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.9 - Ajuste: campo da pergunta em destaque (27/11/2026, branch `feature/n3-rag-campo-pergunta`)
+
+- **Pedido:** deixar o cartão "1. Sua pergunta" mais chamativo, para mostrar que é ali que se escreve.
+- **Mudança:** cartão com borda e halo na cor da marca (`cartao--destaque`); selo "Comece por aqui" no título; caixa de texto maior (largura total, altura mínima de 150 px, fonte 1,1 rem, borda de 2 px na cor da marca), com texto-guia ("Escreva aqui a sua pergunta…") e anel de foco; o estado de erro continua vermelho. Arquivos: `consulta/forms.py` (atributos do campo), `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
+- **Testes:** o teste novo confere o destaque, o selo, a classe e o texto-guia; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário e Gemini simulado).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.10 - Ajuste: aviso de privacidade em evidência (27/11/2026, branch `feature/n3-rag-aviso-privacidade`)
+
+- **Pedido:** melhorar a visibilidade do bloco "Privacidade" e dar a ele o mesmo espaço dos outros cartões em relação ao bloco 1.
+- **Causa do vão:** o aviso padrão só tem margem no topo (`margin: 16px 0 0`), então colava no cartão seguinte. Além disso, o formulário é uma coluna flex com `gap` de 8 px (as margens dos cartões não colapsam): o vão visível entre cartões é de 24 px.
+- **Mudança:** o aviso ganhou um invólucro `bloco-privacidade` (só nesta tela; o componente `_aviso.html` não mudou): fundo amarelo claro, borda de 2 px e faixa lateral de 8 px na cor de aviso, título e texto maiores. Margens: 24 px acima e 8 px abaixo; o cartão em destaque (`cartao--destaque`) tem 20 px em cima e embaixo, de modo que, descontado o halo de 4 px, o vão visível entre todos os blocos (como funciona, privacidade, 1, 2 e 3) é de 24 px (medido no navegador: 24, 28, 28, 24 caixa a caixa). Arquivos: `consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`, `consulta/test_interface.py`.
+- **Testes:** teste novo confere o bloco antes do formulário; suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.11 - Ajuste: bloco "Como funciona" removido e privacidade mais curta (27/11/2026, branch `feature/n3-rag-tela-enxuta`)
+
+- **Pedido:** retirar o bloco "Como funciona" e a última frase do aviso de Privacidade ("Fora de produção, use apenas dados fictícios.").
+- **Mudança:** `consulta/templates/consulta/consulta.html` perdeu o cartão "Como funciona"; o CSS `explicacao-passos` (que só ele usava) foi removido de `documentos/static/documentos/documentos.css`; o aviso termina em "...também são enviados." Os testes de `consulta/test_interface.py` passam a conferir a ausência de "Como funciona" e da frase retirada; `docs/documentacao/08` e `09` foram ajustados. As seções 50.3 e 50.10 acima descrevem o estado anterior (histórico).
+- **Atenção:** a recomendação de usar só dados fictícios fora de produção (ADR-001 T-06; ADR-002 PRIV-05) deixou de aparecer na tela e passa a valer só por procedimento. O aviso na tela continua informando o que é enviado ao Gemini.
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.12 - Ajuste: bloco "Privacidade" removido (27/11/2026, branch `feature/n3-rag-sem-aviso`)
+
+- **Pedido:** retirar o bloco "Privacidade" da tela de consulta. Motivo: a atividade da N3 só exige uma tela para digitar perguntas e um retorno elaborado por LLM; o aviso foi iniciativa do desenvolvimento (ADR-003 D-8, apoiada no ADR-002 PRIV-03, ainda em rascunho).
+- **Mudança:** `consulta/templates/consulta/consulta.html` perdeu o bloco; o CSS `bloco-privacidade` foi removido de `documentos/static/documentos/documentos.css`; testes (`consulta/test_interface.py`, `consulta/test_semantico.py`) deixam de conferir o aviso; `docs/documentacao/08`, `09` e `12` e o ADR-003 (D-8) foram ajustados. As seções 49.3 e 50.3, 50.10 e 50.11 descrevem o estado anterior (histórico).
+- **O que continua valendo no código:** o contexto enviado ao Gemini não inclui CPF/CNPJ; os dados do banco e dos itens são tratados como não confiáveis no prompt; a chave Gemini não é guardada. Mudou só o aviso na tela.
+- **Pendência de privacidade:** o usuário não é mais informado, na tela, de que a pergunta e os dados das contas (e, ao atualizar o índice, os textos das contas) vão ao Google Gemini; a orientação de usar só dados fictícios fora de produção (ADR-001 T-06; ADR-002 PRIV-05) vale por procedimento. O ADR-002 segue em aberto.
+- **Espaçamento:** sem o aviso, a margem superior do cartão em destaque passou de 20 px para 4 px (`documentos.css`), e o vão entre o cabeçalho e o cartão 1 voltou a ser igual ao dos demais blocos (28 px caixa a caixa, 24 px visíveis descontado o halo; medido no navegador).
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.13 - Ajuste: bloco "Índice semântico" mais claro (27/11/2026, branch `feature/n3-rag-indice-claro`)
+
+- **Pedido:** melhorar o bloco do índice para ficar mais entendível.
+- **Mudança (`consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`):** (1) uma frase de abertura sobre para que serve o índice; (2) um resumo do estado logo no topo: "Índice em dia" (verde), "Índice incompleto" (amarelo, dizendo quantas contas ainda não entraram e/ou mudaram) ou "Nada para indexar ainda"; o resumo some quando há a mensagem de resultado de um lote, para não repetir; (3) contagens com nomes mais simples ("Contas no sistema", "No índice", "Faltam entrar", "Mudaram"), cada uma com uma frase, e destaque amarelo nas que estão acima de zero; (4) uma seção separada "Atualizar o índice", com divisória, título e um parágrafo único sobre quando usar, que o lote é limitado e que o botão só prepara a busca (não responde perguntas), antes do campo da chave e do botão.
+- **Testes:** `consulta/test_semantico.py` (rótulos novos; teste novo do resumo "incompleto" × "em dia" e do destaque) e `consulta/test_interface.py` (frases das contagens). Suíte completa no relatório da tarefa. Conferência visual no navegador (banco local temporário, 24 notas de demonstração, Gemini simulado): estado incompleto, lotes e estado em dia.
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+## 50.14 - Ajuste: blocos "Resposta" e "Fontes consultadas" mais claros (27/11/2026, branch `feature/n3-rag-resposta-fontes`)
+
+- **Pedido:** melhorar os blocos Resposta e Fontes consultadas, para ficarem mais claros e organizados.
+- **Resposta (`consulta/templates/consulta/consulta.html`, `documentos/static/documentos/documentos.css`):** a pergunta feita aparece numa citação rotulada "Sua pergunta"; duas etiquetas mostram a forma de busca usada e quantas contas foram consultadas; o aviso do modo (se houver) vem antes da resposta; o texto do Gemini fica numa caixa de destaque rotulada "Resposta do Gemini", com fonte maior e espaçamento de leitura; uma linha final lembra que a resposta usa só as contas listadas abaixo. O texto continua escapado e com quebras de linha.
+- **Fontes consultadas:** lista numerada (círculo com o número); cada conta continua sendo um link para a tela da conta, com o rótulo (tipo, número, fornecedor, valor); na busca simples, abaixo do link ficam os termos que casaram e à direita uma etiqueta "pontuação N"; na busca semântica, à direita ficam uma barra de similaridade (`<meter>`, de 0 a 1) e a etiqueta "similaridade por cosseno X"; a legenda explicando a pontuação ou o cosseno fica no fim. Em telas estreitas a etiqueta passa para baixo do link.
+- **Testes:** teste novo em `consulta/test_interface.py` (pergunta, etiquetas, lista numerada, ausência de barra na busca simples, legenda) e asserção da barra em `consulta/test_semantico.py`; as asserções antigas (link, rótulo, termos, "pontuação 4", "cosseno 1,00", "Forma de busca usada: ...") seguem válidas. Suíte completa no relatório da tarefa. Conferência visual no navegador (24 notas de demonstração, Gemini simulado), nos dois modos.
+- **Git:** commit sem co-autor, mesclado em `docs/n3-RAG-planejamento`; nenhum push.
+
+# 51 - N3: carga de 200 notas fictícias (27/11/2026)
+
+## 51.1 - Identificação
+
+Pedido do usuário: o professor exige 200 notas no banco; carregar na homologação e deixar o procedimento pronto para a produção, no deploy. Data: 27/11/2026. Branches `feature/n3-demonstracao-200` (código) e `docs/n3-registro-200-notas` (este registro), mescladas localmente em `docs/n3-RAG-planejamento`. Depende da seção 48 (comando `carregar_demonstracao`).
+
+## 51.2 - Implementação
+
+- **`documentos/demonstracao.py`:** `carregar_demonstracao(total=200)` e `contar_faltantes(total)`. Catálogo de 84 produtos e 36 fornecedores fictícios (nomes terminados em "Fictícia", CNPJ com DV válido), por ramo (nutrição e sanidade animal, fertilizantes, defensivos, combustíveis, peças, sementes, cercas, energia, irrigação, silagem, construção etc.), para a busca semântica ter agrupamentos. As **24 primeiras notas são idênticas às da carga anterior** (mesmos IDs, identidades, itens, valores e datas), então cargas já feitas não duplicam. As notas 25 a 200 são geradas de forma determinística, com 1 a 4 itens do ramo do fornecedor, de 1 a 6 parcelas e emissões entre 05/01/2026 e 25/11/2026. Nas notas novas, cerca de 70% das parcelas vencidas até 15/11/2026 recebem baixa pela API oficial (`registrar_pagamento`), para haver contas pagas e em aberto. A carga é idempotente e **uma transação por nota**: uma falha de rede no banco remoto não perde o que já foi gravado, e uma nova execução continua de onde parou.
+- **Comando `carregar_demonstracao`:** `--quantidade N` (1 a 500; padrão 200) e `--simular` (mostra o banco-alvo, quantas notas existem e quantas seriam criadas, sem gravar e sem exigir `--confirmar`). Mantém as salvaguardas (host e nome do banco, nunca credenciais; `--confirmar`; `--permitir-remoto` para host remoto).
+- **`carregar_demonstracao_producao.sh` (raiz, versionado):** pede as credenciais de produção (senha oculta, nada vai a disco), aborta se host, porta, banco e usuário forem todos iguais aos do `.env` (homologação), mostra host, banco e papel, **aborta se houver qualquer migration pendente** (o script não aplica migrations), roda a simulação, exige digitar `PRODUCAO` e só então grava. Só a sintaxe foi verificada (`bash -n`); o script **não foi executado**.
+
+## 51.3 - Execução na homologação (27/11/2026)
+
+- **Conferência prévia (só leitura):** banco-alvo = o configurado no `.env` (Supabase, banco `postgres`, SSL `require`); todas as migrations já aplicadas (`financeiro` até 0008 e `consulta` até 0002; `migrate --plan` sem operações); 26 notas existentes (24 da demonstração anterior e 2 que não são da demonstração; essas 2 não têm itens, por terem sido lançadas antes da mudança).
+- **Confirmação:** o usuário confirmou, em formulário, que o banco é a homologação e escolheu o catálogo completo de 200 (o banco fica com 202 notas).
+- **Carga:** `carregar_demonstracao --confirmar --permitir-remoto` criou **176 notas** em 3 min 28 s.
+- **Resultado (consulta de leitura):** 202 movimentos e 202 notas fiscais (200 da demonstração e as 2 existentes), 464 itens, 664 parcelas (307 pagas), 38 fornecedores, emissões de 05/01/2026 a 24/11/2026, 2 notas sem item (as 2 anteriores). A nova simulação indica "existentes: 200; seriam criadas: 0" (idempotente).
+- **Não feito:** o índice semântico não foi atualizado (exige a chave Gemini do usuário); o RAG não foi testado com chave real.
+
+## 51.4 - Testes
+
+`ruff check .` e `check` sem problemas; `makemigrations --check` sem mudanças (sem migration nova); `bash -n` limpo; `manage.py test --noinput`: **1464 testes, OK** (era 1457). No banco local de teste, a carga de 200 levou cerca de 2 s e aplicou 307 baixas em 448 parcelas elegíveis.
+
+## 51.5 - Produção (a fazer no deploy)
+
+1. Aplicar as migrations pendentes na produção (`financeiro` 0007 e 0008, `consulta` 0001 e 0002, além de qualquer outra), de forma manual (PT-06).
+2. Rodar `bash carregar_demonstracao_producao.sh` na raiz do projeto, conferir o destino e a simulação e digitar `PRODUCAO`. Não entra em `build.sh` nem em `start.sh`.
+3. Depois, no site, clicar em "Atualizar índice" (com a chave Gemini) até zerar os pendentes. Com 200 notas e o lote padrão de 20, são 10 a 11 cliques; definir `RAG_LOTE_INDEXACAO=100` (máximo do código) reduz para 3 cliques (cota do Gemini a verificar).
+- **Atenção:** movimentos financeiros não podem ser excluídos; a carga é permanente no banco onde for executada. São dados fictícios, mas aparecerão em produção junto dos dados reais, se houver.
+
+## 51.6 - Pendências
+
+Decisão pendente do usuário: manter as 2 notas existentes na contagem (202) ou não; em produção, decidir se o total desejado é 200 exatos (usar `--quantidade`). Atualizar o índice semântico e testar com chave real. O ADR-002 e o ADR-003 seguem sem aprovação formal.
+
+## 51.7 - Git
+
+Commits sem co-autor, mesclados em `docs/n3-RAG-planejamento`. Nenhum push; o push é manual.

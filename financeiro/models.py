@@ -497,3 +497,61 @@ class NotaFiscalLancada(RegistroFinanceiro):
 
     def __str__(self):
         return f"{self.get_modelo_display()} {self.serie}/{self.numero} — movimento #{self.movimento_id}"
+
+
+class ItemNotaFiscal(RegistroFinanceiro):
+    """Conteúdo extraído da nota, preservado sem correções posteriores."""
+
+    campos_imutaveis = (
+        "nota_fiscal", "ordem", "descricao", "quantidade",
+        "valor_unitario", "valor_total", "criado_em",
+    )
+
+    nota_fiscal = models.ForeignKey(
+        NotaFiscalLancada, on_delete=models.PROTECT, related_name="itens",
+    )
+    ordem = models.PositiveIntegerField()
+    descricao = models.CharField(max_length=500)
+    quantidade = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    valor_unitario = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    valor_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    objects = SemExclusaoNemAlteracaoManager.from_queryset(SemExclusaoNemAlteracaoQuerySet)()
+
+    class Meta:
+        db_table = "itens_notas_fiscais"
+        base_manager_name = "objects"
+        ordering = ["ordem"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["nota_fiscal", "ordem"], name="item_nota_ordem_unica",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(ordem__gte=1), name="item_nota_ordem_positiva",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(descricao__regex=r"\S"), name="item_nota_descricao_obrigatoria",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantidade__isnull=True) | models.Q(quantidade__gte=0),
+                name="item_nota_quantidade_nao_negativa",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(valor_unitario__isnull=True)
+                    | models.Q(valor_unitario__gte=0, valor_unitario__lt=LIMITE_VALOR)
+                ),
+                name="item_nota_valor_unitario_valido",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(valor_total__isnull=True)
+                    | models.Q(valor_total__gte=0, valor_total__lt=LIMITE_VALOR)
+                ),
+                name="item_nota_valor_total_valido",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Item {self.ordem} da nota #{self.nota_fiscal_id}: {self.descricao}"

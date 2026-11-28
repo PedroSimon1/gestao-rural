@@ -5,8 +5,8 @@ Fluxos completos em [05](05-fluxos.md).
 
 ## 1. Rotas
 
-Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usuarios.urls` na raiz; `documentos/`, `cadastros/` e `financeiro/` com `include`.
-**Só `/login/`, `/logout/` e `/saude/` são públicas.** As outras **21 rotas de negócio** têm `@demo_login_required`; as de escrita exigem POST e CSRF.
+Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usuarios.urls` na raiz; `documentos/`, `cadastros/`, `financeiro/` e `consulta/` com `include`.
+**Só `/login/`, `/logout/` e `/saude/` são públicas.** As rotas de negócio têm `@demo_login_required`; as de escrita exigem POST e CSRF.
 `/saude/` (GET/HEAD) responde `{"status": "ok"}` com o banco no ar e `{"status": "indisponivel"}` com 503 sem ele, sem expor o erro; serve ao health check do Render.
 
 ### 1.1 Autenticação (`usuarios`)
@@ -54,7 +54,14 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `contas/<id>/` | `conta_detalhe` | GET | Detalhe do movimento: valor em aberto, nota fiscal (se houver) e baixa de cada parcela |
 | `contas/parcelas/<id>/pagamento/` | `parcela_pagamento` | POST | `acao=registrar` + `data_pagamento` (não futura) ou `acao=desfazer`; volta ao detalhe |
 
-**Navegação** (cabeçalho comum, `documentos/templates/documentos/base.html`): Contas · Enviar nota · Pessoas · Classificações · Sair.
+### 1.5 Consulta (`consulta`, prefixo `/consulta/`)
+
+| URL | Nome | Métodos | Descrição |
+| --- | --- | --- | --- |
+| `/consulta/` | `consulta` | GET, POST | Pergunta + modo Simples/Semântica + chave Gemini; resposta textual e fontes com links para as contas |
+| `/consulta/indice/` | `consulta_indice` | POST | Atualiza um lote do índice com chave informada; reapresenta a tela com situação e mensagem |
+
+**Navegação** (cabeçalho comum, `documentos/templates/documentos/base.html`): Contas · Consultar · Enviar nota · Pessoas · Classificações · Sair.
 **Rodapé:** "Versão publicada: `<SHA>`" com link para o commit no GitHub, ou "não informada neste ambiente".
 
 ## 2. Templates e arquivos estáticos
@@ -76,6 +83,7 @@ Montagem em `config/urls.py`: `/` → redireciona para `documento_inicio`; `usua
 | `cadastros/pessoas.html`, `pessoa_form.html`, `pessoa_detalhe.html` | Telas de pessoas |
 | `cadastros/classificacoes.html`, `classificacao_form.html` | Telas de classificações |
 | `financeiro/contas.html`, `conta_manual.html`, `conta_detalhe.html` | Telas de contas (a de detalhe também exibe mensagens de erro de consulta) |
+| `consulta/consulta.html` | Organizada em passos, cada um com texto curto de explicação: "1. Sua pergunta", "2. Como buscar as contas" (cada forma de busca com a sua descrição), "3. Chave do Gemini e envio", **Resposta** (a pergunta feita, etiquetas com a forma de busca usada e o número de contas consultadas, o aviso do modo se houver e a resposta do Gemini em destaque) e **Fontes consultadas** (lista numerada; cada conta é um link; busca simples mostra os termos que casaram e a pontuação, busca semântica mostra uma barra e o cosseno; legenda no fim) e "Índice semântico": para que serve, um resumo do estado ("Índice em dia" ou "Índice incompleto", com quantas contas faltam entrar ou mudaram), as quatro contagens (contas no sistema, no índice, faltam entrar, mudaram; as duas últimas destacadas quando maiores que zero) e a seção "Atualizar o índice" (quando usar e o formulário separado). Estende `documentos/base.html` |
 | `usuarios/login.html`, `logout.html` | Entrada e saída |
 
 | Estático | Função |
@@ -106,6 +114,8 @@ dá erros "Missing staticfiles manifest entry".
 | `ContaManualForm` + `ParcelasManuaisFormSet` | `financeiro/forms_manuais.py` | tipo, UUID, token, contraparte, faturado, valor total, classificações, principal, parcelas, `confirmar`, `ciente_duplicidade` | Formset: mínimo 1, máximo 120, com remoção. `ciente_duplicidade` só aparece quando há conta parecida (409 até ser marcado) |
 | `FiltroContasForm` | `financeiro/forms_consultas.py` | tipo, origem, situação, contraparte, classificação, pagamento (em aberto / quitado), por página, página | Inclui cadastros inativos |
 | `PagamentoParcelaForm` | `financeiro/forms_pagamentos.py` | `acao` (registrar/desfazer), `data_pagamento` | Recusa data futura no serviço |
+| `ConsultaForm` | `consulta/forms.py` | `pergunta` (≤ 500), `modo` (`simples`/`semantico`, widget `RadioComDescricao`: cada opção leva a descrição de `servico.Modo.descricao`), `gemini_api_key` | Simples é o padrão; chave em `PasswordInput`, retirada dos dados do formulário antes do template |
+| `IndiceForm` | `consulta/forms.py` | `gemini_api_key` | Chave só para o lote; IDs próprios para não duplicar os campos da consulta |
 
 Padrões comuns nas views de escrita: **recusar campos fora do formulário e campos escalares repetidos** ("Pedido inválido…"),
 `@sensitive_post_parameters`, e traduzir códigos de erro em mensagens fixas.
